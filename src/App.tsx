@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { EditorState, type Extension } from '@codemirror/state';
+import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import {
+  EditorView,
+  keymap,
+  lineNumbers,
+  highlightActiveLine,
+  highlightActiveLineGutter,
+} from '@codemirror/view';
+
 import {
   getDisplayChanges,
   getEditorStats,
@@ -54,24 +64,22 @@ const App = () => {
     <div className="flex h-screen flex-col overflow-hidden bg-[#121314] text-[#D4D4D4]">
       <main className="min-h-0 flex-1">
         {mode === 'draft' && (
-          <TextPane
+          <CodeMirrorPane
             value={draftText}
             onChange={setDraftText}
             ariaLabel="Draft text"
-            textClassName="text-[#BFBFBF]"
-            backgroundClassName="bg-[#191A1B]"
+            theme="draft"
             savedScrollOffset={draftScrollOffset}
             onScrollOffsetChange={setDraftScrollOffset}
           />
         )}
 
         {mode === 'editor' && (
-          <TextPane
+          <CodeMirrorPane
             value={editorText}
             onChange={setEditorText}
             ariaLabel="Editor text"
-            textClassName="text-[#D4D4D4]"
-            backgroundClassName="bg-[#121314]"
+            theme="editor"
             savedScrollOffset={editorScrollOffset}
             onScrollOffsetChange={setEditorScrollOffset}
           />
@@ -80,24 +88,22 @@ const App = () => {
         {mode === 'split' && (
           <div className="flex h-full min-h-0 flex-col">
             <div className="min-h-0 flex-1">
-              <TextPane
+              <CodeMirrorPane
                 value={draftText}
                 onChange={setDraftText}
                 ariaLabel="Draft text"
-                textClassName="text-[#BFBFBF]"
-                backgroundClassName="bg-[#191A1B]"
+                theme="draft"
                 savedScrollOffset={draftScrollOffset}
                 onScrollOffsetChange={setDraftScrollOffset}
               />
             </div>
             <div className="h-px bg-[#2A2B2C]" />
             <div className="min-h-0 flex-1">
-              <TextPane
+              <CodeMirrorPane
                 value={editorText}
                 onChange={setEditorText}
                 ariaLabel="Editor text"
-                textClassName="text-[#D4D4D4]"
-                backgroundClassName="bg-[#121314]"
+                theme="editor"
                 savedScrollOffset={editorScrollOffset}
                 onScrollOffsetChange={setEditorScrollOffset}
               />
@@ -131,69 +137,92 @@ export default App;
 
 // === Components ===
 
-type TextPaneProps = {
+type CodeMirrorPaneProps = {
   value: string;
   onChange: (value: string) => void;
   ariaLabel: string;
-  textClassName: string;
-  backgroundClassName: string;
+  theme: CodeMirrorTheme;
   savedScrollOffset: ScrollOffset;
   onScrollOffsetChange: (scrollOffset: ScrollOffset) => void;
 };
 
-const TextPane = ({
+const CodeMirrorPane = ({
   value,
   onChange,
   ariaLabel,
-  textClassName,
-  backgroundClassName,
+  theme,
   savedScrollOffset,
   onScrollOffsetChange,
-}: TextPaneProps) => {
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const hasRestoredScrollRef = useRef(false);
+}: CodeMirrorPaneProps) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const editorViewRef = useRef<EditorView | null>(null);
+  const onChangeRef = useRef(onChange);
+  const onScrollOffsetChangeRef = useRef(onScrollOffsetChange);
+  const initialValueRef = useRef(value);
+  const initialScrollOffsetRef = useRef(savedScrollOffset);
 
   useEffect(() => {
-    if (hasRestoredScrollRef.current) {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    onScrollOffsetChangeRef.current = onScrollOffsetChange;
+  }, [onScrollOffsetChange]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+
+    if (!container) {
       return;
     }
 
-    const textarea = textareaRef.current;
-
-    if (!textarea) {
-      return;
-    }
-
-    textarea.scrollLeft = savedScrollOffset.left;
-    textarea.scrollTop = savedScrollOffset.top;
-    hasRestoredScrollRef.current = true;
-  }, [savedScrollOffset]);
-
-  const handleChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange(event.target.value);
-  };
-
-  const handleScroll = (event: React.UIEvent<HTMLTextAreaElement>) => {
-    onScrollOffsetChange({
-      left: event.currentTarget.scrollLeft,
-      top: event.currentTarget.scrollTop,
+    const editorView = new EditorView({
+      parent: container,
+      state: EditorState.create({
+        doc: initialValueRef.current,
+        extensions: getCodeMirrorExtensions({
+          ariaLabel,
+          theme,
+          onChange: (nextValue) => onChangeRef.current(nextValue),
+          onScroll: (nextScrollOffset) =>
+            onScrollOffsetChangeRef.current(nextScrollOffset),
+        }),
+      }),
     });
-  };
 
-  return (
-    <div className={`relative h-full w-full overflow-hidden ${backgroundClassName}`}>
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={handleChange}
-        onScroll={handleScroll}
-        aria-label={ariaLabel}
-        spellCheck={false}
-        className={`h-full w-full resize-none border-none bg-transparent ${editorTextClasses} ${textClassName} outline-none caret-[#D4D4D4]`}
-        style={{ tabSize: 2 }}
-      />
-    </div>
-  );
+    editorViewRef.current = editorView;
+    editorView.scrollDOM.scrollLeft = initialScrollOffsetRef.current.left;
+    editorView.scrollDOM.scrollTop = initialScrollOffsetRef.current.top;
+
+    return () => {
+      editorView.destroy();
+      editorViewRef.current = null;
+    };
+  }, [ariaLabel, theme]);
+
+  useEffect(() => {
+    const editorView = editorViewRef.current;
+
+    if (!editorView) {
+      return;
+    }
+
+    const currentValue = editorView.state.doc.toString();
+
+    if (currentValue === value) {
+      return;
+    }
+
+    editorView.dispatch({
+      changes: {
+        from: 0,
+        to: currentValue.length,
+        insert: value,
+      },
+    });
+  }, [value]);
+
+  return <div ref={containerRef} className="h-full w-full" />;
 };
 
 type FooterStatsProps = {
@@ -257,6 +286,104 @@ const FooterStats = ({
 
 // === Helpers ===
 
+type CodeMirrorExtensionOptions = {
+  ariaLabel: string;
+  theme: CodeMirrorTheme;
+  onChange: (value: string) => void;
+  onScroll: (scrollOffset: ScrollOffset) => void;
+};
+
+const getCodeMirrorExtensions = ({
+  ariaLabel,
+  theme,
+  onChange,
+  onScroll,
+}: CodeMirrorExtensionOptions): Extension[] => {
+  return [
+    lineNumbers(),
+    highlightActiveLine(),
+    highlightActiveLineGutter(),
+    history(),
+    keymap.of([...defaultKeymap, ...historyKeymap]),
+    EditorView.lineWrapping,
+    EditorView.contentAttributes.of({
+      'aria-label': ariaLabel,
+    }),
+    EditorView.updateListener.of((update) => {
+      if (!update.docChanged) {
+        return;
+      }
+
+      onChange(update.state.doc.toString());
+    }),
+    EditorView.domEventHandlers({
+      scroll: (_event, view) => {
+        onScroll({
+          left: view.scrollDOM.scrollLeft,
+          top: view.scrollDOM.scrollTop,
+        });
+      },
+    }),
+    getCodeMirrorTheme(theme),
+  ];
+};
+
+const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
+  const backgroundColor = theme === 'draft' ? '#191A1B' : '#121314';
+  const textColor = theme === 'draft' ? '#BFBFBF' : '#D4D4D4';
+
+  return EditorView.theme({
+    '&': {
+      height: '100%',
+      backgroundColor,
+      color: textColor,
+      fontSize: '16px',
+    },
+    '.cm-editor': {
+      height: '100%',
+      backgroundColor,
+    },
+    '.cm-scroller': {
+      height: '100%',
+      overflow: 'auto',
+      fontFamily:
+        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+      lineHeight: '1.5',
+    },
+    '.cm-content': {
+      padding: '8px 12px',
+      caretColor: '#D4D4D4',
+    },
+    '.cm-line': {
+      padding: '0',
+    },
+    '.cm-gutters': {
+      backgroundColor,
+      color: '#858889',
+      border: 'none',
+    },
+    '.cm-lineNumbers .cm-gutterElement': {
+      minWidth: '6ch',
+      paddingLeft: '0',
+      paddingRight: '2ch',
+      textAlign: 'right',
+    },
+    '.cm-activeLine': {
+      backgroundColor: '#242526',
+    },
+    '.cm-activeLineGutter': {
+      backgroundColor: '#242526',
+      color: '#BBBEBF',
+    },
+    '.cm-focused': {
+      outline: 'none',
+    },
+    '.cm-selectionBackground': {
+      backgroundColor: '#264F78 !important',
+    },
+  });
+};
+
 const getNextMode = (mode: AppMode): AppMode => {
   if (mode === 'split') {
     return 'draft';
@@ -309,14 +436,14 @@ const setStoredText = (key: string, value: string): void => {
 
 type AppMode = 'draft' | 'editor' | 'split';
 
+type CodeMirrorTheme = 'draft' | 'editor';
+
 type ScrollOffset = {
   left: number;
   top: number;
 };
 
 // === Constants ===
-
-const editorTextClasses = 'px-3 py-2 font-mono text-base leading-6';
 
 const storageKeys = {
   draftText: 'byline:draftText',

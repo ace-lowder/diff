@@ -24,3 +24,4 @@ npm run test
 * Built with Vite, React, TypeScript, and Tailwind CSS.
 * No backend.
 * Draft/editor content is stored locally in the browser.
+* Editor panes are powered by CodeMirror.
