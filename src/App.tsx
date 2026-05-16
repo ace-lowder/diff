@@ -1,19 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { EditorState, type Extension } from '@codemirror/state';
+import {
+  EditorState,
+  RangeSetBuilder,
+  StateEffect,
+  StateField,
+  type Extension,
+} from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import {
+  Decoration,
   EditorView,
-  keymap,
-  lineNumbers,
+  WidgetType,
   highlightActiveLine,
   highlightActiveLineGutter,
+  keymap,
+  lineNumbers,
+  type DecorationSet,
 } from '@codemirror/view';
 
 import {
   getDisplayChanges,
+  getEditorHighlightRanges,
   getEditorStats,
   getWordCount,
+  type EditorHighlightRange,
   type EditorStats,
   type StatsMode,
 } from './editorDiff';
@@ -39,6 +50,10 @@ const App = () => {
   const displayChanges = useMemo(() => {
     return getDisplayChanges(draftText, editorText);
   }, [draftText, editorText]);
+
+  const editorHighlightRanges = useMemo(() => {
+    return getEditorHighlightRanges(displayChanges);
+  }, [displayChanges]);
 
   const editorStats = useMemo(() => {
     return getEditorStats(editorText, displayChanges);
@@ -82,6 +97,7 @@ const App = () => {
             theme="editor"
             savedScrollOffset={editorScrollOffset}
             onScrollOffsetChange={setEditorScrollOffset}
+            highlightRanges={editorHighlightRanges}
           />
         )}
 
@@ -106,6 +122,7 @@ const App = () => {
                 theme="editor"
                 savedScrollOffset={editorScrollOffset}
                 onScrollOffsetChange={setEditorScrollOffset}
+                highlightRanges={editorHighlightRanges}
               />
             </div>
           </div>
@@ -144,6 +161,7 @@ type CodeMirrorPaneProps = {
   theme: CodeMirrorTheme;
   savedScrollOffset: ScrollOffset;
   onScrollOffsetChange: (scrollOffset: ScrollOffset) => void;
+  highlightRanges?: EditorHighlightRange[];
 };
 
 const CodeMirrorPane = ({
@@ -153,6 +171,7 @@ const CodeMirrorPane = ({
   theme,
   savedScrollOffset,
   onScrollOffsetChange,
+  highlightRanges,
 }: CodeMirrorPaneProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorViewRef = useRef<EditorView | null>(null);
@@ -160,6 +179,7 @@ const CodeMirrorPane = ({
   const onScrollOffsetChangeRef = useRef(onScrollOffsetChange);
   const initialValueRef = useRef(value);
   const initialScrollOffsetRef = useRef(savedScrollOffset);
+  const highlightRangesRef = useRef(highlightRanges ?? []);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -168,6 +188,22 @@ const CodeMirrorPane = ({
   useEffect(() => {
     onScrollOffsetChangeRef.current = onScrollOffsetChange;
   }, [onScrollOffsetChange]);
+
+  useEffect(() => {
+    highlightRangesRef.current = highlightRanges ?? [];
+
+    const editorView = editorViewRef.current;
+
+    if (!editorView) {
+      return;
+    }
+
+    editorView.dispatch({
+      effects: setEditorDecorationsEffect.of(
+        getEditorDecorations(highlightRangesRef.current),
+      ),
+    });
+  }, [highlightRanges]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -193,6 +229,11 @@ const CodeMirrorPane = ({
     editorViewRef.current = editorView;
     editorView.scrollDOM.scrollLeft = initialScrollOffsetRef.current.left;
     editorView.scrollDOM.scrollTop = initialScrollOffsetRef.current.top;
+    editorView.dispatch({
+      effects: setEditorDecorationsEffect.of(
+        getEditorDecorations(highlightRangesRef.current),
+      ),
+    });
 
     return () => {
       editorView.destroy();
@@ -293,6 +334,75 @@ type CodeMirrorExtensionOptions = {
   onScroll: (scrollOffset: ScrollOffset) => void;
 };
 
+const setEditorDecorationsEffect = StateEffect.define<DecorationSet>();
+
+const editorDecorationsField = StateField.define<DecorationSet>({
+  create() {
+    return Decoration.none;
+  },
+  update(decorations, transaction) {
+    let nextDecorations = decorations.map(transaction.changes);
+
+    for (const effect of transaction.effects) {
+      if (effect.is(setEditorDecorationsEffect)) {
+        nextDecorations = effect.value;
+      }
+    }
+
+    return nextDecorations;
+  },
+  provide(field) {
+    return EditorView.decorations.from(field);
+  },
+});
+
+class DeletedMarkerWidget extends WidgetType {
+  toDOM() {
+    const marker = document.createElement('span');
+
+    marker.className = 'byline-deleted-marker';
+    marker.setAttribute('aria-hidden', 'true');
+
+    return marker;
+  }
+
+  ignoreEvent() {
+    return true;
+  }
+}
+
+const getEditorDecorations = (
+  highlightRanges: EditorHighlightRange[],
+): DecorationSet => {
+  const builder = new RangeSetBuilder<Decoration>();
+
+  for (const range of highlightRanges) {
+    if (range.type === 'added') {
+      if (range.to <= range.from) {
+        continue;
+      }
+
+      builder.add(
+        range.from,
+        range.to,
+        Decoration.mark({ class: 'byline-added-text' }),
+      );
+      continue;
+    }
+
+    builder.add(
+      range.from,
+      range.to,
+      Decoration.widget({
+        widget: new DeletedMarkerWidget(),
+        side: -1,
+      }),
+    );
+  }
+
+  return builder.finish();
+};
+
 const getCodeMirrorExtensions = ({
   ariaLabel,
   theme,
@@ -324,6 +434,7 @@ const getCodeMirrorExtensions = ({
         });
       },
     }),
+    editorDecorationsField,
     getCodeMirrorTheme(theme),
   ];
 };
@@ -380,6 +491,16 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     },
     '.cm-selectionBackground': {
       backgroundColor: '#264F78 !important',
+    },
+    '.byline-added-text': {
+      backgroundColor: '#2A4C2C',
+    },
+    '.byline-deleted-marker': {
+      display: 'inline-block',
+      width: '0.35em',
+      height: '0.9em',
+      backgroundColor: '#693330',
+      verticalAlign: '-0.12em',
     },
   });
 };
