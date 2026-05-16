@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { getDisplayChanges, getEditorStats, getWordCount } from './editorDiff';
+import {
+  getDisplayChanges,
+  getEditorHighlightRanges,
+  getEditorStats,
+  getWordCount,
+} from './editorDiff';
 
 describe('getWordCount', () => {
   it('returns zero for empty text', () => {
@@ -98,5 +103,47 @@ describe('getEditorStats', () => {
 
     expect(stats.addedWordCount).toBe(2);
     expect(stats.deletedWordCount).toBe(1);
+  });
+});
+
+describe('getEditorHighlightRanges', () => {
+  it('maps inserted editor text to an added highlight range', () => {
+    const changes = getDisplayChanges('one two', 'one two three');
+    const ranges = getEditorHighlightRanges(changes);
+
+    expect(ranges.some((range) => range.type === 'added' && range.to > range.from)).toBe(
+      true,
+    );
+  });
+
+  it('maps deleted draft text to a zero-width deletion marker range', () => {
+    const changes = getDisplayChanges('one two three', 'one three');
+    const ranges = getEditorHighlightRanges(changes);
+
+    expect(
+      ranges.some(
+        (range) =>
+          range.type === 'deleted' &&
+          range.from === range.to &&
+          range.from >= 0,
+      ),
+    ).toBe(true);
+  });
+
+  it('maps replacement text to added editor range without deleted marker', () => {
+    const changes = getDisplayChanges('300 men', 'Three hundred men');
+    const ranges = getEditorHighlightRanges(changes);
+
+    expect(ranges.some((range) => range.type === 'added')).toBe(true);
+    expect(ranges.some((range) => range.type === 'deleted')).toBe(false);
+  });
+
+  it('keeps highlight ranges in editor document order', () => {
+    const changes = getDisplayChanges('a b c d', 'a bee c dee');
+    const ranges = getEditorHighlightRanges(changes);
+
+    expect(ranges).toEqual(
+      [...ranges].sort((left, right) => left.from - right.from || left.to - right.to),
+    );
   });
 });

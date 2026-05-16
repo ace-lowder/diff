@@ -19,6 +19,14 @@ export type EditorStats = {
   deletedCharacterCount: number;
 };
 
+export type EditorHighlightRangeType = 'added' | 'deleted';
+
+export type EditorHighlightRange = {
+  type: EditorHighlightRangeType;
+  from: number;
+  to: number;
+};
+
 type RawChangeType = 'equal' | 'inserted' | 'deleted';
 
 type RawChange = {
@@ -143,6 +151,40 @@ export const getEditorStats = (
     addedCharacterCount: addedText.length,
     deletedCharacterCount: deletedText.length,
   };
+};
+
+export const getEditorHighlightRanges = (
+  displayChanges: DisplayChange[],
+): EditorHighlightRange[] => {
+  const ranges: EditorHighlightRange[] = [];
+  let editorPosition = 0;
+
+  for (const displayChange of displayChanges) {
+    if (displayChange.type === 'equal') {
+      editorPosition += displayChange.editorValue.length;
+      continue;
+    }
+
+    if (displayChange.type === 'inserted' || displayChange.type === 'replaced') {
+      const from = editorPosition;
+      const to = from + displayChange.editorValue.length;
+
+      if (to > from) {
+        ranges.push({ type: 'added', from, to });
+      }
+
+      editorPosition = to;
+      continue;
+    }
+
+    ranges.push({
+      type: 'deleted',
+      from: editorPosition,
+      to: editorPosition,
+    });
+  }
+
+  return ranges;
 };
 
 const mergeRawChanges = (changes: RawChange[]): RawChange[] => {
