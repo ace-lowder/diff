@@ -511,7 +511,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       position: 'absolute',
       left: '0',
       top: '0.08em',
-      width: '0.1ch',
+      width: '0.2ch',
       height: '0.9em',
       backgroundColor: '#693330',
     },
