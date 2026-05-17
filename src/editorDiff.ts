@@ -195,55 +195,121 @@ export const getEditorHighlightRanges = (
 };
 
 export const getLineDecorations = (
-  draftText: string,
-  editorText: string,
+  displayChanges: DisplayChange[],
 ): {
   editorLineDecorations: EditorLineDecoration[];
   draftLineDecorations: DraftLineDecoration[];
 } => {
-  const draftLines = draftText.split('\n');
-  const editorLines = editorText.split('\n');
   const editorLineDecorations: EditorLineDecoration[] = [];
   const draftLineDecorations: DraftLineDecoration[] = [];
+  let draftLineNumber = 1;
+  let editorLineNumber = 1;
+  let hasTraversedText = false;
 
-  let draftIndex = 0;
-  let editorIndex = 0;
-
-  while (draftIndex < draftLines.length && editorIndex < editorLines.length) {
-    const draftLine = draftLines[draftIndex];
-    const editorLine = editorLines[editorIndex];
-
-    if (draftLine === editorLine) {
-      draftIndex += 1;
-      editorIndex += 1;
+  for (let index = 0; index < displayChanges.length; index += 1) {
+    const displayChange = displayChanges[index];
+    const nextChange = displayChanges[index + 1];
+    if (displayChange.type === 'equal') {
+      const equalNewlines = getNewlineCount(displayChange.editorValue);
+      draftLineNumber += equalNewlines;
+      editorLineNumber += equalNewlines;
+      if (displayChange.editorValue.length > 0) {
+        hasTraversedText = true;
+      }
       continue;
     }
 
-    const nextDraftLine = draftLines[draftIndex + 1];
-    if (nextDraftLine === editorLine) {
-      draftIndex += 1;
+    if (displayChange.type === 'deleted') {
+      const isDeletedBlankLineSlot =
+        getNewlineCount(displayChange.draftValue) === 0 &&
+        nextChange?.type === 'equal' &&
+        nextChange.editorValue.startsWith('\n');
+
+      if (isDeletedBlankLineSlot) {
+        addInsertedLineDecorations({
+          editorLineDecorations,
+          draftLineDecorations,
+          editorLineNumber,
+          draftLineNumber,
+          insertedLineCount: 1,
+        });
+      }
+
+      draftLineNumber += getNewlineCount(displayChange.draftValue);
+      if (displayChange.draftValue.length > 0) {
+        hasTraversedText = true;
+      }
       continue;
     }
 
-    const nextEditorLine = editorLines[editorIndex + 1];
-    if (draftLine === nextEditorLine) {
-      editorLineDecorations.push({ lineNumber: editorIndex + 1 });
-      draftLineDecorations.push({ lineNumber: Math.max(1, draftIndex + 1) });
-      editorIndex += 1;
+    if (displayChange.type === 'inserted') {
+      const insertedLineCount = getNewlineCount(displayChange.editorValue);
+      if (insertedLineCount > 0) {
+        const insertedLineStart =
+          !hasTraversedText && !displayChange.editorValue.startsWith('\n')
+            ? editorLineNumber + 1
+            : editorLineNumber;
+
+        addInsertedLineDecorations({
+          editorLineDecorations,
+          draftLineDecorations,
+          editorLineNumber: insertedLineStart,
+          draftLineNumber,
+          insertedLineCount,
+        });
+      }
+
+      editorLineNumber += insertedLineCount;
+      if (displayChange.editorValue.length > 0) {
+        hasTraversedText = true;
+      }
       continue;
     }
 
-    draftIndex += 1;
-    editorIndex += 1;
-  }
+    const draftNewlineCount = getNewlineCount(displayChange.draftValue);
+    const editorNewlineCount = getNewlineCount(displayChange.editorValue);
 
-  while (editorIndex < editorLines.length) {
-    editorLineDecorations.push({ lineNumber: editorIndex + 1 });
-    draftLineDecorations.push({ lineNumber: Math.max(1, draftLines.length) });
-    editorIndex += 1;
+    if (editorNewlineCount > draftNewlineCount) {
+      addInsertedLineDecorations({
+        editorLineDecorations,
+        draftLineDecorations,
+        editorLineNumber: editorLineNumber + draftNewlineCount,
+        draftLineNumber,
+        insertedLineCount: editorNewlineCount - draftNewlineCount,
+      });
+    }
+
+    draftLineNumber += draftNewlineCount;
+    editorLineNumber += editorNewlineCount;
+    if (displayChange.draftValue.length > 0 || displayChange.editorValue.length > 0) {
+      hasTraversedText = true;
+    }
   }
 
   return { editorLineDecorations, draftLineDecorations };
+};
+
+const getNewlineCount = (text: string): number => {
+  return text.split('\n').length - 1;
+};
+
+const addInsertedLineDecorations = ({
+  editorLineDecorations,
+  draftLineDecorations,
+  editorLineNumber,
+  draftLineNumber,
+  insertedLineCount,
+}: {
+  editorLineDecorations: EditorLineDecoration[];
+  draftLineDecorations: DraftLineDecoration[];
+  editorLineNumber: number;
+  draftLineNumber: number;
+  insertedLineCount: number;
+}): void => {
+  for (let offset = 0; offset < insertedLineCount; offset += 1) {
+    editorLineDecorations.push({ lineNumber: editorLineNumber + offset });
+    draftLineDecorations.push({ lineNumber: Math.max(1, draftLineNumber) });
+  }
 };
 
 const getEditorText = (displayChanges: DisplayChange[]): string => {

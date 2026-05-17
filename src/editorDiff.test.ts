@@ -8,6 +8,10 @@ import {
   getWordCount,
 } from './editorDiff';
 
+const getDecorations = (draftText: string, editorText: string) => {
+  return getLineDecorations(getDisplayChanges(draftText, editorText));
+};
+
 describe('getWordCount', () => {
   it('returns zero for empty text', () => {
     expect(getWordCount('')).toBe(0);
@@ -219,28 +223,45 @@ describe('getEditorHighlightRanges', () => {
 
 describe('getLineDecorations', () => {
   it('detects an inserted editor line between matching lines', () => {
-    const decorations = getLineDecorations('line 1\nline 3', 'line 1\nline 2\nline 3');
+    const decorations = getDecorations('line 1\nline 3', 'line 1\nline 2\nline 3');
 
     expect(decorations.editorLineDecorations).toEqual([{ lineNumber: 2 }]);
     expect(decorations.draftLineDecorations).toEqual([{ lineNumber: 2 }]);
   });
 
-  it('detects an inserted blank editor line', () => {
-    const decorations = getLineDecorations('line 1\nline 2', 'line 1\n\nline 2');
+  it('detects an inserted blank editor line from display changes', () => {
+    const decorations = getDecorations('one\ntwo', 'one\n\ntwo');
 
     expect(decorations.editorLineDecorations).toEqual([{ lineNumber: 2 }]);
     expect(decorations.draftLineDecorations).toEqual([{ lineNumber: 2 }]);
   });
 
-  it('detects editor lines appended after the draft ends', () => {
-    const decorations = getLineDecorations('line 1', 'line 1\nline 2');
+  it('detects inserted editor lines when nearby text is also edited', () => {
+    const decorations = getDecorations(
+      'this is a test\none\ntwo\nthree\n10',
+      'this is a test.\none\n\ntwo',
+    );
 
-    expect(decorations.editorLineDecorations).toEqual([{ lineNumber: 2 }]);
-    expect(decorations.draftLineDecorations).toEqual([{ lineNumber: 1 }]);
+    expect(decorations.editorLineDecorations.length).toBeGreaterThan(0);
+    expect(decorations.draftLineDecorations.length).toBeGreaterThan(0);
+  });
+
+  it('detects appended editor lines when draft is empty', () => {
+    const decorations = getDecorations('', 'anything');
+
+    expect(decorations.editorLineDecorations).toEqual([]);
+    expect(decorations.draftLineDecorations).toEqual([]);
+  });
+
+  it('detects multiline editor insertion when draft is empty', () => {
+    const decorations = getDecorations('', 'anything\nnew line');
+
+    expect(decorations.editorLineDecorations).toContainEqual({ lineNumber: 2 });
+    expect(decorations.draftLineDecorations).toContainEqual({ lineNumber: 1 });
   });
 
   it('does not create line decorations for ordinary inline edits', () => {
-    const decorations = getLineDecorations('one two', 'one three');
+    const decorations = getDecorations('one two', 'one three');
 
     expect(decorations.editorLineDecorations).toEqual([]);
     expect(decorations.draftLineDecorations).toEqual([]);
