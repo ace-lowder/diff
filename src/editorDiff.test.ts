@@ -23,24 +23,21 @@ describe('getWordCount', () => {
 });
 
 describe('getDisplayChanges', () => {
-  it('keeps replacement behavior for 300 men example', () => {
+  it('combines inserted words into nearby replacements without highlighting trailing equal spaces', () => {
     const changes = getDisplayChanges('300 men', 'Three hundred men');
 
-    expect(changes[0]).toEqual({
-      type: 'replaced',
-      draftValue: '300',
-      editorValue: 'Three',
-    });
-    expect(
-      changes.some(
-        (change) => change.type === 'inserted' && change.editorValue.includes('hundred'),
-      ),
-    ).toBe(true);
-    expect(changes[changes.length - 1]).toEqual({
-      type: 'equal',
-      draftValue: 'men',
-      editorValue: 'men',
-    });
+    expect(changes).toEqual([
+      {
+        type: 'replaced',
+        draftValue: '300',
+        editorValue: 'Three hundred',
+      },
+      {
+        type: 'equal',
+        draftValue: ' men',
+        editorValue: ' men',
+      },
+    ]);
   });
 
   it('does not absorb equal paragraph text into replacement chunks', () => {
@@ -75,6 +72,16 @@ describe('getDisplayChanges', () => {
         (change) =>
           change.type === 'equal' &&
           change.editorValue.includes('Foreman said they never surfaced.'),
+      ),
+    ).toBe(true);
+  });
+
+  it('does not combine replacements across newline boundaries', () => {
+    const changes = getDisplayChanges('300\nmen', 'Three hundred\nmen');
+
+    expect(
+      changes.some(
+        (change) => change.type === 'equal' && change.editorValue.includes('\nmen'),
       ),
     ).toBe(true);
   });
@@ -130,12 +137,17 @@ describe('getEditorHighlightRanges', () => {
     ).toBe(true);
   });
 
-  it('maps replacement text to added editor range without deleted marker', () => {
+  it('maps replacement text to one added editor range without deleted marker', () => {
     const changes = getDisplayChanges('300 men', 'Three hundred men');
     const ranges = getEditorHighlightRanges(changes);
 
-    expect(ranges.some((range) => range.type === 'added')).toBe(true);
-    expect(ranges.some((range) => range.type === 'deleted')).toBe(false);
+    expect(ranges).toEqual([
+      {
+        type: 'added',
+        from: 0,
+        to: 'Three hundred'.length,
+      },
+    ]);
   });
 
   it('keeps highlight ranges in editor document order', () => {

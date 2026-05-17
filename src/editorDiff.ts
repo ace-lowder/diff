@@ -116,8 +116,8 @@ export const getDisplayChanges = (
     });
   }
 
-  const combinedChanges = combineWhitespaceBridgedChanges(
-    mergeDisplayChanges(displayChanges),
+  const combinedChanges = combineReplacementInsertions(
+    combineWhitespaceBridgedChanges(mergeDisplayChanges(displayChanges)),
   );
 
   return normalizeReplacementWhitespace(combinedChanges);
@@ -242,6 +242,73 @@ const combineWhitespaceBridgedChanges = (
     });
 
     index += 2;
+  }
+
+  return mergeDisplayChanges(combinedChanges);
+};
+
+const combineReplacementInsertions = (
+  changes: DisplayChange[],
+): DisplayChange[] => {
+  const combinedChanges: DisplayChange[] = [];
+
+  for (let index = 0; index < changes.length; index += 1) {
+    const replacementChange = changes[index];
+    if (replacementChange.type !== 'replaced') {
+      combinedChanges.push({ ...replacementChange });
+      continue;
+    }
+
+    let bridgeWhitespace = '';
+    let insertedIndex = index + 1;
+
+    const maybeWhitespaceEqual = changes[insertedIndex];
+    if (
+      maybeWhitespaceEqual &&
+      maybeWhitespaceEqual.type === 'equal' &&
+      maybeWhitespaceEqual.draftValue === maybeWhitespaceEqual.editorValue &&
+      /^[ \t]+$/.test(maybeWhitespaceEqual.editorValue)
+    ) {
+      bridgeWhitespace = maybeWhitespaceEqual.editorValue;
+      insertedIndex += 1;
+    }
+
+    const insertedChange = changes[insertedIndex];
+    const equalChange = changes[insertedIndex + 1];
+
+    const canCombine =
+      insertedChange &&
+      insertedChange.type === 'inserted' &&
+      equalChange &&
+      equalChange.type === 'equal' &&
+      /[ \t]+$/.test(insertedChange.editorValue) &&
+      !equalChange.editorValue.startsWith('\n');
+
+    if (!canCombine) {
+      combinedChanges.push({ ...replacementChange });
+      continue;
+    }
+
+    const trailingWhitespaceMatch = insertedChange.editorValue.match(/[ \t]+$/);
+    const trailingWhitespace = trailingWhitespaceMatch?.[0] ?? '';
+    const insertedCore = insertedChange.editorValue.slice(
+      0,
+      insertedChange.editorValue.length - trailingWhitespace.length,
+    );
+
+    combinedChanges.push({
+      type: 'replaced',
+      draftValue: replacementChange.draftValue,
+      editorValue: replacementChange.editorValue + bridgeWhitespace + insertedCore,
+    });
+
+    combinedChanges.push({
+      type: 'equal',
+      draftValue: trailingWhitespace + equalChange.draftValue,
+      editorValue: trailingWhitespace + equalChange.editorValue,
+    });
+
+    index = insertedIndex + 1;
   }
 
   return mergeDisplayChanges(combinedChanges);
