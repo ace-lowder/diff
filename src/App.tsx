@@ -358,12 +358,15 @@ const editorDecorationsField = StateField.define<DecorationSet>({
 
 class DeletedMarkerWidget extends WidgetType {
   toDOM() {
+    const wrapper = document.createElement('span');
     const marker = document.createElement('span');
 
-    marker.className = 'byline-deleted-marker';
-    marker.setAttribute('aria-hidden', 'true');
+    wrapper.className = 'byline-deleted-marker';
+    wrapper.setAttribute('aria-hidden', 'true');
+    marker.className = 'byline-deleted-marker-strip';
+    wrapper.append(marker);
 
-    return marker;
+    return wrapper;
   }
 
   ignoreEvent() {
@@ -474,6 +477,8 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       border: 'none',
     },
     '.cm-lineNumbers .cm-gutterElement': {
+      boxSizing: 'border-box',
+      width: '6ch',
       minWidth: '6ch',
       paddingLeft: '0',
       paddingRight: '2ch',
@@ -483,7 +488,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       backgroundColor: '#242526',
     },
     '.cm-activeLineGutter': {
-      backgroundColor: '#242526',
+      backgroundColor: 'transparent',
       color: '#BBBEBF',
     },
     '.cm-focused': {
@@ -496,11 +501,19 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       backgroundColor: '#2A4C2C',
     },
     '.byline-deleted-marker': {
+      position: 'relative',
       display: 'inline-block',
-      width: '0.35em',
+      width: '0',
+      height: '1em',
+      verticalAlign: '-0.12em',
+    },
+    '.byline-deleted-marker-strip': {
+      position: 'absolute',
+      left: '0',
+      top: '0.08em',
+      width: '0.1ch',
       height: '0.9em',
       backgroundColor: '#693330',
-      verticalAlign: '-0.12em',
     },
   });
 };
