@@ -27,6 +27,14 @@ export type EditorHighlightRange = {
   to: number;
 };
 
+export type EditorLineDecoration = {
+  lineNumber: number;
+};
+
+export type DraftLineDecoration = {
+  lineNumber: number;
+};
+
 type RawChangeType = 'equal' | 'inserted' | 'deleted';
 
 type RawChange = {
@@ -184,6 +192,58 @@ export const getEditorHighlightRanges = (
   }
 
   return mergeAddedRangesAcrossSingleSpace(ranges, editorText);
+};
+
+export const getLineDecorations = (
+  draftText: string,
+  editorText: string,
+): {
+  editorLineDecorations: EditorLineDecoration[];
+  draftLineDecorations: DraftLineDecoration[];
+} => {
+  const draftLines = draftText.split('\n');
+  const editorLines = editorText.split('\n');
+  const editorLineDecorations: EditorLineDecoration[] = [];
+  const draftLineDecorations: DraftLineDecoration[] = [];
+
+  let draftIndex = 0;
+  let editorIndex = 0;
+
+  while (draftIndex < draftLines.length && editorIndex < editorLines.length) {
+    const draftLine = draftLines[draftIndex];
+    const editorLine = editorLines[editorIndex];
+
+    if (draftLine === editorLine) {
+      draftIndex += 1;
+      editorIndex += 1;
+      continue;
+    }
+
+    const nextDraftLine = draftLines[draftIndex + 1];
+    if (nextDraftLine === editorLine) {
+      draftIndex += 1;
+      continue;
+    }
+
+    const nextEditorLine = editorLines[editorIndex + 1];
+    if (draftLine === nextEditorLine) {
+      editorLineDecorations.push({ lineNumber: editorIndex + 1 });
+      draftLineDecorations.push({ lineNumber: Math.max(1, draftIndex + 1) });
+      editorIndex += 1;
+      continue;
+    }
+
+    draftIndex += 1;
+    editorIndex += 1;
+  }
+
+  while (editorIndex < editorLines.length) {
+    editorLineDecorations.push({ lineNumber: editorIndex + 1 });
+    draftLineDecorations.push({ lineNumber: Math.max(1, draftLines.length) });
+    editorIndex += 1;
+  }
+
+  return { editorLineDecorations, draftLineDecorations };
 };
 
 const getEditorText = (displayChanges: DisplayChange[]): string => {

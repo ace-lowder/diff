@@ -4,6 +4,7 @@ import {
   getDisplayChanges,
   getEditorHighlightRanges,
   getEditorStats,
+  getLineDecorations,
   getWordCount,
 } from './editorDiff';
 
@@ -213,5 +214,35 @@ describe('getEditorHighlightRanges', () => {
     expect(
       addedRanges.some((range) => editorText.slice(range.from, range.to).includes('\n')),
     ).toBe(false);
+  });
+});
+
+describe('getLineDecorations', () => {
+  it('detects an inserted editor line between matching lines', () => {
+    const decorations = getLineDecorations('line 1\nline 3', 'line 1\nline 2\nline 3');
+
+    expect(decorations.editorLineDecorations).toEqual([{ lineNumber: 2 }]);
+    expect(decorations.draftLineDecorations).toEqual([{ lineNumber: 2 }]);
+  });
+
+  it('detects an inserted blank editor line', () => {
+    const decorations = getLineDecorations('line 1\nline 2', 'line 1\n\nline 2');
+
+    expect(decorations.editorLineDecorations).toEqual([{ lineNumber: 2 }]);
+    expect(decorations.draftLineDecorations).toEqual([{ lineNumber: 2 }]);
+  });
+
+  it('detects editor lines appended after the draft ends', () => {
+    const decorations = getLineDecorations('line 1', 'line 1\nline 2');
+
+    expect(decorations.editorLineDecorations).toEqual([{ lineNumber: 2 }]);
+    expect(decorations.draftLineDecorations).toEqual([{ lineNumber: 1 }]);
+  });
+
+  it('does not create line decorations for ordinary inline edits', () => {
+    const decorations = getLineDecorations('one two', 'one three');
+
+    expect(decorations.editorLineDecorations).toEqual([]);
+    expect(decorations.draftLineDecorations).toEqual([]);
   });
 });
