@@ -24,10 +24,12 @@ import {
   getEditorHighlightRanges,
   getEditorStats,
   getLineDecorations,
+  getLowestEditedLine,
   getWordCount,
   type DraftLineDecoration,
   type EditorHighlightRange,
   type EditorLineDecoration,
+  type LowestEditedLine,
   type EditorStats,
   type StatsMode,
 } from './editorDiff';
@@ -59,7 +61,11 @@ const App = () => {
   }, [displayChanges]);
 
   const lineDecorations = useMemo(() => {
-    return getLineDecorations(displayChanges);
+    return getLineDecorations(draftText, editorText);
+  }, [draftText, editorText]);
+
+  const lowestEditedLine = useMemo(() => {
+    return getLowestEditedLine(displayChanges);
   }, [displayChanges]);
 
   const editorStats = useMemo(() => {
@@ -107,6 +113,7 @@ const App = () => {
             onScrollOffsetChange={setEditorScrollOffset}
             highlightRanges={editorHighlightRanges}
             editorLineDecorations={lineDecorations.editorLineDecorations}
+            lowestEditedLine={lowestEditedLine}
           />
         )}
 
@@ -134,6 +141,7 @@ const App = () => {
                 onScrollOffsetChange={setEditorScrollOffset}
                 highlightRanges={editorHighlightRanges}
                 editorLineDecorations={lineDecorations.editorLineDecorations}
+                lowestEditedLine={lowestEditedLine}
               />
             </div>
           </div>
@@ -175,6 +183,7 @@ type CodeMirrorPaneProps = {
   highlightRanges?: EditorHighlightRange[];
   editorLineDecorations?: EditorLineDecoration[];
   draftLineDecorations?: DraftLineDecoration[];
+  lowestEditedLine?: LowestEditedLine | null;
 };
 
 const CodeMirrorPane = ({
@@ -187,6 +196,7 @@ const CodeMirrorPane = ({
   highlightRanges,
   editorLineDecorations,
   draftLineDecorations,
+  lowestEditedLine,
 }: CodeMirrorPaneProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorViewRef = useRef<EditorView | null>(null);
@@ -199,6 +209,7 @@ const CodeMirrorPane = ({
       highlightRanges,
       editorLineDecorations,
       draftLineDecorations,
+      lowestEditedLine,
     }),
   );
 
@@ -215,6 +226,7 @@ const CodeMirrorPane = ({
       highlightRanges,
       editorLineDecorations,
       draftLineDecorations,
+      lowestEditedLine,
     });
 
     const editorView = editorViewRef.current;
@@ -228,7 +240,7 @@ const CodeMirrorPane = ({
         getCodeMirrorDecorations(editorView, decorationsRef.current),
       ),
     });
-  }, [draftLineDecorations, editorLineDecorations, highlightRanges]);
+  }, [draftLineDecorations, editorLineDecorations, highlightRanges, lowestEditedLine]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -363,6 +375,7 @@ type CodeMirrorDecorations = {
   highlightRanges: EditorHighlightRange[];
   editorLineDecorations: EditorLineDecoration[];
   draftLineDecorations: DraftLineDecoration[];
+  lowestEditedLine: LowestEditedLine | null;
 };
 
 const setEditorDecorationsEffect = StateEffect.define<DecorationSet>();
@@ -424,15 +437,18 @@ const getCodeMirrorDecorationsInput = ({
   highlightRanges,
   editorLineDecorations,
   draftLineDecorations,
+  lowestEditedLine,
 }: {
   highlightRanges?: EditorHighlightRange[];
   editorLineDecorations?: EditorLineDecoration[];
   draftLineDecorations?: DraftLineDecoration[];
+  lowestEditedLine?: LowestEditedLine | null;
 }): CodeMirrorDecorations => {
   return {
     highlightRanges: highlightRanges ?? [],
     editorLineDecorations: editorLineDecorations ?? [],
     draftLineDecorations: draftLineDecorations ?? [],
+    lowestEditedLine: lowestEditedLine ?? null,
   };
 };
 
@@ -444,6 +460,7 @@ const getCodeMirrorDecorations = (
     ...getEditorHighlightDecorations(decorations.highlightRanges),
     ...getEditorLineDecorations(editorView, decorations.editorLineDecorations),
     ...getDraftLineDecorations(editorView, decorations.draftLineDecorations),
+    ...getLowestEditedLineDecorations(editorView, decorations.lowestEditedLine),
   ];
 
   return Decoration.set(ranges, true);
@@ -521,6 +538,25 @@ const getDraftLineDecorations = (
   }
 
   return decorations;
+};
+
+const getLowestEditedLineDecorations = (
+  editorView: EditorView,
+  lowestEditedLine: LowestEditedLine | null,
+): Range<Decoration>[] => {
+  if (!lowestEditedLine) {
+    return [];
+  }
+
+  if (
+    lowestEditedLine.lineNumber < 1 ||
+    lowestEditedLine.lineNumber > editorView.state.doc.lines
+  ) {
+    return [];
+  }
+
+  const line = editorView.state.doc.line(lowestEditedLine.lineNumber);
+  return [Decoration.line({ class: 'byline-lowest-edited-line' }).range(line.from)];
 };
 
 const getCodeMirrorExtensions = ({
@@ -616,6 +652,8 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     },
     '.byline-added-text': {
       backgroundColor: '#2A4C2C',
+      boxDecorationBreak: 'clone',
+      WebkitBoxDecorationBreak: 'clone',
     },
     '.byline-added-line': {
       backgroundColor: '#2A4C2C',
@@ -640,11 +678,11 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     },
     '.byline-missing-line': {
       height: '1.5em',
-      marginLeft: '12px',
-      marginRight: '12px',
-      backgroundColor: '#191A1B',
       backgroundImage:
-        'repeating-linear-gradient(-45deg, rgba(105, 51, 48, 0.75) 0, rgba(105, 51, 48, 0.75) 2px, transparent 2px, transparent 6px)',
+        'repeating-linear-gradient(-45deg, rgba(140, 140, 140, 0.7) 0, rgba(140, 140, 140, 0.7) 2px, transparent 2px, transparent 6px)',
+    },
+    '.cm-line.byline-lowest-edited-line': {
+      borderBottom: '1px dashed #8C8C8C',
     },
   });
 };
