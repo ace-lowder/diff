@@ -31,8 +31,14 @@ export type EditorLineDecoration = {
   lineNumber: number;
 };
 
+export type DraftLineDecorationPlacement = 'before' | 'after';
+
+export type DraftLineDecorationType = 'missingEditorLine' | 'deletedDraftLine';
+
 export type DraftLineDecoration = {
+  type: DraftLineDecorationType;
   lineNumber: number;
+  placement: DraftLineDecorationPlacement;
 };
 
 export type LowestEditedLine = {
@@ -51,7 +57,10 @@ type LinePair = {
   editorLine: string | null;
   draftLineNumber: number;
   editorLineNumber: number;
+  placement: DraftLineDecorationPlacement;
 };
+
+const lineLookaheadLimit = 3;
 
 export const getWordCount = (text: string): number => {
   const trimmedText = text.trim();
@@ -213,19 +222,38 @@ export const getLineDecorations = (
   draftLineDecorations: DraftLineDecoration[];
 } => {
   const linePairs = getLinePairs(draftText, editorText);
-  const draftLineCount = draftText.split('\n').length;
   const editorLineDecorations: EditorLineDecoration[] = [];
   const draftLineDecorations: DraftLineDecoration[] = [];
+  const draftLineDecorationKeys = new Set<string>();
 
   for (const linePair of linePairs) {
-    if (linePair.draftLine !== null || linePair.editorLine === null) {
+    if (linePair.draftLine === null && linePair.editorLine !== null) {
+      editorLineDecorations.push({ lineNumber: linePair.editorLineNumber });
+      const decoration: DraftLineDecoration = {
+        type: 'missingEditorLine',
+        lineNumber: Math.max(1, linePair.draftLineNumber),
+        placement: linePair.placement,
+      };
+      const decorationKey = getDraftLineDecorationKey(decoration);
+      if (!draftLineDecorationKeys.has(decorationKey)) {
+        draftLineDecorationKeys.add(decorationKey);
+        draftLineDecorations.push(decoration);
+      }
       continue;
     }
 
-    editorLineDecorations.push({ lineNumber: linePair.editorLineNumber });
-    draftLineDecorations.push({
-      lineNumber: Math.max(1, Math.min(linePair.draftLineNumber, draftLineCount)),
-    });
+    if (linePair.draftLine !== null && linePair.editorLine === null) {
+      const decoration: DraftLineDecoration = {
+        type: 'deletedDraftLine',
+        lineNumber: linePair.draftLineNumber,
+        placement: 'before',
+      };
+      const decorationKey = getDraftLineDecorationKey(decoration);
+      if (!draftLineDecorationKeys.has(decorationKey)) {
+        draftLineDecorationKeys.add(decorationKey);
+        draftLineDecorations.push(decoration);
+      }
+    }
   }
 
   return { editorLineDecorations, draftLineDecorations };
@@ -322,6 +350,26 @@ const areSimilarLines = (draftLine: string, editorLine: string): boolean => {
   return getSharedWordRatio(normalizedDraftLine, normalizedEditorLine) > 0.5;
 };
 
+const findSimilarLineIndex = ({
+  lines,
+  targetLine,
+  startIndex,
+}: {
+  lines: string[];
+  targetLine: string;
+  startIndex: number;
+}): number | null => {
+  const endIndex = Math.min(lines.length, startIndex + lineLookaheadLimit);
+
+  for (let index = startIndex; index < endIndex; index += 1) {
+    if (areSimilarLines(lines[index], targetLine)) {
+      return index;
+    }
+  }
+
+  return null;
+};
+
 const getLinePairs = (draftText: string, editorText: string): LinePair[] => {
   const draftLines = draftText.split('\n');
   const editorLines = editorText.split('\n');
@@ -337,43 +385,63 @@ const getLinePairs = (draftText: string, editorText: string): LinePair[] => {
     const editorLineNumber = editorIndex + 1;
 
     if (areSimilarLines(draftLine, editorLine)) {
-      linePairs.push({ draftLine, editorLine, draftLineNumber, editorLineNumber });
-      draftIndex += 1;
-      editorIndex += 1;
-      continue;
-    }
-
-    const nextDraftLine = draftLines[draftIndex + 1];
-    if (
-      nextDraftLine !== undefined &&
-      areSimilarLines(nextDraftLine, editorLine)
-    ) {
       linePairs.push({
         draftLine,
-        editorLine: null,
-        draftLineNumber,
-        editorLineNumber,
-      });
-      draftIndex += 1;
-      continue;
-    }
-
-    const nextEditorLine = editorLines[editorIndex + 1];
-    if (
-      nextEditorLine !== undefined &&
-      areSimilarLines(draftLine, nextEditorLine)
-    ) {
-      linePairs.push({
-        draftLine: null,
         editorLine,
         draftLineNumber,
         editorLineNumber,
+        placement: 'before',
       });
+      draftIndex += 1;
       editorIndex += 1;
       continue;
     }
 
-    linePairs.push({ draftLine, editorLine, draftLineNumber, editorLineNumber });
+    const draftMatchInEditor = findSimilarLineIndex({
+      lines: editorLines,
+      targetLine: draftLine,
+      startIndex: editorIndex + 1,
+    });
+    if (draftMatchInEditor !== null) {
+      while (editorIndex < draftMatchInEditor) {
+        linePairs.push({
+          draftLine: null,
+          editorLine: editorLines[editorIndex],
+          draftLineNumber,
+          editorLineNumber: editorIndex + 1,
+          placement: 'before',
+        });
+        editorIndex += 1;
+      }
+      continue;
+    }
+
+    const editorMatchInDraft = findSimilarLineIndex({
+      lines: draftLines,
+      targetLine: editorLine,
+      startIndex: draftIndex + 1,
+    });
+    if (editorMatchInDraft !== null) {
+      while (draftIndex < editorMatchInDraft) {
+        linePairs.push({
+          draftLine: draftLines[draftIndex],
+          editorLine: null,
+          draftLineNumber: draftIndex + 1,
+          editorLineNumber,
+          placement: 'before',
+        });
+        draftIndex += 1;
+      }
+      continue;
+    }
+
+    linePairs.push({
+      draftLine,
+      editorLine,
+      draftLineNumber,
+      editorLineNumber,
+      placement: 'before',
+    });
     draftIndex += 1;
     editorIndex += 1;
   }
@@ -382,8 +450,9 @@ const getLinePairs = (draftText: string, editorText: string): LinePair[] => {
     linePairs.push({
       draftLine: null,
       editorLine: editorLines[editorIndex],
-      draftLineNumber: draftIndex + 1,
+      draftLineNumber: Math.max(1, draftLines.length),
       editorLineNumber: editorIndex + 1,
+      placement: 'after',
     });
     editorIndex += 1;
   }
@@ -394,11 +463,16 @@ const getLinePairs = (draftText: string, editorText: string): LinePair[] => {
       editorLine: null,
       draftLineNumber: draftIndex + 1,
       editorLineNumber: editorIndex + 1,
+      placement: 'before',
     });
     draftIndex += 1;
   }
 
   return linePairs;
+};
+
+const getDraftLineDecorationKey = (decoration: DraftLineDecoration): string => {
+  return `${decoration.type}:${decoration.lineNumber}:${decoration.placement}`;
 };
 
 const getEditorText = (displayChanges: DisplayChange[]): string => {

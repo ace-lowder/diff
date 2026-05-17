@@ -234,7 +234,11 @@ describe('getLineDecorations', () => {
     const decorations = getLineDecorations('this is a test\none', 'this is a\n\none');
 
     expect(decorations.editorLineDecorations).toContainEqual({ lineNumber: 2 });
-    expect(decorations.draftLineDecorations).toContainEqual({ lineNumber: 2 });
+    expect(decorations.draftLineDecorations).toContainEqual({
+      type: 'missingEditorLine',
+      lineNumber: 2,
+      placement: 'before',
+    });
   });
 
   it('detects a true inserted editor line', () => {
@@ -244,21 +248,39 @@ describe('getLineDecorations', () => {
     );
 
     expect(decorations.editorLineDecorations).toEqual([{ lineNumber: 2 }]);
-    expect(decorations.draftLineDecorations).toEqual([{ lineNumber: 2 }]);
+    expect(decorations.draftLineDecorations).toEqual([
+      {
+        type: 'missingEditorLine',
+        lineNumber: 2,
+        placement: 'before',
+      },
+    ]);
   });
 
-  it('detects an inserted editor line between matching lines', () => {
+  it('places an inserted editor line before the matching following draft line', () => {
     const decorations = getDecorations('line 1\nline 3', 'line 1\nline 2\nline 3');
 
     expect(decorations.editorLineDecorations).toEqual([{ lineNumber: 2 }]);
-    expect(decorations.draftLineDecorations).toEqual([{ lineNumber: 2 }]);
+    expect(decorations.draftLineDecorations).toEqual([
+      {
+        type: 'missingEditorLine',
+        lineNumber: 2,
+        placement: 'before',
+      },
+    ]);
   });
 
   it('detects an inserted blank editor line from display changes', () => {
     const decorations = getDecorations('one\ntwo', 'one\n\ntwo');
 
     expect(decorations.editorLineDecorations).toEqual([{ lineNumber: 2 }]);
-    expect(decorations.draftLineDecorations).toEqual([{ lineNumber: 2 }]);
+    expect(decorations.draftLineDecorations).toEqual([
+      {
+        type: 'missingEditorLine',
+        lineNumber: 2,
+        placement: 'before',
+      },
+    ]);
   });
 
   it('detects inserted editor lines when nearby text is also edited', () => {
@@ -282,7 +304,11 @@ describe('getLineDecorations', () => {
     const decorations = getDecorations('', 'anything\nnew line');
 
     expect(decorations.editorLineDecorations).toContainEqual({ lineNumber: 2 });
-    expect(decorations.draftLineDecorations).toContainEqual({ lineNumber: 1 });
+    expect(decorations.draftLineDecorations).toContainEqual({
+      type: 'missingEditorLine',
+      lineNumber: 1,
+      placement: 'after',
+    });
   });
 
   it('does not create line decorations for ordinary inline edits', () => {
@@ -290,6 +316,56 @@ describe('getLineDecorations', () => {
 
     expect(decorations.editorLineDecorations).toEqual([]);
     expect(decorations.draftLineDecorations).toEqual([]);
+  });
+
+  it('places an appended editor line after the final draft line', () => {
+    const decorations = getLineDecorations(
+      'line 1\nline 2',
+      'line 1\nline 2\nline 3',
+    );
+
+    expect(decorations.editorLineDecorations).toEqual([{ lineNumber: 3 }]);
+    expect(decorations.draftLineDecorations).toEqual([
+      {
+        type: 'missingEditorLine',
+        lineNumber: 2,
+        placement: 'after',
+      },
+    ]);
+  });
+
+  it('marks draft-only lines as deleted draft lines', () => {
+    const decorations = getLineDecorations('one\ntwo\nthree', 'one\nthree');
+
+    expect(decorations.editorLineDecorations).toEqual([]);
+    expect(decorations.draftLineDecorations).toEqual([
+      {
+        type: 'deletedDraftLine',
+        lineNumber: 2,
+        placement: 'before',
+      },
+    ]);
+  });
+
+  it('keeps similar edited lines paired instead of treating them as inserted lines', () => {
+    const decorations = getLineDecorations('this is a test', 'this is a');
+
+    expect(decorations.editorLineDecorations).toEqual([]);
+    expect(decorations.draftLineDecorations).toEqual([]);
+  });
+
+  it('uses lookahead to keep missing editor placeholders in the correct draft gap', () => {
+    const decorations = getLineDecorations(
+      'this is a test\none\ntwo\nthree',
+      'this is a test\none\ntwo\n\nthree',
+    );
+
+    expect(decorations.editorLineDecorations).toContainEqual({ lineNumber: 4 });
+    expect(decorations.draftLineDecorations).toContainEqual({
+      type: 'missingEditorLine',
+      lineNumber: 4,
+      placement: 'before',
+    });
   });
 });
 
