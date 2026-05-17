@@ -35,11 +35,22 @@ export type DraftLineDecoration = {
   lineNumber: number;
 };
 
+export type LowestEditedLine = {
+  lineNumber: number;
+};
+
 type RawChangeType = 'equal' | 'inserted' | 'deleted';
 
 type RawChange = {
   type: RawChangeType;
   value: string;
+};
+
+type LinePair = {
+  draftLine: string | null;
+  editorLine: string | null;
+  draftLineNumber: number;
+  editorLineNumber: number;
 };
 
 export const getWordCount = (text: string): number => {
@@ -195,121 +206,199 @@ export const getEditorHighlightRanges = (
 };
 
 export const getLineDecorations = (
-  displayChanges: DisplayChange[],
+  draftText: string,
+  editorText: string,
 ): {
   editorLineDecorations: EditorLineDecoration[];
   draftLineDecorations: DraftLineDecoration[];
 } => {
+  const linePairs = getLinePairs(draftText, editorText);
+  const draftLineCount = draftText.split('\n').length;
   const editorLineDecorations: EditorLineDecoration[] = [];
   const draftLineDecorations: DraftLineDecoration[] = [];
-  let draftLineNumber = 1;
-  let editorLineNumber = 1;
-  let hasTraversedText = false;
 
-  for (let index = 0; index < displayChanges.length; index += 1) {
-    const displayChange = displayChanges[index];
-    const nextChange = displayChanges[index + 1];
-    if (displayChange.type === 'equal') {
-      const equalNewlines = getNewlineCount(displayChange.editorValue);
-      draftLineNumber += equalNewlines;
-      editorLineNumber += equalNewlines;
-      if (displayChange.editorValue.length > 0) {
-        hasTraversedText = true;
-      }
+  for (const linePair of linePairs) {
+    if (linePair.draftLine !== null || linePair.editorLine === null) {
       continue;
     }
 
-    if (displayChange.type === 'deleted') {
-      const isDeletedBlankLineSlot =
-        getNewlineCount(displayChange.draftValue) === 0 &&
-        nextChange?.type === 'equal' &&
-        nextChange.editorValue.startsWith('\n');
-
-      if (isDeletedBlankLineSlot) {
-        addInsertedLineDecorations({
-          editorLineDecorations,
-          draftLineDecorations,
-          editorLineNumber,
-          draftLineNumber,
-          insertedLineCount: 1,
-        });
-      }
-
-      draftLineNumber += getNewlineCount(displayChange.draftValue);
-      if (displayChange.draftValue.length > 0) {
-        hasTraversedText = true;
-      }
-      continue;
-    }
-
-    if (displayChange.type === 'inserted') {
-      const insertedLineCount = getNewlineCount(displayChange.editorValue);
-      if (insertedLineCount > 0) {
-        const insertedLineStart =
-          !hasTraversedText && !displayChange.editorValue.startsWith('\n')
-            ? editorLineNumber + 1
-            : editorLineNumber;
-
-        addInsertedLineDecorations({
-          editorLineDecorations,
-          draftLineDecorations,
-          editorLineNumber: insertedLineStart,
-          draftLineNumber,
-          insertedLineCount,
-        });
-      }
-
-      editorLineNumber += insertedLineCount;
-      if (displayChange.editorValue.length > 0) {
-        hasTraversedText = true;
-      }
-      continue;
-    }
-
-    const draftNewlineCount = getNewlineCount(displayChange.draftValue);
-    const editorNewlineCount = getNewlineCount(displayChange.editorValue);
-
-    if (editorNewlineCount > draftNewlineCount) {
-      addInsertedLineDecorations({
-        editorLineDecorations,
-        draftLineDecorations,
-        editorLineNumber: editorLineNumber + draftNewlineCount,
-        draftLineNumber,
-        insertedLineCount: editorNewlineCount - draftNewlineCount,
-      });
-    }
-
-    draftLineNumber += draftNewlineCount;
-    editorLineNumber += editorNewlineCount;
-    if (displayChange.draftValue.length > 0 || displayChange.editorValue.length > 0) {
-      hasTraversedText = true;
-    }
+    editorLineDecorations.push({ lineNumber: linePair.editorLineNumber });
+    draftLineDecorations.push({
+      lineNumber: Math.max(1, Math.min(linePair.draftLineNumber, draftLineCount)),
+    });
   }
 
   return { editorLineDecorations, draftLineDecorations };
+};
+
+export const getLowestEditedLine = (
+  displayChanges: DisplayChange[],
+): LowestEditedLine | null => {
+  let editorLineNumber = 1;
+  let lowestEditedLineNumber: number | null = null;
+
+  for (const displayChange of displayChanges) {
+    const editorNewlineCount = getNewlineCount(displayChange.editorValue);
+
+    if (displayChange.type !== 'equal') {
+      lowestEditedLineNumber = getLastEditedEditorLine(
+        editorLineNumber,
+        displayChange.editorValue,
+      );
+    }
+
+    editorLineNumber += editorNewlineCount;
+  }
+
+  if (lowestEditedLineNumber === null) {
+    return null;
+  }
+
+  return { lineNumber: lowestEditedLineNumber };
+};
+
+const getLastEditedEditorLine = (
+  editorLineNumber: number,
+  editorValue: string,
+): number => {
+  const editorNewlineCount = getNewlineCount(editorValue);
+  if (editorNewlineCount === 0) {
+    return editorLineNumber;
+  }
+
+  if (editorValue.endsWith('\n')) {
+    return editorLineNumber + editorNewlineCount - 1;
+  }
+
+  return editorLineNumber + editorNewlineCount;
 };
 
 const getNewlineCount = (text: string): number => {
   return text.split('\n').length - 1;
 };
 
-const addInsertedLineDecorations = ({
-  editorLineDecorations,
-  draftLineDecorations,
-  editorLineNumber,
-  draftLineNumber,
-  insertedLineCount,
-}: {
-  editorLineDecorations: EditorLineDecoration[];
-  draftLineDecorations: DraftLineDecoration[];
-  editorLineNumber: number;
-  draftLineNumber: number;
-  insertedLineCount: number;
-}): void => {
-  for (let offset = 0; offset < insertedLineCount; offset += 1) {
-    editorLineDecorations.push({ lineNumber: editorLineNumber + offset });
-    draftLineDecorations.push({ lineNumber: Math.max(1, draftLineNumber) });
+const getLineWords = (line: string): string[] => {
+  return line
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word.length > 0);
+};
+
+const getSharedWordRatio = (draftLine: string, editorLine: string): number => {
+  const draftWords = new Set(getLineWords(draftLine));
+  const editorWords = getLineWords(editorLine);
+
+  if (draftWords.size === 0 && editorWords.length === 0) {
+    return 1;
   }
+
+  if (draftWords.size === 0 || editorWords.length === 0) {
+    return 0;
+  }
+
+  const sharedWordCount = editorWords.filter((word) => draftWords.has(word)).length;
+  return sharedWordCount / Math.max(draftWords.size, editorWords.length);
+};
+
+const areSimilarLines = (draftLine: string, editorLine: string): boolean => {
+  if (draftLine === editorLine) {
+    return true;
+  }
+
+  const normalizedDraftLine = draftLine.trim();
+  const normalizedEditorLine = editorLine.trim();
+
+  if (!normalizedDraftLine || !normalizedEditorLine) {
+    return false;
+  }
+
+  if (
+    normalizedDraftLine.includes(normalizedEditorLine) ||
+    normalizedEditorLine.includes(normalizedDraftLine)
+  ) {
+    return true;
+  }
+
+  return getSharedWordRatio(normalizedDraftLine, normalizedEditorLine) > 0.5;
+};
+
+const getLinePairs = (draftText: string, editorText: string): LinePair[] => {
+  const draftLines = draftText.split('\n');
+  const editorLines = editorText.split('\n');
+  const linePairs: LinePair[] = [];
+
+  let draftIndex = 0;
+  let editorIndex = 0;
+
+  while (draftIndex < draftLines.length && editorIndex < editorLines.length) {
+    const draftLine = draftLines[draftIndex];
+    const editorLine = editorLines[editorIndex];
+    const draftLineNumber = draftIndex + 1;
+    const editorLineNumber = editorIndex + 1;
+
+    if (areSimilarLines(draftLine, editorLine)) {
+      linePairs.push({ draftLine, editorLine, draftLineNumber, editorLineNumber });
+      draftIndex += 1;
+      editorIndex += 1;
+      continue;
+    }
+
+    const nextDraftLine = draftLines[draftIndex + 1];
+    if (
+      nextDraftLine !== undefined &&
+      areSimilarLines(nextDraftLine, editorLine)
+    ) {
+      linePairs.push({
+        draftLine,
+        editorLine: null,
+        draftLineNumber,
+        editorLineNumber,
+      });
+      draftIndex += 1;
+      continue;
+    }
+
+    const nextEditorLine = editorLines[editorIndex + 1];
+    if (
+      nextEditorLine !== undefined &&
+      areSimilarLines(draftLine, nextEditorLine)
+    ) {
+      linePairs.push({
+        draftLine: null,
+        editorLine,
+        draftLineNumber,
+        editorLineNumber,
+      });
+      editorIndex += 1;
+      continue;
+    }
+
+    linePairs.push({ draftLine, editorLine, draftLineNumber, editorLineNumber });
+    draftIndex += 1;
+    editorIndex += 1;
+  }
+
+  while (editorIndex < editorLines.length) {
+    linePairs.push({
+      draftLine: null,
+      editorLine: editorLines[editorIndex],
+      draftLineNumber: draftIndex + 1,
+      editorLineNumber: editorIndex + 1,
+    });
+    editorIndex += 1;
+  }
+
+  while (draftIndex < draftLines.length) {
+    linePairs.push({
+      draftLine: draftLines[draftIndex],
+      editorLine: null,
+      draftLineNumber: draftIndex + 1,
+      editorLineNumber: editorIndex + 1,
+    });
+    draftIndex += 1;
+  }
+
+  return linePairs;
 };
 
 const getEditorText = (displayChanges: DisplayChange[]): string => {

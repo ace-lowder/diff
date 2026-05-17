@@ -5,11 +5,12 @@ import {
   getEditorHighlightRanges,
   getEditorStats,
   getLineDecorations,
+  getLowestEditedLine,
   getWordCount,
 } from './editorDiff';
 
 const getDecorations = (draftText: string, editorText: string) => {
-  return getLineDecorations(getDisplayChanges(draftText, editorText));
+  return getLineDecorations(draftText, editorText);
 };
 
 describe('getWordCount', () => {
@@ -222,6 +223,30 @@ describe('getEditorHighlightRanges', () => {
 });
 
 describe('getLineDecorations', () => {
+  it('does not mark similar edited lines as inserted lines', () => {
+    const decorations = getLineDecorations('this is a test', 'this is a');
+
+    expect(decorations.editorLineDecorations).toEqual([]);
+    expect(decorations.draftLineDecorations).toEqual([]);
+  });
+
+  it('detects an inserted blank editor line between similar lines', () => {
+    const decorations = getLineDecorations('this is a test\none', 'this is a\n\none');
+
+    expect(decorations.editorLineDecorations).toContainEqual({ lineNumber: 2 });
+    expect(decorations.draftLineDecorations).toContainEqual({ lineNumber: 2 });
+  });
+
+  it('detects a true inserted editor line', () => {
+    const decorations = getLineDecorations(
+      'line one\nline three',
+      'line one\nline two\nline three',
+    );
+
+    expect(decorations.editorLineDecorations).toEqual([{ lineNumber: 2 }]);
+    expect(decorations.draftLineDecorations).toEqual([{ lineNumber: 2 }]);
+  });
+
   it('detects an inserted editor line between matching lines', () => {
     const decorations = getDecorations('line 1\nline 3', 'line 1\nline 2\nline 3');
 
@@ -265,5 +290,25 @@ describe('getLineDecorations', () => {
 
     expect(decorations.editorLineDecorations).toEqual([]);
     expect(decorations.draftLineDecorations).toEqual([]);
+  });
+});
+
+describe('getLowestEditedLine', () => {
+  it('returns null when there are no edits', () => {
+    const changes = getDisplayChanges('one\ntwo', 'one\ntwo');
+
+    expect(getLowestEditedLine(changes)).toBeNull();
+  });
+
+  it('returns the deepest editor line containing an inline edit', () => {
+    const changes = getDisplayChanges('one\ntwo\nthree', 'one\ntwo changed\nthree');
+
+    expect(getLowestEditedLine(changes)).toEqual({ lineNumber: 2 });
+  });
+
+  it('returns the deepest editor line containing an inserted line', () => {
+    const changes = getDisplayChanges('one\nthree', 'one\ntwo\nthree');
+
+    expect(getLowestEditedLine(changes)).toEqual({ lineNumber: 2 });
   });
 });
