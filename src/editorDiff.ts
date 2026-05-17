@@ -156,6 +156,7 @@ export const getEditorStats = (
 export const getEditorHighlightRanges = (
   displayChanges: DisplayChange[],
 ): EditorHighlightRange[] => {
+  const editorText = getEditorText(displayChanges);
   const ranges: EditorHighlightRange[] = [];
   let editorPosition = 0;
 
@@ -177,14 +178,82 @@ export const getEditorHighlightRanges = (
       continue;
     }
 
-    ranges.push({
-      type: 'deleted',
-      from: editorPosition,
-      to: editorPosition,
-    });
+    const markerPosition = getDeletedMarkerPosition(editorText, editorPosition);
+
+    ranges.push({ type: 'deleted', from: markerPosition, to: markerPosition });
   }
 
-  return ranges;
+  return mergeAddedRangesAcrossSingleSpace(ranges, editorText);
+};
+
+const getEditorText = (displayChanges: DisplayChange[]): string => {
+  return displayChanges.map((displayChange) => displayChange.editorValue).join('');
+};
+
+const getDeletedMarkerPosition = (
+  editorText: string,
+  editorPosition: number,
+): number => {
+  if (editorPosition <= 0) {
+    return editorPosition;
+  }
+
+  const previousCharacter = editorText.at(editorPosition - 1);
+
+  if (previousCharacter === ' ' || previousCharacter === '\t') {
+    return editorPosition - 1;
+  }
+
+  return editorPosition;
+};
+
+const mergeAddedRangesAcrossSingleSpace = (
+  ranges: EditorHighlightRange[],
+  editorText: string,
+): EditorHighlightRange[] => {
+  if (ranges.length <= 1) {
+    return ranges;
+  }
+
+  const mergedRanges: EditorHighlightRange[] = [];
+  let index = 0;
+
+  while (index < ranges.length) {
+    const currentRange = ranges[index];
+
+    if (currentRange.type !== 'added') {
+      mergedRanges.push(currentRange);
+      index += 1;
+      continue;
+    }
+
+    let mergedRange: EditorHighlightRange = { ...currentRange };
+    let nextIndex = index + 1;
+
+    while (nextIndex < ranges.length) {
+      const nextRange = ranges[nextIndex];
+      if (nextRange.type !== 'added') {
+        break;
+      }
+
+      const gapText = editorText.slice(mergedRange.to, nextRange.from);
+      if (gapText !== ' ' && gapText !== '\t') {
+        break;
+      }
+
+      mergedRange = {
+        type: 'added',
+        from: mergedRange.from,
+        to: nextRange.to,
+      };
+      nextIndex += 1;
+    }
+
+    mergedRanges.push(mergedRange);
+    index = nextIndex;
+  }
+
+  return mergedRanges;
 };
 
 const mergeRawChanges = (changes: RawChange[]): RawChange[] => {

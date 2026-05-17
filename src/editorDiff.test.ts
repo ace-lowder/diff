@@ -137,6 +137,33 @@ describe('getEditorHighlightRanges', () => {
     ).toBe(true);
   });
 
+  it('anchors deleted markers before a preceding editor space when text is removed between words', () => {
+    const editorText = 'one three';
+    const changes = getDisplayChanges('one two three', editorText);
+    const ranges = getEditorHighlightRanges(changes);
+
+    expect(ranges).toContainEqual({
+      type: 'deleted',
+      from: 'one'.length,
+      to: 'one'.length,
+    });
+  });
+
+  it('anchors deleted markers before the next word separator in sentence edits', () => {
+    const editorText = 'how many went down here';
+    const changes = getDisplayChanges(
+      'how many went missing down here',
+      editorText,
+    );
+    const ranges = getEditorHighlightRanges(changes);
+
+    expect(ranges).toContainEqual({
+      type: 'deleted',
+      from: 'how many went'.length,
+      to: 'how many went'.length,
+    });
+  });
+
   it('maps replacement text to one added editor range without deleted marker', () => {
     const changes = getDisplayChanges('300 men', 'Three hundred men');
     const ranges = getEditorHighlightRanges(changes);
@@ -157,5 +184,34 @@ describe('getEditorHighlightRanges', () => {
     expect(ranges).toEqual(
       [...ranges].sort((left, right) => left.from - right.from || left.to - right.to),
     );
+  });
+
+  it('merges added editor ranges across a single plain space', () => {
+    const editorText =
+      'He volunteered, which meant he was stupid, brave, or desperate.';
+    const changes = getDisplayChanges('He volunteered.', editorText);
+    const ranges = getEditorHighlightRanges(changes);
+
+    expect(
+      ranges.some(
+        (range) =>
+          range.type === 'added' &&
+          editorText
+            .slice(range.from, range.to)
+            .includes('which meant he was stupid, brave, or desperate'),
+      ),
+    ).toBe(true);
+  });
+
+  it('does not merge added ranges across newlines', () => {
+    const editorText = 'one added\nmore added';
+    const changes = getDisplayChanges('one\nmore', editorText);
+    const ranges = getEditorHighlightRanges(changes);
+
+    const addedRanges = ranges.filter((range) => range.type === 'added');
+
+    expect(
+      addedRanges.some((range) => editorText.slice(range.from, range.to).includes('\n')),
+    ).toBe(false);
   });
 });
