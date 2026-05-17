@@ -23,8 +23,11 @@ import {
   getDisplayChanges,
   getEditorHighlightRanges,
   getEditorStats,
+  getLineDecorations,
   getWordCount,
+  type DraftLineDecoration,
   type EditorHighlightRange,
+  type EditorLineDecoration,
   type EditorStats,
   type StatsMode,
 } from './editorDiff';
@@ -54,6 +57,10 @@ const App = () => {
   const editorHighlightRanges = useMemo(() => {
     return getEditorHighlightRanges(displayChanges);
   }, [displayChanges]);
+
+  const lineDecorations = useMemo(() => {
+    return getLineDecorations(draftText, editorText);
+  }, [draftText, editorText]);
 
   const editorStats = useMemo(() => {
     return getEditorStats(editorText, displayChanges);
@@ -86,6 +93,7 @@ const App = () => {
             theme="draft"
             savedScrollOffset={draftScrollOffset}
             onScrollOffsetChange={setDraftScrollOffset}
+            draftLineDecorations={lineDecorations.draftLineDecorations}
           />
         )}
 
@@ -98,6 +106,7 @@ const App = () => {
             savedScrollOffset={editorScrollOffset}
             onScrollOffsetChange={setEditorScrollOffset}
             highlightRanges={editorHighlightRanges}
+            editorLineDecorations={lineDecorations.editorLineDecorations}
           />
         )}
 
@@ -111,6 +120,7 @@ const App = () => {
                 theme="draft"
                 savedScrollOffset={draftScrollOffset}
                 onScrollOffsetChange={setDraftScrollOffset}
+                draftLineDecorations={lineDecorations.draftLineDecorations}
               />
             </div>
             <div className="h-px bg-[#2A2B2C]" />
@@ -123,6 +133,7 @@ const App = () => {
                 savedScrollOffset={editorScrollOffset}
                 onScrollOffsetChange={setEditorScrollOffset}
                 highlightRanges={editorHighlightRanges}
+                editorLineDecorations={lineDecorations.editorLineDecorations}
               />
             </div>
           </div>
@@ -162,6 +173,8 @@ type CodeMirrorPaneProps = {
   savedScrollOffset: ScrollOffset;
   onScrollOffsetChange: (scrollOffset: ScrollOffset) => void;
   highlightRanges?: EditorHighlightRange[];
+  editorLineDecorations?: EditorLineDecoration[];
+  draftLineDecorations?: DraftLineDecoration[];
 };
 
 const CodeMirrorPane = ({
@@ -172,6 +185,8 @@ const CodeMirrorPane = ({
   savedScrollOffset,
   onScrollOffsetChange,
   highlightRanges,
+  editorLineDecorations,
+  draftLineDecorations,
 }: CodeMirrorPaneProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorViewRef = useRef<EditorView | null>(null);
@@ -179,7 +194,13 @@ const CodeMirrorPane = ({
   const onScrollOffsetChangeRef = useRef(onScrollOffsetChange);
   const initialValueRef = useRef(value);
   const initialScrollOffsetRef = useRef(savedScrollOffset);
-  const highlightRangesRef = useRef(highlightRanges ?? []);
+  const decorationsRef = useRef<CodeMirrorDecorations>(
+    getCodeMirrorDecorationsInput({
+      highlightRanges,
+      editorLineDecorations,
+      draftLineDecorations,
+    }),
+  );
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -190,7 +211,11 @@ const CodeMirrorPane = ({
   }, [onScrollOffsetChange]);
 
   useEffect(() => {
-    highlightRangesRef.current = highlightRanges ?? [];
+    decorationsRef.current = getCodeMirrorDecorationsInput({
+      highlightRanges,
+      editorLineDecorations,
+      draftLineDecorations,
+    });
 
     const editorView = editorViewRef.current;
 
@@ -200,10 +225,10 @@ const CodeMirrorPane = ({
 
     editorView.dispatch({
       effects: setEditorDecorationsEffect.of(
-        getEditorDecorations(highlightRangesRef.current),
+        getCodeMirrorDecorations(editorView, decorationsRef.current),
       ),
     });
-  }, [highlightRanges]);
+  }, [draftLineDecorations, editorLineDecorations, highlightRanges]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -231,7 +256,7 @@ const CodeMirrorPane = ({
     editorView.scrollDOM.scrollTop = initialScrollOffsetRef.current.top;
     editorView.dispatch({
       effects: setEditorDecorationsEffect.of(
-        getEditorDecorations(highlightRangesRef.current),
+        getCodeMirrorDecorations(editorView, decorationsRef.current),
       ),
     });
 
@@ -334,6 +359,12 @@ type CodeMirrorExtensionOptions = {
   onScroll: (scrollOffset: ScrollOffset) => void;
 };
 
+type CodeMirrorDecorations = {
+  highlightRanges: EditorHighlightRange[];
+  editorLineDecorations: EditorLineDecoration[];
+  draftLineDecorations: DraftLineDecoration[];
+};
+
 const setEditorDecorationsEffect = StateEffect.define<DecorationSet>();
 
 const editorDecorationsField = StateField.define<DecorationSet>({
@@ -374,11 +405,58 @@ class DeletedMarkerWidget extends WidgetType {
   }
 }
 
-const getEditorDecorations = (
-  highlightRanges: EditorHighlightRange[],
+class MissingLineWidget extends WidgetType {
+  toDOM() {
+    const line = document.createElement('div');
+
+    line.className = 'byline-missing-line';
+    line.setAttribute('aria-hidden', 'true');
+
+    return line;
+  }
+
+  ignoreEvent() {
+    return true;
+  }
+}
+
+const getCodeMirrorDecorationsInput = ({
+  highlightRanges,
+  editorLineDecorations,
+  draftLineDecorations,
+}: {
+  highlightRanges?: EditorHighlightRange[];
+  editorLineDecorations?: EditorLineDecoration[];
+  draftLineDecorations?: DraftLineDecoration[];
+}): CodeMirrorDecorations => {
+  return {
+    highlightRanges: highlightRanges ?? [],
+    editorLineDecorations: editorLineDecorations ?? [],
+    draftLineDecorations: draftLineDecorations ?? [],
+  };
+};
+
+const getCodeMirrorDecorations = (
+  editorView: EditorView,
+  decorations: CodeMirrorDecorations,
 ): DecorationSet => {
   const builder = new RangeSetBuilder<Decoration>();
 
+  addEditorHighlightDecorations(builder, decorations.highlightRanges);
+  addEditorLineDecorations(
+    builder,
+    editorView,
+    decorations.editorLineDecorations,
+  );
+  addDraftLineDecorations(builder, editorView, decorations.draftLineDecorations);
+
+  return builder.finish();
+};
+
+const addEditorHighlightDecorations = (
+  builder: RangeSetBuilder<Decoration>,
+  highlightRanges: EditorHighlightRange[],
+): void => {
   for (const range of highlightRanges) {
     if (range.type === 'added') {
       if (range.to <= range.from) {
@@ -402,8 +480,48 @@ const getEditorDecorations = (
       }),
     );
   }
+};
 
-  return builder.finish();
+const addEditorLineDecorations = (
+  builder: RangeSetBuilder<Decoration>,
+  editorView: EditorView,
+  editorLineDecorations: EditorLineDecoration[],
+): void => {
+  for (const decoration of editorLineDecorations) {
+    if (
+      decoration.lineNumber < 1 ||
+      decoration.lineNumber > editorView.state.doc.lines
+    ) {
+      continue;
+    }
+
+    const line = editorView.state.doc.line(decoration.lineNumber);
+    builder.add(line.from, line.from, Decoration.line({ class: 'byline-added-line' }));
+  }
+};
+
+const addDraftLineDecorations = (
+  builder: RangeSetBuilder<Decoration>,
+  editorView: EditorView,
+  draftLineDecorations: DraftLineDecoration[],
+): void => {
+  for (const decoration of draftLineDecorations) {
+    const lineNumber = Math.min(
+      Math.max(1, decoration.lineNumber),
+      editorView.state.doc.lines,
+    );
+    const line = editorView.state.doc.line(lineNumber);
+
+    builder.add(
+      line.from,
+      line.from,
+      Decoration.widget({
+        block: true,
+        side: -1,
+        widget: new MissingLineWidget(),
+      }),
+    );
+  }
 };
 
 const getCodeMirrorExtensions = ({
@@ -500,6 +618,9 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     '.byline-added-text': {
       backgroundColor: '#2A4C2C',
     },
+    '.byline-added-line': {
+      backgroundColor: '#2A4C2C',
+    },
     '.byline-deleted-marker': {
       position: 'relative',
       display: 'inline-block',
@@ -511,9 +632,16 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       position: 'absolute',
       left: '0',
       top: '0.08em',
-      width: '0.2ch',
+      width: '0.35ch',
       height: '0.9em',
       backgroundColor: '#693330',
+    },
+    '.byline-missing-line': {
+      height: '1.5em',
+      marginLeft: '12px',
+      marginRight: '12px',
+      backgroundImage:
+        'repeating-linear-gradient(-45deg, rgba(42, 43, 44, 0.9) 0, rgba(42, 43, 44, 0.9) 2px, transparent 2px, transparent 6px)',
     },
   });
 };
