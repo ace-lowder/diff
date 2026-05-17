@@ -522,18 +522,31 @@ const getDraftLineDecorations = (
   const decorations: Range<Decoration>[] = [];
 
   for (const decoration of draftLineDecorations) {
-    const lineNumber = Math.min(
-      Math.max(1, decoration.lineNumber),
-      editorView.state.doc.lines,
-    );
-    const line = editorView.state.doc.line(lineNumber);
+    if (
+      decoration.lineNumber < 1 ||
+      decoration.lineNumber > editorView.state.doc.lines
+    ) {
+      continue;
+    }
+
+    const line = editorView.state.doc.line(decoration.lineNumber);
+
+    if (decoration.type === 'deletedDraftLine') {
+      decorations.push(
+        Decoration.line({ class: 'byline-deleted-draft-line' }).range(line.from),
+      );
+      continue;
+    }
+
+    const position = decoration.placement === 'after' ? line.to : line.from;
+    const side = decoration.placement === 'after' ? 1 : -1;
 
     decorations.push(
       Decoration.widget({
         block: true,
-        side: -1,
+        side,
         widget: new MissingLineWidget(),
-      }).range(line.from),
+      }).range(position),
     );
   }
 
@@ -677,9 +690,17 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       backgroundColor: '#693330',
     },
     '.byline-missing-line': {
+      display: 'block',
+      width: '100%',
+      boxSizing: 'border-box',
       height: '1.5em',
+      backgroundSize: '6px 6px',
+      backgroundPosition: '0 0',
       backgroundImage:
         'repeating-linear-gradient(-45deg, rgba(140, 140, 140, 0.7) 0, rgba(140, 140, 140, 0.7) 2px, transparent 2px, transparent 6px)',
+    },
+    '.cm-line.byline-deleted-draft-line': {
+      backgroundColor: '#693330',
     },
     '.cm-line.byline-lowest-edited-line': {
       borderBottom: '1px dashed #8C8C8C',
