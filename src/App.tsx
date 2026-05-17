@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   EditorState,
-  RangeSetBuilder,
   StateEffect,
   StateField,
   type Extension,
+  type Range,
 } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import {
@@ -59,8 +59,8 @@ const App = () => {
   }, [displayChanges]);
 
   const lineDecorations = useMemo(() => {
-    return getLineDecorations(draftText, editorText);
-  }, [draftText, editorText]);
+    return getLineDecorations(displayChanges);
+  }, [displayChanges]);
 
   const editorStats = useMemo(() => {
     return getEditorStats(editorText, displayChanges);
@@ -440,53 +440,49 @@ const getCodeMirrorDecorations = (
   editorView: EditorView,
   decorations: CodeMirrorDecorations,
 ): DecorationSet => {
-  const builder = new RangeSetBuilder<Decoration>();
+  const ranges: Range<Decoration>[] = [
+    ...getEditorHighlightDecorations(decorations.highlightRanges),
+    ...getEditorLineDecorations(editorView, decorations.editorLineDecorations),
+    ...getDraftLineDecorations(editorView, decorations.draftLineDecorations),
+  ];
 
-  addEditorHighlightDecorations(builder, decorations.highlightRanges);
-  addEditorLineDecorations(
-    builder,
-    editorView,
-    decorations.editorLineDecorations,
-  );
-  addDraftLineDecorations(builder, editorView, decorations.draftLineDecorations);
-
-  return builder.finish();
+  return Decoration.set(ranges, true);
 };
 
-const addEditorHighlightDecorations = (
-  builder: RangeSetBuilder<Decoration>,
+const getEditorHighlightDecorations = (
   highlightRanges: EditorHighlightRange[],
-): void => {
+): Range<Decoration>[] => {
+  const decorations: Range<Decoration>[] = [];
+
   for (const range of highlightRanges) {
     if (range.type === 'added') {
       if (range.to <= range.from) {
         continue;
       }
 
-      builder.add(
-        range.from,
-        range.to,
-        Decoration.mark({ class: 'byline-added-text' }),
+      decorations.push(
+        Decoration.mark({ class: 'byline-added-text' }).range(range.from, range.to),
       );
       continue;
     }
 
-    builder.add(
-      range.from,
-      range.to,
+    decorations.push(
       Decoration.widget({
         widget: new DeletedMarkerWidget(),
         side: -1,
-      }),
+      }).range(range.from),
     );
   }
+
+  return decorations;
 };
 
-const addEditorLineDecorations = (
-  builder: RangeSetBuilder<Decoration>,
+const getEditorLineDecorations = (
   editorView: EditorView,
   editorLineDecorations: EditorLineDecoration[],
-): void => {
+): Range<Decoration>[] => {
+  const decorations: Range<Decoration>[] = [];
+
   for (const decoration of editorLineDecorations) {
     if (
       decoration.lineNumber < 1 ||
@@ -496,15 +492,18 @@ const addEditorLineDecorations = (
     }
 
     const line = editorView.state.doc.line(decoration.lineNumber);
-    builder.add(line.from, line.from, Decoration.line({ class: 'byline-added-line' }));
+    decorations.push(Decoration.line({ class: 'byline-added-line' }).range(line.from));
   }
+
+  return decorations;
 };
 
-const addDraftLineDecorations = (
-  builder: RangeSetBuilder<Decoration>,
+const getDraftLineDecorations = (
   editorView: EditorView,
   draftLineDecorations: DraftLineDecoration[],
-): void => {
+): Range<Decoration>[] => {
+  const decorations: Range<Decoration>[] = [];
+
   for (const decoration of draftLineDecorations) {
     const lineNumber = Math.min(
       Math.max(1, decoration.lineNumber),
@@ -512,16 +511,16 @@ const addDraftLineDecorations = (
     );
     const line = editorView.state.doc.line(lineNumber);
 
-    builder.add(
-      line.from,
-      line.from,
+    decorations.push(
       Decoration.widget({
         block: true,
         side: -1,
         widget: new MissingLineWidget(),
-      }),
+      }).range(line.from),
     );
   }
+
+  return decorations;
 };
 
 const getCodeMirrorExtensions = ({
@@ -621,6 +620,9 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     '.byline-added-line': {
       backgroundColor: '#2A4C2C',
     },
+    '.cm-line.byline-added-line': {
+      backgroundColor: '#2A4C2C',
+    },
     '.byline-deleted-marker': {
       position: 'relative',
       display: 'inline-block',
@@ -631,17 +633,18 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     '.byline-deleted-marker-strip': {
       position: 'absolute',
       left: '0',
-      top: '0.08em',
+      top: '0',
       width: '0.35ch',
-      height: '0.9em',
+      height: '1.5em',
       backgroundColor: '#693330',
     },
     '.byline-missing-line': {
       height: '1.5em',
       marginLeft: '12px',
       marginRight: '12px',
+      backgroundColor: '#191A1B',
       backgroundImage:
-        'repeating-linear-gradient(-45deg, rgba(42, 43, 44, 0.9) 0, rgba(42, 43, 44, 0.9) 2px, transparent 2px, transparent 6px)',
+        'repeating-linear-gradient(-45deg, rgba(105, 51, 48, 0.75) 0, rgba(105, 51, 48, 0.75) 2px, transparent 2px, transparent 6px)',
     },
   });
 };
