@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  getDraftHighlightRanges,
   getDisplayChanges,
   getEditorHighlightRanges,
   getEditorStats,
@@ -120,6 +121,51 @@ describe('getEditorStats', () => {
 });
 
 describe('getEditorHighlightRanges', () => {
+  it('refines typo replacement highlights to changed editor characters', () => {
+    const editorText = 'misssing';
+    const changes = getDisplayChanges('missing', editorText);
+    const ranges = getEditorHighlightRanges(changes);
+
+    expect(ranges).toEqual([
+      {
+        type: 'added',
+        from: 4,
+        to: 5,
+      },
+    ]);
+    expect(editorText.slice(ranges[0].from, ranges[0].to)).toBe('s');
+  });
+
+  it('refines suffix insertion replacement highlights to changed editor characters', () => {
+    const editorText = 'words';
+    const changes = getDisplayChanges('word', editorText);
+    const ranges = getEditorHighlightRanges(changes);
+
+    expect(ranges).toEqual([
+      {
+        type: 'added',
+        from: 4,
+        to: 5,
+      },
+    ]);
+    expect(editorText.slice(ranges[0].from, ranges[0].to)).toBe('s');
+  });
+
+  it('does not highlight remaining editor text for deletion-only refined replacements', () => {
+    const editorText = 'ming';
+    const changes = getDisplayChanges('missing', editorText);
+    const ranges = getEditorHighlightRanges(changes);
+
+    expect(
+      ranges.some(
+        (range) =>
+          range.type === 'added' &&
+          editorText.slice(range.from, range.to) === editorText,
+      ),
+    ).toBe(false);
+    expect(ranges.some((range) => range.type === 'added')).toBe(false);
+  });
+
   it('maps inserted editor text to an added highlight range', () => {
     const changes = getDisplayChanges('one two', 'one two three');
     const ranges = getEditorHighlightRanges(changes);
@@ -238,6 +284,7 @@ describe('getLineDecorations', () => {
       type: 'missingEditorLine',
       lineNumber: 2,
       placement: 'before',
+      lineCount: 1,
     });
   });
 
@@ -253,6 +300,7 @@ describe('getLineDecorations', () => {
         type: 'missingEditorLine',
         lineNumber: 2,
         placement: 'before',
+        lineCount: 1,
       },
     ]);
   });
@@ -266,6 +314,7 @@ describe('getLineDecorations', () => {
         type: 'missingEditorLine',
         lineNumber: 2,
         placement: 'before',
+        lineCount: 1,
       },
     ]);
   });
@@ -279,6 +328,7 @@ describe('getLineDecorations', () => {
         type: 'missingEditorLine',
         lineNumber: 2,
         placement: 'before',
+        lineCount: 1,
       },
     ]);
   });
@@ -308,6 +358,7 @@ describe('getLineDecorations', () => {
       type: 'missingEditorLine',
       lineNumber: 1,
       placement: 'after',
+      lineCount: 1,
     });
   });
 
@@ -330,6 +381,7 @@ describe('getLineDecorations', () => {
         type: 'missingEditorLine',
         lineNumber: 2,
         placement: 'after',
+        lineCount: 1,
       },
     ]);
   });
@@ -365,7 +417,197 @@ describe('getLineDecorations', () => {
       type: 'missingEditorLine',
       lineNumber: 4,
       placement: 'before',
+      lineCount: 1,
     });
+  });
+
+  it('aggregates multiple blank editor-only lines in the same draft gap', () => {
+    const decorations = getLineDecorations('one\ntwo', 'one\n\n\ntwo');
+
+    expect(decorations.editorLineDecorations).toEqual([
+      { lineNumber: 2 },
+      { lineNumber: 3 },
+    ]);
+    expect(decorations.draftLineDecorations).toEqual([
+      {
+        type: 'missingEditorLine',
+        lineNumber: 2,
+        placement: 'before',
+        lineCount: 2,
+      },
+    ]);
+  });
+
+  it('aggregates multiple appended editor-only lines after final draft line', () => {
+    const decorations = getLineDecorations('one', 'one\ntwo\nthree');
+
+    expect(decorations.editorLineDecorations).toEqual([
+      { lineNumber: 2 },
+      { lineNumber: 3 },
+    ]);
+    expect(decorations.draftLineDecorations).toEqual([
+      {
+        type: 'missingEditorLine',
+        lineNumber: 1,
+        placement: 'after',
+        lineCount: 2,
+      },
+    ]);
+  });
+
+  it('matches long inserted editor blocks beyond prior lookahead cap', () => {
+    const decorations = getLineDecorations(
+      'start\nend',
+      'start\none\ntwo\nthree\nfour\nfive\nend',
+    );
+
+    expect(decorations.editorLineDecorations).toEqual([
+      { lineNumber: 2 },
+      { lineNumber: 3 },
+      { lineNumber: 4 },
+      { lineNumber: 5 },
+      { lineNumber: 6 },
+    ]);
+    expect(decorations.draftLineDecorations).toEqual([
+      {
+        type: 'missingEditorLine',
+        lineNumber: 2,
+        placement: 'before',
+        lineCount: 5,
+      },
+    ]);
+    expect(
+      decorations.draftLineDecorations.some(
+        (decoration) => decoration.type === 'deletedDraftLine',
+      ),
+    ).toBe(false);
+  });
+
+  it('deleting a blank line does not invent editor insertions when later blank lines exist', () => {
+    const decorations = getLineDecorations(
+      'Title\n\nFirst paragraph.\n\nSecond paragraph.',
+      'Title\nFirst paragraph.\n\nSecond paragraph.',
+    );
+
+    expect(decorations.editorLineDecorations).toEqual([]);
+    expect(
+      decorations.draftLineDecorations.filter(
+        (decoration) => decoration.type === 'deletedDraftLine',
+      ),
+    ).toEqual([
+      {
+        type: 'deletedDraftLine',
+        lineNumber: 2,
+        placement: 'before',
+      },
+    ]);
+    expect(
+      decorations.draftLineDecorations.some(
+        (decoration) => decoration.type === 'missingEditorLine',
+      ),
+    ).toBe(false);
+  });
+
+  it('deleting first blank line after title marks only that draft line as deleted', () => {
+    const decorations = getLineDecorations(
+      'Down Under\n\n300 men, that’s how many went missing down here.',
+      'Down Under\n300 men, that’s how many went missing down here.',
+    );
+
+    expect(decorations.editorLineDecorations).toEqual([]);
+    expect(
+      decorations.draftLineDecorations.filter(
+        (decoration) => decoration.type === 'deletedDraftLine',
+      ),
+    ).toEqual([
+      {
+        type: 'deletedDraftLine',
+        lineNumber: 2,
+        placement: 'before',
+      },
+    ]);
+  });
+});
+
+describe('getDraftHighlightRanges', () => {
+  it('refines typo replacement highlights to changed draft characters', () => {
+    const draftText = 'misssing';
+    const changes = getDisplayChanges(draftText, 'missing');
+    const ranges = getDraftHighlightRanges(changes);
+
+    expect(ranges).toEqual([{ type: 'deleted', from: 2, to: 3 }]);
+    expect(draftText.slice(ranges[0].from, ranges[0].to)).toBe('s');
+  });
+
+  it('uses deletion-biased refinement for duplicate-letter deletions', () => {
+    const draftText = 'missing';
+    const changes = getDisplayChanges(draftText, 'ming');
+    const ranges = getDraftHighlightRanges(changes);
+
+    expect(ranges).toEqual([{ type: 'deleted', from: 1, to: 4 }]);
+    expect(draftText.slice(ranges[0].from, ranges[0].to)).toBe('iss');
+  });
+
+  it('maps replacement draft text to a deleted highlight range', () => {
+    const draftText = '300 men';
+    const changes = getDisplayChanges(draftText, 'Three hundred men');
+    const ranges = getDraftHighlightRanges(changes);
+
+    expect(ranges).toEqual([{ type: 'deleted', from: 0, to: 3 }]);
+  });
+
+  it('maps deleted draft text to deleted highlight ranges', () => {
+    const draftText = 'one two three';
+    const changes = getDisplayChanges(draftText, 'one three');
+    const ranges = getDraftHighlightRanges(changes);
+
+    expect(
+      ranges.some((range) => draftText.slice(range.from, range.to).includes('two')),
+    ).toBe(true);
+  });
+
+  it('keeps large replacements as full draft replacement highlights', () => {
+    const draftText = '300 men';
+    const editorText = 'Three hundred men';
+    const changes = getDisplayChanges(draftText, editorText);
+    const editorRanges = getEditorHighlightRanges(changes);
+    const draftRanges = getDraftHighlightRanges(changes);
+
+    expect(editorRanges).toEqual([
+      {
+        type: 'added',
+        from: 0,
+        to: 'Three hundred'.length,
+      },
+    ]);
+    expect(editorText.slice(editorRanges[0].from, editorRanges[0].to)).toBe(
+      'Three hundred',
+    );
+    expect(draftRanges).toEqual([{ type: 'deleted', from: 0, to: 3 }]);
+    expect(draftText.slice(draftRanges[0].from, draftRanges[0].to)).toBe('300');
+  });
+
+  it('keeps draft highlight ranges in draft document order', () => {
+    const changes = getDisplayChanges('a b c d', 'a bee c dee');
+    const ranges = getDraftHighlightRanges(changes);
+
+    expect(ranges).toEqual(
+      [...ranges].sort((left, right) => left.from - right.from || left.to - right.to),
+    );
+  });
+
+  it('does not drift draft highlight offsets after refined replacements', () => {
+    const draftText = 'misssing\nword';
+    const editorText = 'missing\nchanged';
+    const changes = getDisplayChanges(draftText, editorText);
+    const ranges = getDraftHighlightRanges(changes);
+
+    expect(ranges).toEqual([
+      { type: 'deleted', from: 2, to: 3 },
+      { type: 'deleted', from: 9, to: 12 },
+    ]);
+    expect(draftText.slice(ranges[0].from, ranges[0].to)).toBe('s');
+    expect(draftText.slice(ranges[1].from, ranges[1].to)).toBe('wor');
   });
 });
 
