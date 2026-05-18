@@ -168,7 +168,7 @@ const FontStyleControls = ({
       <FontStyleControlButton
         label="U"
         ariaLabel="Toggle underline"
-        labelClassName="border-b border-current"
+        showUnderline
         isActive={activeFontStyleTypes.includes('underline')}
         onClick={() => onToggleFontStyle('underline')}
       />
@@ -181,6 +181,7 @@ type FontStyleControlButtonProps = {
   ariaLabel: string;
   labelClassName?: string;
   labelStyle?: CSSProperties;
+  showUnderline?: boolean;
   isActive: boolean;
   onClick: () => void;
 };
@@ -190,6 +191,7 @@ const FontStyleControlButton = ({
   ariaLabel,
   labelClassName,
   labelStyle,
+  showUnderline = false,
   isActive,
   onClick,
 }: FontStyleControlButtonProps) => {
@@ -204,13 +206,16 @@ const FontStyleControlButton = ({
       aria-pressed={isActive}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className={`inline-flex items-center justify-center px-1 text-xs font-normal ${stateClassName} hover:bg-[#242526] hover:text-[#D4D4D4] focus:outline-none focus-visible:bg-[#242526] focus-visible:text-[#D4D4D4]`}
+      className={`inline-flex h-5 w-5 items-center justify-center text-xs font-normal ${stateClassName} hover:bg-[#242526] hover:text-[#D4D4D4] focus:outline-none focus-visible:bg-[#242526] focus-visible:text-[#D4D4D4]`}
     >
       <span
-        className={`inline-flex h-4 min-w-3 items-center justify-center leading-none ${labelClassName ?? ''}`}
+        className={`relative inline-flex h-4 w-4 items-center justify-center leading-none ${labelClassName ?? ''}`}
         style={labelStyle}
       >
         {label}
+        {showUnderline && (
+          <span className="absolute bottom-[1px] h-px w-2 bg-current" aria-hidden="true" />
+        )}
       </span>
     </button>
   );
@@ -240,8 +245,8 @@ const CoffeeIcon = () => {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="14"
-      height="14"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -250,8 +255,8 @@ const CoffeeIcon = () => {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M3 8h13v7a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8Z" />
-      <path d="M16 10h2a2 2 0 1 1 0 4h-2" />
+      <path d="M4.5 8.5h12v6.5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8.5Z" />
+      <path d="M16.5 10h1.25a2.75 2.75 0 1 1 0 5.5H16.5" />
     </svg>
   );
 };
