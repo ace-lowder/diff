@@ -78,6 +78,9 @@ const App = () => {
     left: 0,
     top: 0,
   });
+  const [editorWidthPercent, setEditorWidthPercent] = useState(
+    DEFAULT_EDITOR_WIDTH_PERCENT,
+  );
   const [splitDraftPercent, setSplitDraftPercent] = useState(
     DEFAULT_SPLIT_DRAFT_PERCENT,
   );
@@ -93,7 +96,9 @@ const App = () => {
   const pendingScrollSourcePaneRef = useRef<PaneId | null>(null);
   const splitContainerRef = useRef<HTMLDivElement | null>(null);
   const splitResizePointerIdRef = useRef<number | null>(null);
-  const splitMeasureFrameRef = useRef<number | null>(null);
+  const editorWidthContainerRef = useRef<HTMLDivElement | null>(null);
+  const editorWidthResizePointerIdRef = useRef<number | null>(null);
+  const editorMeasureFrameRef = useRef<number | null>(null);
   const copyStatusTimeoutRef = useRef<number | null>(null);
   const coffeeStatusTimeoutRef = useRef<number | null>(null);
   const draftActiveFontStyleTypesRef = useRef<FontStyleType[]>([]);
@@ -158,8 +163,8 @@ const App = () => {
       if (coffeeStatusTimeoutRef.current !== null) {
         window.clearTimeout(coffeeStatusTimeoutRef.current);
       }
-      if (splitMeasureFrameRef.current !== null) {
-        window.cancelAnimationFrame(splitMeasureFrameRef.current);
+      if (editorMeasureFrameRef.current !== null) {
+        window.cancelAnimationFrame(editorMeasureFrameRef.current);
       }
     };
   }, []);
@@ -298,13 +303,13 @@ const App = () => {
     scrollSyncFrameRef.current = window.requestAnimationFrame(runSplitScrollSync);
   };
 
-  const requestSplitPaneMeasure = () => {
-    if (splitMeasureFrameRef.current !== null) {
+  const requestEditorMeasure = () => {
+    if (editorMeasureFrameRef.current !== null) {
       return;
     }
 
-    splitMeasureFrameRef.current = window.requestAnimationFrame(() => {
-      splitMeasureFrameRef.current = null;
+    editorMeasureFrameRef.current = window.requestAnimationFrame(() => {
+      editorMeasureFrameRef.current = null;
       draftEditorViewRef.current?.requestMeasure();
       editorEditorViewRef.current?.requestMeasure();
     });
@@ -338,7 +343,7 @@ const App = () => {
     }
 
     setSplitDraftPercent(nextPercent);
-    requestSplitPaneMeasure();
+    requestEditorMeasure();
   };
 
   const handleSplitResizePointerDown = (
@@ -376,7 +381,90 @@ const App = () => {
 
   const handleSplitResizeDoubleClick = () => {
     setSplitDraftPercent(DEFAULT_SPLIT_DRAFT_PERCENT);
-    requestSplitPaneMeasure();
+    requestEditorMeasure();
+  };
+
+  const getEditorWidthPercentFromClientX = (clientX: number): number | null => {
+    if (window.innerWidth < EDITOR_WIDTH_RESIZE_MIN_SCREEN_WIDTH) {
+      return null;
+    }
+
+    const editorWidthContainer = editorWidthContainerRef.current;
+
+    if (!editorWidthContainer) {
+      return null;
+    }
+
+    const parentElement = editorWidthContainer.parentElement;
+
+    if (!parentElement) {
+      return null;
+    }
+
+    const rect = parentElement.getBoundingClientRect();
+
+    if (rect.width <= 0) {
+      return null;
+    }
+
+    const leftInset = Math.max(0, clientX - rect.left);
+    const rawPercent = ((rect.width - leftInset * 2) / rect.width) * 100;
+
+    return Math.min(
+      MAX_EDITOR_WIDTH_PERCENT,
+      Math.max(MIN_EDITOR_WIDTH_PERCENT, rawPercent),
+    );
+  };
+
+  const updateEditorWidthPercentFromClientX = (clientX: number) => {
+    const nextPercent = getEditorWidthPercentFromClientX(clientX);
+
+    if (nextPercent === null) {
+      return;
+    }
+
+    setEditorWidthPercent(nextPercent);
+    requestEditorMeasure();
+  };
+
+  const handleEditorWidthPointerDown = (
+    event: PointerEvent<HTMLDivElement>,
+  ) => {
+    if (window.innerWidth < EDITOR_WIDTH_RESIZE_MIN_SCREEN_WIDTH) {
+      return;
+    }
+
+    event.preventDefault();
+    editorWidthResizePointerIdRef.current = event.pointerId;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    updateEditorWidthPercentFromClientX(event.clientX);
+  };
+
+  const handleEditorWidthPointerMove = (
+    event: PointerEvent<HTMLDivElement>,
+  ) => {
+    if (editorWidthResizePointerIdRef.current !== event.pointerId) {
+      return;
+    }
+
+    updateEditorWidthPercentFromClientX(event.clientX);
+  };
+
+  const handleEditorWidthPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    if (editorWidthResizePointerIdRef.current !== event.pointerId) {
+      return;
+    }
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    editorWidthResizePointerIdRef.current = null;
+  };
+
+  const handleEditorWidthDoubleClick = () => {
+    setEditorWidthPercent(DEFAULT_EDITOR_WIDTH_PERCENT);
+    requestEditorMeasure();
   };
 
   const getTargetPane = (): PaneId => {
@@ -452,93 +540,13 @@ const App = () => {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#121314] text-[#D4D4D4]">
       <main className="min-h-0 flex-1">
-        {mode === 'draft' && (
-          <CodeMirrorPane
-            value={draftText}
-            onDocumentChange={({ value, changes }) => {
-              setDraftText(value);
-              setDraftFontStyleRanges((currentRanges) =>
-                normalizeFontStyleRanges([
-                  ...mapFontStyleRangesThroughChanges({
-                    ranges: currentRanges,
-                    changes,
-                  }),
-                  ...getInsertedFontStyleRanges({
-                    changes,
-                    activeTypes: draftActiveFontStyleTypesRef.current,
-                  }),
-                ]),
-              );
-            }}
-            onFocusPane={() => setActivePane('draft')}
-            onToggleFontStyle={(fontStyleType) =>
-              handleToggleFontStyleForPane('draft', fontStyleType)
-            }
-            ariaLabel="Draft text"
-            theme="draft"
-            initialLineNumber={initialLineNumber}
-            savedScrollOffset={draftScrollOffset}
-            onScrollOffsetChange={(scrollOffset, topVisibleLineNumber) => {
-              activeLineNumberRef.current = topVisibleLineNumber;
-              setDraftScrollOffset(scrollOffset);
-              syncSplitScroll('draft');
-            }}
-            draftHighlightRanges={draftHighlightRanges}
-            fontStyleRanges={draftFontStyleRanges}
-            draftLineDecorations={lineDecorations.draftLineDecorations}
-            onEditorViewChange={(editorView) => {
-              draftEditorViewRef.current = editorView;
-            }}
-          />
-        )}
-
-        {mode === 'editor' && (
-          <CodeMirrorPane
-            value={editorText}
-            onDocumentChange={({ value, changes }) => {
-              setEditorText(value);
-              setEditorFontStyleRanges((currentRanges) =>
-                normalizeFontStyleRanges([
-                  ...mapFontStyleRangesThroughChanges({
-                    ranges: currentRanges,
-                    changes,
-                  }),
-                  ...getInsertedFontStyleRanges({
-                    changes,
-                    activeTypes: editorActiveFontStyleTypesRef.current,
-                  }),
-                ]),
-              );
-            }}
-            onFocusPane={() => setActivePane('editor')}
-            onToggleFontStyle={(fontStyleType) =>
-              handleToggleFontStyleForPane('editor', fontStyleType)
-            }
-            ariaLabel="Editor text"
-            theme="editor"
-            initialLineNumber={initialLineNumber}
-            savedScrollOffset={editorScrollOffset}
-            onScrollOffsetChange={(scrollOffset, topVisibleLineNumber) => {
-              activeLineNumberRef.current = topVisibleLineNumber;
-              setEditorScrollOffset(scrollOffset);
-              syncSplitScroll('editor');
-            }}
-            editorHighlightRanges={editorHighlightRanges}
-            fontStyleRanges={editorFontStyleRanges}
-            editorLineDecorations={lineDecorations.editorLineDecorations}
-            lowestEditedLine={lowestEditedLine}
-            onEditorViewChange={(editorView) => {
-              editorEditorViewRef.current = editorView;
-            }}
-          />
-        )}
-
-        {mode === 'split' && (
-          <div ref={splitContainerRef} className="flex h-full min-h-0 flex-col">
-            <div
-              className="min-h-0 shrink-0"
-              style={{ flexBasis: `${splitDraftPercent}%` }}
-            >
+        <div className="relative flex h-full min-h-0 justify-center">
+          <div
+            ref={editorWidthContainerRef}
+            className="relative h-full min-h-0"
+            style={{ width: `${editorWidthPercent}%` }}
+          >
+            {mode === 'draft' && (
               <CodeMirrorPane
                 value={draftText}
                 onDocumentChange={({ value, changes }) => {
@@ -576,23 +584,9 @@ const App = () => {
                   draftEditorViewRef.current = editorView;
                 }}
               />
-            </div>
-            <div
-              role="separator"
-              aria-orientation="horizontal"
-              aria-valuemin={MIN_SPLIT_DRAFT_PERCENT}
-              aria-valuemax={MAX_SPLIT_DRAFT_PERCENT}
-              aria-valuenow={Math.round(splitDraftPercent)}
-              onPointerDown={handleSplitResizePointerDown}
-              onPointerMove={handleSplitResizePointerMove}
-              onPointerUp={handleSplitResizePointerUp}
-              onPointerCancel={handleSplitResizePointerUp}
-              onDoubleClick={handleSplitResizeDoubleClick}
-              className="group flex h-2 shrink-0 cursor-row-resize touch-none select-none items-center"
-            >
-              <div className="h-px w-full bg-[#2A2B2C] group-hover:bg-[#3A3B3C]" />
-            </div>
-            <div className="min-h-0 flex-1">
+            )}
+
+            {mode === 'editor' && (
               <CodeMirrorPane
                 value={editorText}
                 onDocumentChange={({ value, changes }) => {
@@ -631,9 +625,129 @@ const App = () => {
                   editorEditorViewRef.current = editorView;
                 }}
               />
+            )}
+
+            {mode === 'split' && (
+              <div ref={splitContainerRef} className="flex h-full min-h-0 flex-col">
+                <div
+                  className="min-h-0 shrink-0"
+                  style={{ flexBasis: `${splitDraftPercent}%` }}
+                >
+                  <CodeMirrorPane
+                    value={draftText}
+                    onDocumentChange={({ value, changes }) => {
+                      setDraftText(value);
+                      setDraftFontStyleRanges((currentRanges) =>
+                        normalizeFontStyleRanges([
+                          ...mapFontStyleRangesThroughChanges({
+                            ranges: currentRanges,
+                            changes,
+                          }),
+                          ...getInsertedFontStyleRanges({
+                            changes,
+                            activeTypes: draftActiveFontStyleTypesRef.current,
+                          }),
+                        ]),
+                      );
+                    }}
+                    onFocusPane={() => setActivePane('draft')}
+                    onToggleFontStyle={(fontStyleType) =>
+                      handleToggleFontStyleForPane('draft', fontStyleType)
+                    }
+                    ariaLabel="Draft text"
+                    theme="draft"
+                    initialLineNumber={initialLineNumber}
+                    savedScrollOffset={draftScrollOffset}
+                    onScrollOffsetChange={(scrollOffset, topVisibleLineNumber) => {
+                      activeLineNumberRef.current = topVisibleLineNumber;
+                      setDraftScrollOffset(scrollOffset);
+                      syncSplitScroll('draft');
+                    }}
+                    draftHighlightRanges={draftHighlightRanges}
+                    fontStyleRanges={draftFontStyleRanges}
+                    draftLineDecorations={lineDecorations.draftLineDecorations}
+                    onEditorViewChange={(editorView) => {
+                      draftEditorViewRef.current = editorView;
+                    }}
+                  />
+                </div>
+                <div
+                  role="separator"
+                  aria-orientation="horizontal"
+                  aria-valuemin={MIN_SPLIT_DRAFT_PERCENT}
+                  aria-valuemax={MAX_SPLIT_DRAFT_PERCENT}
+                  aria-valuenow={Math.round(splitDraftPercent)}
+                  onPointerDown={handleSplitResizePointerDown}
+                  onPointerMove={handleSplitResizePointerMove}
+                  onPointerUp={handleSplitResizePointerUp}
+                  onPointerCancel={handleSplitResizePointerUp}
+                  onDoubleClick={handleSplitResizeDoubleClick}
+                  className="group flex h-2 shrink-0 cursor-row-resize touch-none select-none items-center"
+                >
+                  <div className="h-px w-full bg-[#2A2B2C] group-hover:bg-[#3A3B3C]" />
+                </div>
+                <div className="min-h-0 flex-1">
+                  <CodeMirrorPane
+                    value={editorText}
+                    onDocumentChange={({ value, changes }) => {
+                      setEditorText(value);
+                      setEditorFontStyleRanges((currentRanges) =>
+                        normalizeFontStyleRanges([
+                          ...mapFontStyleRangesThroughChanges({
+                            ranges: currentRanges,
+                            changes,
+                          }),
+                          ...getInsertedFontStyleRanges({
+                            changes,
+                            activeTypes: editorActiveFontStyleTypesRef.current,
+                          }),
+                        ]),
+                      );
+                    }}
+                    onFocusPane={() => setActivePane('editor')}
+                    onToggleFontStyle={(fontStyleType) =>
+                      handleToggleFontStyleForPane('editor', fontStyleType)
+                    }
+                    ariaLabel="Editor text"
+                    theme="editor"
+                    initialLineNumber={initialLineNumber}
+                    savedScrollOffset={editorScrollOffset}
+                    onScrollOffsetChange={(scrollOffset, topVisibleLineNumber) => {
+                      activeLineNumberRef.current = topVisibleLineNumber;
+                      setEditorScrollOffset(scrollOffset);
+                      syncSplitScroll('editor');
+                    }}
+                    editorHighlightRanges={editorHighlightRanges}
+                    fontStyleRanges={editorFontStyleRanges}
+                    editorLineDecorations={lineDecorations.editorLineDecorations}
+                    lowestEditedLine={lowestEditedLine}
+                    onEditorViewChange={(editorView) => {
+                      editorEditorViewRef.current = editorView;
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-valuemin={MIN_EDITOR_WIDTH_PERCENT}
+              aria-valuemax={MAX_EDITOR_WIDTH_PERCENT}
+              aria-valuenow={Math.round(editorWidthPercent)}
+              tabIndex={0}
+              onPointerDown={handleEditorWidthPointerDown}
+              onPointerMove={handleEditorWidthPointerMove}
+              onPointerUp={handleEditorWidthPointerUp}
+              onPointerCancel={handleEditorWidthPointerUp}
+              onDoubleClick={handleEditorWidthDoubleClick}
+              className="group absolute bottom-0 top-0 z-10 hidden w-3 -translate-x-1/2 cursor-col-resize touch-none select-none sm:block"
+              style={{ left: EDITOR_WIDTH_HANDLE_LEFT }}
+            >
+              <div className="mx-auto h-full w-px bg-transparent group-hover:bg-[#3A3B3C] group-focus-visible:bg-[#3A3B3C]" />
             </div>
           </div>
-        )}
+        </div>
       </main>
 
       <Footer
@@ -690,3 +804,8 @@ const toggleActiveFontStyleType = (
 const DEFAULT_SPLIT_DRAFT_PERCENT = 50;
 const MIN_SPLIT_DRAFT_PERCENT = 15;
 const MAX_SPLIT_DRAFT_PERCENT = 85;
+const DEFAULT_EDITOR_WIDTH_PERCENT = 100;
+const MIN_EDITOR_WIDTH_PERCENT = 55;
+const MAX_EDITOR_WIDTH_PERCENT = 100;
+const EDITOR_WIDTH_RESIZE_MIN_SCREEN_WIDTH = 640;
+const EDITOR_WIDTH_HANDLE_LEFT = '6ch';
