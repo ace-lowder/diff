@@ -160,7 +160,7 @@ const FontStyleControls = ({
       <FontStyleControlButton
         label="I"
         ariaLabel="Toggle italic"
-        labelClassName="italic"
+        labelClassName="italic translate-y-px"
         labelStyle={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
         isActive={activeFontStyleTypes.includes('italic')}
         onClick={() => onToggleFontStyle('italic')}
@@ -168,6 +168,7 @@ const FontStyleControls = ({
       <FontStyleControlButton
         label="U"
         ariaLabel="Toggle underline"
+        labelClassName="text-[11px]"
         showUnderline
         isActive={activeFontStyleTypes.includes('underline')}
         onClick={() => onToggleFontStyle('underline')}
@@ -214,7 +215,10 @@ const FontStyleControlButton = ({
       >
         {label}
         {showUnderline && (
-          <span className="absolute bottom-[1px] h-px w-2 bg-current" aria-hidden="true" />
+          <span
+            className="absolute bottom-[1px] h-px w-[7px] bg-current"
+            aria-hidden="true"
+          />
         )}
       </span>
     </button>
@@ -255,8 +259,10 @@ const CoffeeIcon = () => {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M4.5 8.5h12v6.5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8.5Z" />
-      <path d="M16.5 10h1.25a2.75 2.75 0 1 1 0 5.5H16.5" />
+      <g transform="translate(0 -1)">
+        <path d="M4.5 8.5h12v6.5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8.5Z" />
+        <path d="M16.5 10h1.25a2.75 2.75 0 1 1 0 5.5H16.5" />
+      </g>
     </svg>
   );
 };
