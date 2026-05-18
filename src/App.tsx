@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
 
 import { EditorView } from '@codemirror/view';
 
@@ -78,6 +78,9 @@ const App = () => {
     left: 0,
     top: 0,
   });
+  const [splitDraftPercent, setSplitDraftPercent] = useState(
+    DEFAULT_SPLIT_DRAFT_PERCENT,
+  );
   const [initialLineNumber, setInitialLineNumber] = useState(1);
   const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle');
   const [coffeeStatus, setCoffeeStatus] = useState<CoffeeStatus>('idle');
@@ -88,6 +91,9 @@ const App = () => {
   const activeLineNumberRef = useRef(1);
   const scrollSyncFrameRef = useRef<number | null>(null);
   const pendingScrollSourcePaneRef = useRef<PaneId | null>(null);
+  const splitContainerRef = useRef<HTMLDivElement | null>(null);
+  const splitResizePointerIdRef = useRef<number | null>(null);
+  const splitMeasureFrameRef = useRef<number | null>(null);
   const copyStatusTimeoutRef = useRef<number | null>(null);
   const coffeeStatusTimeoutRef = useRef<number | null>(null);
   const draftActiveFontStyleTypesRef = useRef<FontStyleType[]>([]);
@@ -151,6 +157,9 @@ const App = () => {
       }
       if (coffeeStatusTimeoutRef.current !== null) {
         window.clearTimeout(coffeeStatusTimeoutRef.current);
+      }
+      if (splitMeasureFrameRef.current !== null) {
+        window.cancelAnimationFrame(splitMeasureFrameRef.current);
       }
     };
   }, []);
@@ -287,6 +296,87 @@ const App = () => {
     }
 
     scrollSyncFrameRef.current = window.requestAnimationFrame(runSplitScrollSync);
+  };
+
+  const requestSplitPaneMeasure = () => {
+    if (splitMeasureFrameRef.current !== null) {
+      return;
+    }
+
+    splitMeasureFrameRef.current = window.requestAnimationFrame(() => {
+      splitMeasureFrameRef.current = null;
+      draftEditorViewRef.current?.requestMeasure();
+      editorEditorViewRef.current?.requestMeasure();
+    });
+  };
+
+  const getSplitDraftPercentFromClientY = (clientY: number): number | null => {
+    const splitContainer = splitContainerRef.current;
+
+    if (!splitContainer) {
+      return null;
+    }
+
+    const rect = splitContainer.getBoundingClientRect();
+
+    if (rect.height === 0) {
+      return null;
+    }
+
+    const rawPercent = ((clientY - rect.top) / rect.height) * 100;
+    return Math.min(
+      MAX_SPLIT_DRAFT_PERCENT,
+      Math.max(MIN_SPLIT_DRAFT_PERCENT, rawPercent),
+    );
+  };
+
+  const updateSplitDraftPercentFromClientY = (clientY: number) => {
+    const nextPercent = getSplitDraftPercentFromClientY(clientY);
+
+    if (nextPercent === null) {
+      return;
+    }
+
+    setSplitDraftPercent(nextPercent);
+    requestSplitPaneMeasure();
+  };
+
+  const handleSplitResizePointerDown = (
+    event: PointerEvent<HTMLDivElement>,
+  ) => {
+    event.preventDefault();
+    splitResizePointerIdRef.current = event.pointerId;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    updateSplitDraftPercentFromClientY(event.clientY);
+  };
+
+  const handleSplitResizePointerMove = (
+    event: PointerEvent<HTMLDivElement>,
+  ) => {
+    if (splitResizePointerIdRef.current !== event.pointerId) {
+      return;
+    }
+
+    updateSplitDraftPercentFromClientY(event.clientY);
+  };
+
+  const handleSplitResizePointerUp = (
+    event: PointerEvent<HTMLDivElement>,
+  ) => {
+    if (splitResizePointerIdRef.current !== event.pointerId) {
+      return;
+    }
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    splitResizePointerIdRef.current = null;
+  };
+
+  const handleSplitResizeDoubleClick = () => {
+    setSplitDraftPercent(DEFAULT_SPLIT_DRAFT_PERCENT);
+    requestSplitPaneMeasure();
   };
 
   const getTargetPane = (): PaneId => {
@@ -444,8 +534,11 @@ const App = () => {
         )}
 
         {mode === 'split' && (
-          <div className="flex h-full min-h-0 flex-col">
-            <div className="min-h-0 flex-1">
+          <div ref={splitContainerRef} className="flex h-full min-h-0 flex-col">
+            <div
+              className="min-h-0 shrink-0"
+              style={{ flexBasis: `${splitDraftPercent}%` }}
+            >
               <CodeMirrorPane
                 value={draftText}
                 onDocumentChange={({ value, changes }) => {
@@ -484,7 +577,21 @@ const App = () => {
                 }}
               />
             </div>
-            <div className="h-px bg-[#2A2B2C]" />
+            <div
+              role="separator"
+              aria-orientation="horizontal"
+              aria-valuemin={MIN_SPLIT_DRAFT_PERCENT}
+              aria-valuemax={MAX_SPLIT_DRAFT_PERCENT}
+              aria-valuenow={Math.round(splitDraftPercent)}
+              onPointerDown={handleSplitResizePointerDown}
+              onPointerMove={handleSplitResizePointerMove}
+              onPointerUp={handleSplitResizePointerUp}
+              onPointerCancel={handleSplitResizePointerUp}
+              onDoubleClick={handleSplitResizeDoubleClick}
+              className="group flex h-2 shrink-0 cursor-row-resize touch-none select-none items-center"
+            >
+              <div className="h-px w-full bg-[#2A2B2C] group-hover:bg-[#3A3B3C]" />
+            </div>
             <div className="min-h-0 flex-1">
               <CodeMirrorPane
                 value={editorText}
@@ -579,3 +686,7 @@ const toggleActiveFontStyleType = (
 
   return [...activeTypes, fontStyleType];
 };
+
+const DEFAULT_SPLIT_DRAFT_PERCENT = 50;
+const MIN_SPLIT_DRAFT_PERCENT = 15;
+const MAX_SPLIT_DRAFT_PERCENT = 85;
