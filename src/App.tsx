@@ -861,7 +861,7 @@ const FontStyleControls = ({
       <FontStyleControlButton
         label="U"
         ariaLabel="Toggle underline"
-        labelClassName="underline underline-offset-2"
+        labelClassName="border-b border-current"
         isActive={activeFontStyleTypes.includes('underline')}
         onClick={() => onToggleFontStyle('underline')}
       />
@@ -899,7 +899,10 @@ const FontStyleControlButton = ({
       onClick={onClick}
       className={`inline-flex items-center justify-center px-1 text-xs font-normal ${stateClassName} hover:bg-[#242526] hover:text-[#D4D4D4] focus:outline-none focus-visible:bg-[#242526] focus-visible:text-[#D4D4D4]`}
     >
-      <span className={labelClassName} style={labelStyle}>
+      <span
+        className={`inline-flex h-4 min-w-3 items-center justify-center leading-none ${labelClassName ?? ''}`}
+        style={labelStyle}
+      >
         {label}
       </span>
     </button>
@@ -942,9 +945,6 @@ const CoffeeIcon = () => {
     >
       <path d="M3 8h13v7a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8Z" />
       <path d="M16 10h2a2 2 0 1 1 0 4h-2" />
-      <path d="M6 4v2" />
-      <path d="M10 4v2" />
-      <path d="M14 4v2" />
     </svg>
   );
 };
