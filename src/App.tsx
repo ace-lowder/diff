@@ -127,6 +127,7 @@ const App = () => {
   const editorStats = useMemo(() => {
     return getEditorStats(editorText, displayChanges);
   }, [editorText, displayChanges]);
+  const shouldShowDraftDiff = editorText.length > 0;
 
   useEffect(() => {
     setStoredText(storageKeys.draftText, draftText);
@@ -576,9 +577,11 @@ const App = () => {
                   setDraftScrollOffset(scrollOffset);
                   syncSplitScroll('draft');
                 }}
-                draftHighlightRanges={draftHighlightRanges}
+                draftHighlightRanges={shouldShowDraftDiff ? draftHighlightRanges : []}
                 fontStyleRanges={draftFontStyleRanges}
-                draftLineDecorations={lineDecorations.draftLineDecorations}
+                draftLineDecorations={
+                  shouldShowDraftDiff ? lineDecorations.draftLineDecorations : []
+                }
                 onEditorViewChange={(editorView) => {
                   draftEditorViewRef.current = editorView;
                 }}
@@ -662,9 +665,13 @@ const App = () => {
                       setDraftScrollOffset(scrollOffset);
                       syncSplitScroll('draft');
                     }}
-                    draftHighlightRanges={draftHighlightRanges}
+                    draftHighlightRanges={
+                      shouldShowDraftDiff ? draftHighlightRanges : []
+                    }
                     fontStyleRanges={draftFontStyleRanges}
-                    draftLineDecorations={lineDecorations.draftLineDecorations}
+                    draftLineDecorations={
+                      shouldShowDraftDiff ? lineDecorations.draftLineDecorations : []
+                    }
                     onEditorViewChange={(editorView) => {
                       draftEditorViewRef.current = editorView;
                     }}

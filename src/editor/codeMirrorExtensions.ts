@@ -148,11 +148,9 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       WebkitBoxDecorationBreak: 'clone',
       boxShadow: '0 -0.25em 0 #693330, 0 0.25em 0 #693330',
     },
-    '.byline-added-line': {
-      backgroundColor: '#2A4C2C',
-    },
     '.cm-line.byline-added-line': {
       backgroundColor: '#2A4C2C',
+      boxShadow: '0 -0.25em 0 #2A4C2C, 0 0.25em 0 #2A4C2C',
     },
     '.byline-deleted-marker': {
       position: 'relative',
@@ -178,6 +176,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     },
     '.cm-line.byline-deleted-draft-line': {
       backgroundColor: '#693330',
+      boxShadow: '0 -0.25em 0 #693330, 0 0.25em 0 #693330',
     },
     '.cm-line.byline-lowest-edited-line': {
       borderBottom: '1px dashed #8C8C8C',
