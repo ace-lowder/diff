@@ -739,10 +739,10 @@ const App = () => {
               onPointerUp={handleEditorWidthPointerUp}
               onPointerCancel={handleEditorWidthPointerUp}
               onDoubleClick={handleEditorWidthDoubleClick}
-              className="group absolute bottom-0 top-0 z-10 hidden w-3 -translate-x-1/2 cursor-col-resize touch-none select-none sm:block"
+              className="group absolute bottom-0 top-0 z-10 hidden w-3 -translate-x-full cursor-col-resize touch-none select-none sm:block"
               style={{ left: EDITOR_WIDTH_HANDLE_LEFT }}
             >
-              <div className="mx-auto h-full w-px bg-transparent group-hover:bg-[#3A3B3C] group-focus-visible:bg-[#3A3B3C]" />
+              <div className="absolute right-0 h-full w-px bg-transparent group-hover:bg-[#3A3B3C]" />
             </div>
           </div>
         </div>
