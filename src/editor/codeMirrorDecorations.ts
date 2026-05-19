@@ -79,10 +79,11 @@ export const getCodeMirrorDecorations = (
   editorView: EditorView,
   decorations: CodeMirrorDecorations,
 ): DecorationSet => {
+  const docLength = editorView.state.doc.length;
   const ranges: Range<Decoration>[] = [
-    ...getFontStyleDecorations(decorations.fontStyleRanges),
-    ...getEditorHighlightDecorations(decorations.editorHighlightRanges),
-    ...getDraftHighlightDecorations(decorations.draftHighlightRanges),
+    ...getFontStyleDecorations(decorations.fontStyleRanges, docLength),
+    ...getEditorHighlightDecorations(decorations.editorHighlightRanges, docLength),
+    ...getDraftHighlightDecorations(decorations.draftHighlightRanges, docLength),
     ...getEditorLineDecorations(editorView, decorations.editorLineDecorations),
     ...getDraftLineDecorations(editorView, decorations.draftLineDecorations),
     ...getLowestEditedLineDecorations(editorView, decorations.lowestEditedLine),
@@ -140,18 +141,39 @@ class MissingLineWidget extends WidgetType {
 
 const getEditorHighlightDecorations = (
   highlightRanges: EditorHighlightRange[],
+  docLength: number,
 ): Range<Decoration>[] => {
   const decorations: Range<Decoration>[] = [];
 
   for (const range of highlightRanges) {
     if (range.type === 'added') {
-      if (range.to <= range.from) {
+      const validRange = getValidTextRange({
+        from: range.from,
+        to: range.to,
+        docLength,
+      });
+
+      if (!validRange) {
         continue;
       }
 
       decorations.push(
-        Decoration.mark({ class: 'byline-added-text' }).range(range.from, range.to),
+        Decoration.mark({ class: 'byline-added-text' }).range(
+          validRange.from,
+          validRange.to,
+        ),
       );
+      continue;
+    }
+
+    const validRange = getValidTextRange({
+      from: range.from,
+      to: range.from,
+      docLength,
+      allowEmpty: true,
+    });
+
+    if (!validRange) {
       continue;
     }
 
@@ -159,7 +181,7 @@ const getEditorHighlightDecorations = (
       Decoration.widget({
         widget: new DeletedMarkerWidget(),
         side: -1,
-      }).range(range.from),
+      }).range(validRange.from),
     );
   }
 
@@ -168,16 +190,26 @@ const getEditorHighlightDecorations = (
 
 const getDraftHighlightDecorations = (
   draftHighlightRanges: DraftHighlightRange[],
+  docLength: number,
 ): Range<Decoration>[] => {
   const decorations: Range<Decoration>[] = [];
 
   for (const range of draftHighlightRanges) {
-    if (range.to <= range.from) {
+    const validRange = getValidTextRange({
+      from: range.from,
+      to: range.to,
+      docLength,
+    });
+
+    if (!validRange) {
       continue;
     }
 
     decorations.push(
-      Decoration.mark({ class: 'byline-deleted-text' }).range(range.from, range.to),
+      Decoration.mark({ class: 'byline-deleted-text' }).range(
+        validRange.from,
+        validRange.to,
+      ),
     );
   }
 
@@ -264,11 +296,18 @@ const getLowestEditedLineDecorations = (
 
 const getFontStyleDecorations = (
   fontStyleRanges: FontStyleRange[],
+  docLength: number,
 ): Range<Decoration>[] => {
   const decorations: Range<Decoration>[] = [];
 
   for (const range of fontStyleRanges) {
-    if (range.to <= range.from) {
+    const validRange = getValidTextRange({
+      from: range.from,
+      to: range.to,
+      docLength,
+    });
+
+    if (!validRange) {
       continue;
     }
 
@@ -277,7 +316,9 @@ const getFontStyleDecorations = (
       continue;
     }
 
-    decorations.push(Decoration.mark({ class: className }).range(range.from, range.to));
+    decorations.push(
+      Decoration.mark({ class: className }).range(validRange.from, validRange.to),
+    );
   }
 
   return decorations;
@@ -297,4 +338,46 @@ const getFontStyleClassName = (fontStyleType: FontStyleType): string | null => {
   }
 
   return null;
+};
+
+type ValidTextRange = {
+  from: number;
+  to: number;
+};
+
+const getValidTextRange = ({
+  from,
+  to,
+  docLength,
+  allowEmpty = false,
+}: {
+  from: number;
+  to: number;
+  docLength: number;
+  allowEmpty?: boolean;
+}): ValidTextRange | null => {
+  if (
+    !Number.isFinite(from) ||
+    !Number.isFinite(to) ||
+    !Number.isFinite(docLength) ||
+    docLength < 0
+  ) {
+    return null;
+  }
+
+  const clampedFrom = Math.min(docLength, Math.max(0, from));
+  const clampedTo = Math.min(docLength, Math.max(0, to));
+
+  if (clampedTo < clampedFrom) {
+    return null;
+  }
+
+  if (clampedTo === clampedFrom && !allowEmpty) {
+    return null;
+  }
+
+  return {
+    from: clampedFrom,
+    to: clampedTo,
+  };
 };
