@@ -681,9 +681,9 @@ const App = () => {
                   onPointerUp={handleSplitResizePointerUp}
                   onPointerCancel={handleSplitResizePointerUp}
                   onDoubleClick={handleSplitResizeDoubleClick}
-                  className="group flex h-2 shrink-0 cursor-row-resize touch-none select-none items-center"
+                  className="group relative h-2 shrink-0 cursor-row-resize touch-none select-none"
                 >
-                  <div className="h-px w-full bg-[#2A2B2C] group-hover:bg-[#3A3B3C]" />
+                  <div className="absolute left-0 top-0 h-px w-full bg-[#2A2B2C] group-hover:bg-[#3A3B3C]" />
                 </div>
                 <div className="min-h-0 flex-1">
                   <CodeMirrorPane
@@ -734,7 +734,6 @@ const App = () => {
               aria-valuemin={MIN_EDITOR_WIDTH_PERCENT}
               aria-valuemax={MAX_EDITOR_WIDTH_PERCENT}
               aria-valuenow={Math.round(editorWidthPercent)}
-              tabIndex={0}
               onPointerDown={handleEditorWidthPointerDown}
               onPointerMove={handleEditorWidthPointerMove}
               onPointerUp={handleEditorWidthPointerUp}
