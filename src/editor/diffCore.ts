@@ -82,6 +82,11 @@ type LinePair = {
   placement: DraftLineDecorationPlacement;
 };
 
+type LineAlignmentMatch = {
+  draftIndex: number;
+  editorIndex: number;
+};
+
 export const getWordCount = (text: string): number => {
   const trimmedText = text.trim();
 
@@ -761,185 +766,188 @@ const areSimilarLines = (draftLine: string, editorLine: string): boolean => {
     return true;
   }
 
-  return getSharedWordRatio(normalizedDraftLine, normalizedEditorLine) > 0.5;
-};
-
-const findSimilarLineIndex = ({
-  lines,
-  targetLine,
-  startIndex,
-}: {
-  lines: string[];
-  targetLine: string;
-  startIndex: number;
-}): number | null => {
-  if (!targetLine.trim()) {
-    return null;
-  }
-
-  for (let index = startIndex; index < lines.length; index += 1) {
-    if (areSimilarLines(lines[index], targetLine)) {
-      return index;
-    }
-  }
-
-  return null;
-};
-
-const findExactLineIndex = ({
-  lines,
-  targetLine,
-  startIndex,
-}: {
-  lines: string[];
-  targetLine: string;
-  startIndex: number;
-}): number | null => {
-  if (!targetLine.trim()) {
-    return null;
-  }
-
-  for (let index = startIndex; index < lines.length; index += 1) {
-    if (lines[index] === targetLine) {
-      return index;
-    }
-  }
-
-  return null;
+  return getSharedWordRatio(normalizedDraftLine, normalizedEditorLine) >= 0.4;
 };
 
 const getLinePairs = (draftText: string, editorText: string): LinePair[] => {
   const draftLines = draftText.split('\n');
   const editorLines = editorText.split('\n');
-  const linePairs: LinePair[] = [];
+  const matches = getLineAlignmentMatches(draftLines, editorLines);
+  return getLinePairsFromMatches({
+    draftLines,
+    editorLines,
+    matches,
+  });
+};
 
+const getLineAlignmentMatches = (
+  draftLines: string[],
+  editorLines: string[],
+): LineAlignmentMatch[] => {
+  const draftCount = draftLines.length;
+  const editorCount = editorLines.length;
+  const scores: number[][] = Array.from({ length: draftCount + 1 }, () =>
+    Array(editorCount + 1).fill(0),
+  );
+  const skipPenalty = 1;
+
+  for (let draftIndex = draftCount - 1; draftIndex >= 0; draftIndex -= 1) {
+    scores[draftIndex][editorCount] = scores[draftIndex + 1][editorCount] - skipPenalty;
+  }
+
+  for (let editorIndex = editorCount - 1; editorIndex >= 0; editorIndex -= 1) {
+    scores[draftCount][editorIndex] = scores[draftCount][editorIndex + 1] - skipPenalty;
+  }
+
+  for (let draftIndex = draftCount - 1; draftIndex >= 0; draftIndex -= 1) {
+    for (let editorIndex = editorCount - 1; editorIndex >= 0; editorIndex -= 1) {
+      const skipDraftScore = scores[draftIndex + 1][editorIndex] - skipPenalty;
+      const skipEditorScore = scores[draftIndex][editorIndex + 1] - skipPenalty;
+      const matchScore = getLineMatchScore(
+        draftLines[draftIndex],
+        editorLines[editorIndex],
+      );
+      const withMatchScore =
+        matchScore > 0
+          ? matchScore + scores[draftIndex + 1][editorIndex + 1]
+          : Number.NEGATIVE_INFINITY;
+
+      scores[draftIndex][editorIndex] = Math.max(
+        skipDraftScore,
+        skipEditorScore,
+        withMatchScore,
+      );
+    }
+  }
+
+  const matches: LineAlignmentMatch[] = [];
   let draftIndex = 0;
   let editorIndex = 0;
 
-  while (draftIndex < draftLines.length && editorIndex < editorLines.length) {
-    const draftLine = draftLines[draftIndex];
-    const editorLine = editorLines[editorIndex];
-    const draftLineNumber = draftIndex + 1;
-    const editorLineNumber = editorIndex + 1;
+  while (draftIndex < draftCount && editorIndex < editorCount) {
+    const currentScore = scores[draftIndex][editorIndex];
+    const matchScore = getLineMatchScore(
+      draftLines[draftIndex],
+      editorLines[editorIndex],
+    );
+    const withMatchScore =
+      matchScore > 0
+        ? matchScore + scores[draftIndex + 1][editorIndex + 1]
+        : Number.NEGATIVE_INFINITY;
 
-    if (areSimilarLines(draftLine, editorLine)) {
-      linePairs.push({
-        draftLine,
-        editorLine,
-        draftLineNumber,
-        editorLineNumber,
-        placement: 'before',
-      });
+    if (matchScore === 3 && withMatchScore >= currentScore) {
+      matches.push({ draftIndex, editorIndex });
       draftIndex += 1;
       editorIndex += 1;
       continue;
     }
 
-    const exactDraftMatchInEditor = findExactLineIndex({
-      lines: editorLines,
-      targetLine: draftLine,
-      startIndex: editorIndex + 1,
-    });
-    const exactEditorMatchInDraft = findExactLineIndex({
-      lines: draftLines,
-      targetLine: editorLine,
-      startIndex: draftIndex + 1,
-    });
-
-    const draftMatchInEditor = findSimilarLineIndex({
-      lines: editorLines,
-      targetLine: draftLine,
-      startIndex: editorIndex + 1,
-    });
-    const editorMatchInDraft = findSimilarLineIndex({
-      lines: draftLines,
-      targetLine: editorLine,
-      startIndex: draftIndex + 1,
-    });
-
-    let selectedAnchor: 'draftMatchInEditor' | 'editorMatchInDraft' | 'pairCurrent' =
-      'pairCurrent';
-    if (
-      exactDraftMatchInEditor !== null &&
-      exactEditorMatchInDraft === null
-    ) {
-      selectedAnchor = 'draftMatchInEditor';
-    } else if (
-      exactDraftMatchInEditor === null &&
-      exactEditorMatchInDraft !== null
-    ) {
-      selectedAnchor = 'editorMatchInDraft';
-    } else if (
-      exactDraftMatchInEditor !== null &&
-      exactEditorMatchInDraft !== null
-    ) {
-      const draftMatchDistance = exactDraftMatchInEditor - editorIndex;
-      const editorMatchDistance = exactEditorMatchInDraft - draftIndex;
-
-      if (draftMatchDistance < editorMatchDistance) {
-        selectedAnchor = 'draftMatchInEditor';
-      } else if (editorMatchDistance < draftMatchDistance) {
-        selectedAnchor = 'editorMatchInDraft';
-      }
-    } else if (draftMatchInEditor !== null && editorMatchInDraft === null) {
-      selectedAnchor = 'draftMatchInEditor';
-    } else if (draftMatchInEditor === null && editorMatchInDraft !== null) {
-      selectedAnchor = 'editorMatchInDraft';
-    } else if (draftMatchInEditor !== null && editorMatchInDraft !== null) {
-      const draftMatchDistance = draftMatchInEditor - editorIndex;
-      const editorMatchDistance = editorMatchInDraft - draftIndex;
-
-      if (draftMatchDistance < editorMatchDistance) {
-        selectedAnchor = 'draftMatchInEditor';
-      } else if (editorMatchDistance < draftMatchDistance) {
-        selectedAnchor = 'editorMatchInDraft';
-      }
-    }
-
-    const selectedDraftMatchInEditor =
-      exactDraftMatchInEditor ?? draftMatchInEditor;
-    const selectedEditorMatchInDraft =
-      exactEditorMatchInDraft ?? editorMatchInDraft;
-
-    if (
-      selectedAnchor === 'draftMatchInEditor' &&
-      selectedDraftMatchInEditor !== null
-    ) {
-      while (editorIndex < selectedDraftMatchInEditor) {
-        linePairs.push({
-          draftLine: null,
-          editorLine: editorLines[editorIndex],
-          draftLineNumber,
-          editorLineNumber: editorIndex + 1,
-          placement: 'before',
-        });
-        editorIndex += 1;
-      }
+    if (matchScore > 0 && withMatchScore >= currentScore) {
+      matches.push({ draftIndex, editorIndex });
+      draftIndex += 1;
+      editorIndex += 1;
       continue;
     }
 
-    if (
-      selectedAnchor === 'editorMatchInDraft' &&
-      selectedEditorMatchInDraft !== null
+    const skipDraftScore = scores[draftIndex + 1][editorIndex] - skipPenalty;
+    const skipEditorScore = scores[draftIndex][editorIndex + 1] - skipPenalty;
+
+    if (skipDraftScore >= skipEditorScore) {
+      draftIndex += 1;
+    } else {
+      editorIndex += 1;
+    }
+  }
+
+  return matches;
+};
+
+const getLineMatchScore = (draftLine: string, editorLine: string): number => {
+  if (!draftLine.trim() || !editorLine.trim()) {
+    return 0;
+  }
+
+  if (draftLine === editorLine) {
+    return 3;
+  }
+
+  if (areSimilarLines(draftLine, editorLine)) {
+    return 1;
+  }
+
+  return 0;
+};
+
+const getLinePairsFromMatches = ({
+  draftLines,
+  editorLines,
+  matches,
+}: {
+  draftLines: string[];
+  editorLines: string[];
+  matches: LineAlignmentMatch[];
+}): LinePair[] => {
+  const linePairs: LinePair[] = [];
+  let draftIndex = 0;
+  let editorIndex = 0;
+
+  for (const match of matches) {
+    while (
+      draftIndex < match.draftIndex &&
+      editorIndex < match.editorIndex &&
+      !draftLines[draftIndex].trim() &&
+      !editorLines[editorIndex].trim()
     ) {
-      while (draftIndex < selectedEditorMatchInDraft) {
-        linePairs.push({
-          draftLine: draftLines[draftIndex],
-          editorLine: null,
-          draftLineNumber: draftIndex + 1,
-          editorLineNumber,
-          placement: 'before',
-        });
-        draftIndex += 1;
-      }
-      continue;
+      linePairs.push({
+        draftLine: draftLines[draftIndex],
+        editorLine: editorLines[editorIndex],
+        draftLineNumber: draftIndex + 1,
+        editorLineNumber: editorIndex + 1,
+        placement: 'before',
+      });
+      draftIndex += 1;
+      editorIndex += 1;
+    }
+
+    while (editorIndex < match.editorIndex) {
+      linePairs.push({
+        draftLine: null,
+        editorLine: editorLines[editorIndex],
+        draftLineNumber: match.draftIndex + 1,
+        editorLineNumber: editorIndex + 1,
+        placement: 'before',
+      });
+      editorIndex += 1;
+    }
+
+    while (draftIndex < match.draftIndex) {
+      linePairs.push({
+        draftLine: draftLines[draftIndex],
+        editorLine: null,
+        draftLineNumber: draftIndex + 1,
+        editorLineNumber: match.editorIndex + 1,
+        placement: 'before',
+      });
+      draftIndex += 1;
     }
 
     linePairs.push({
-      draftLine,
-      editorLine,
-      draftLineNumber,
-      editorLineNumber,
+      draftLine: draftLines[match.draftIndex],
+      editorLine: editorLines[match.editorIndex],
+      draftLineNumber: match.draftIndex + 1,
+      editorLineNumber: match.editorIndex + 1,
+      placement: 'before',
+    });
+    draftIndex = match.draftIndex + 1;
+    editorIndex = match.editorIndex + 1;
+  }
+
+  while (draftIndex < draftLines.length && editorIndex < editorLines.length) {
+    linePairs.push({
+      draftLine: draftLines[draftIndex],
+      editorLine: editorLines[editorIndex],
+      draftLineNumber: draftIndex + 1,
+      editorLineNumber: editorIndex + 1,
       placement: 'before',
     });
     draftIndex += 1;
@@ -962,7 +970,7 @@ const getLinePairs = (draftText: string, editorText: string): LinePair[] => {
       draftLine: draftLines[draftIndex],
       editorLine: null,
       draftLineNumber: draftIndex + 1,
-      editorLineNumber: editorIndex + 1,
+      editorLineNumber: editorLines.length + 1,
       placement: 'before',
     });
     draftIndex += 1;

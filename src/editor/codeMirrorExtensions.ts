@@ -140,24 +140,23 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       backgroundColor: '#2A4C2C',
       boxDecorationBreak: 'clone',
       WebkitBoxDecorationBreak: 'clone',
-      boxShadow: '0 -0.25em 0 #2A4C2C, 0 0.25em 0 #2A4C2C',
+      boxShadow: '0 -0.3em 0 #2A4C2C, 0 0.2em 0 #2A4C2C',
     },
     '.byline-deleted-text': {
       backgroundColor: '#693330',
       boxDecorationBreak: 'clone',
       WebkitBoxDecorationBreak: 'clone',
-      boxShadow: '0 -0.25em 0 #693330, 0 0.25em 0 #693330',
+      boxShadow: '0 -0.3em 0 #693330, 0 0.2em 0 #693330',
     },
     '.cm-line.byline-added-line': {
       backgroundColor: '#2A4C2C',
-      boxShadow: '0 -0.25em 0 #2A4C2C, 0 0.25em 0 #2A4C2C',
     },
     '.byline-deleted-marker': {
       position: 'relative',
       display: 'inline-block',
       width: '0',
-      height: '1em',
-      verticalAlign: '-0.12em',
+      height: '1.5em',
+      verticalAlign: '-0.3em',
     },
     '.byline-deleted-marker-strip': {
       position: 'absolute',
@@ -172,12 +171,14 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       width: '100%',
       boxSizing: 'border-box',
       lineHeight: '1.5',
+      margin: '0',
+      padding: '0',
+      border: '0',
       backgroundImage:
         'repeating-linear-gradient(-45deg, rgba(140, 140, 140, 0.7) 0, rgba(140, 140, 140, 0.7) 2px, transparent 2px, transparent 6px)',
     },
     '.cm-line.byline-deleted-draft-line': {
       backgroundColor: '#693330',
-      boxShadow: '0 -0.25em 0 #693330, 0 0.25em 0 #693330',
     },
     '.cm-line.byline-lowest-edited-line': {
       borderBottom: '1px dashed #8C8C8C',

@@ -559,6 +559,70 @@ describe('getLineDecorations', () => {
     });
     expect(decorations.editorLineDecorations).toContainEqual({ lineNumber: 2 });
   });
+
+  it('keeps exact lines aligned across multiple inserted editor lines', () => {
+    const draftText = [
+      'Updates are highlighted red',
+      'Your work saves as you type',
+      'New lines will have the pattern below',
+      '',
+      'The bar on the bottom lets you change view, track word count, and more',
+      '',
+      'Check out the bottom bar to track your word count, copy your drafts, and more',
+      '*click the coffee mug to help support me',
+    ].join('\n');
+    const editorText = [
+      'Updates are highlighted green',
+      'Your work saves as you type',
+      '',
+      '',
+      'New lines will look green',
+      '',
+      '',
+      '',
+      'Check out the bottom bar to track your word count, copy your drafts, and more',
+      '*click the coffee mug to help support me',
+    ].join('\n');
+
+    const decorations = getLineDecorations(draftText, editorText);
+
+    expect(decorations.draftLineDecorations).not.toContainEqual({
+      type: 'deletedDraftLine',
+      lineNumber: 7,
+      placement: 'before',
+    });
+    expect(decorations.draftLineDecorations).toContainEqual({
+      type: 'missingEditorLine',
+      lineNumber: 3,
+      placement: 'before',
+      lineCount: 2,
+    });
+    expect(decorations.draftLineDecorations).toContainEqual({
+      type: 'missingEditorLine',
+      lineNumber: 7,
+      placement: 'before',
+      lineCount: 2,
+    });
+  });
+
+  it('does not use blank lines as alignment anchors', () => {
+    const draftText = ['alpha', '', '', 'omega'].join('\n');
+    const editorText = ['alpha', '', '', '', 'omega'].join('\n');
+    const decorations = getLineDecorations(draftText, editorText);
+
+    expect(decorations.editorLineDecorations).toContainEqual({ lineNumber: 4 });
+    expect(decorations.draftLineDecorations).toContainEqual({
+      type: 'missingEditorLine',
+      lineNumber: 4,
+      placement: 'before',
+      lineCount: 1,
+    });
+    expect(decorations.draftLineDecorations).not.toContainEqual({
+      type: 'deletedDraftLine',
+      lineNumber: 4,
+      placement: 'before',
+    });
+  });
 });
 
 describe('getDraftHighlightRanges', () => {
