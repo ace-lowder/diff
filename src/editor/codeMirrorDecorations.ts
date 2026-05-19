@@ -31,15 +31,19 @@ export const editorDecorationsField = StateField.define<DecorationSet>({
     return Decoration.none;
   },
   update(decorations, transaction) {
-    let nextDecorations = decorations.map(transaction.changes);
-
     for (const effect of transaction.effects) {
       if (effect.is(setEditorDecorationsEffect)) {
-        nextDecorations = effect.value;
+        return effect.value;
       }
     }
 
-    return nextDecorations;
+    if (transaction.docChanged) {
+      // Decorations are recomputed from React state, so stale sets are cleared on
+      // edits instead of mapped through document changes.
+      return Decoration.none;
+    }
+
+    return decorations;
   },
   provide(field) {
     return EditorView.decorations.from(field);
@@ -122,6 +126,8 @@ class MissingLineWidget extends WidgetType {
 
     line.className = 'byline-missing-line';
     line.style.height = `${this.lineCount * 1.5}em`;
+    line.contentEditable = 'false';
+    line.tabIndex = -1;
     line.setAttribute('aria-hidden', 'true');
 
     return line;
