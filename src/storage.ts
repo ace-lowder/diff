@@ -1,5 +1,26 @@
 import { normalizeFontStyleRanges, type FontStyleRange } from './fontStyles';
 
+export const DEFAULT_DRAFT_TEXT = `Welcome to Byline
+
+A text editor for messy first drafts.
+
+This is the draft view. Write freely here.
+
+Deleted text will be highlighted in red.`;
+
+export const DEFAULT_EDITOR_TEXT = `Welcome to Byline!
+
+A text editor for cleaner revisions.
+
+This is the editor view. Rewrite your draft here and track what changed.
+
+Updates are highlighted in green.
+New lines are tracked too.
+
+Your writing saves as you type on this device. It will not survive incognito mode, clearing browser data, or switching devices.
+
+Use the footer to switch views, resize panes, copy with highlights, add bold/italic/underline, or support Byline with the coffee icon.`;
+
 export const storageKeys = {
   draftText: 'byline:draftText',
   editorText: 'byline:editorText',
@@ -7,11 +28,23 @@ export const storageKeys = {
   editorFontStyleRanges: 'byline:editorFontStyleRanges',
 } as const;
 
-export const getStoredText = (key: string): string => {
+export const getStoredText = ({
+  key,
+  fallback,
+}: {
+  key: string;
+  fallback: string;
+}): string => {
   try {
-    return window.localStorage.getItem(key) ?? '';
+    const storedValue = window.localStorage.getItem(key);
+
+    if (storedValue === null || storedValue === '') {
+      return fallback;
+    }
+
+    return storedValue;
   } catch {
-    return '';
+    return fallback;
   }
 };
 

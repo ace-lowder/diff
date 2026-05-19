@@ -29,6 +29,8 @@ import {
   type TextSelectionRange,
 } from './fontStyles';
 import {
+  DEFAULT_DRAFT_TEXT,
+  DEFAULT_EDITOR_TEXT,
   getStoredFontStyleRanges,
   getStoredText,
   setStoredFontStyleRanges,
@@ -52,10 +54,16 @@ const App = () => {
   const [mode, setMode] = useState<AppMode>('split');
   const [statsMode, setStatsMode] = useState<StatsMode>('words');
   const [draftText, setDraftText] = useState(() =>
-    getStoredText(storageKeys.draftText),
+    getStoredText({
+      key: storageKeys.draftText,
+      fallback: DEFAULT_DRAFT_TEXT,
+    }),
   );
   const [editorText, setEditorText] = useState(() =>
-    getStoredText(storageKeys.editorText),
+    getStoredText({
+      key: storageKeys.editorText,
+      fallback: DEFAULT_EDITOR_TEXT,
+    }),
   );
   const [draftFontStyleRanges, setDraftFontStyleRanges] = useState<FontStyleRange[]>(
     () => getStoredFontStyleRanges(storageKeys.draftFontStyleRanges),
