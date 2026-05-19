@@ -97,7 +97,7 @@ const App = () => {
   const splitContainerRef = useRef<HTMLDivElement | null>(null);
   const splitResizePointerIdRef = useRef<number | null>(null);
   const editorWidthContainerRef = useRef<HTMLDivElement | null>(null);
-  const editorWidthResizePointerIdRef = useRef<number | null>(null);
+  const editorWidthDragStateRef = useRef<EditorWidthDragState | null>(null);
   const editorMeasureFrameRef = useRef<number | null>(null);
   const copyStatusTimeoutRef = useRef<number | null>(null);
   const coffeeStatusTimeoutRef = useRef<number | null>(null);
@@ -384,47 +384,22 @@ const App = () => {
     requestEditorMeasure();
   };
 
-  const getEditorWidthPercentFromClientX = (clientX: number): number | null => {
-    if (window.innerWidth < EDITOR_WIDTH_RESIZE_MIN_SCREEN_WIDTH) {
-      return null;
-    }
-
-    const editorWidthContainer = editorWidthContainerRef.current;
-
-    if (!editorWidthContainer) {
-      return null;
-    }
-
-    const parentElement = editorWidthContainer.parentElement;
-
-    if (!parentElement) {
-      return null;
-    }
-
-    const rect = parentElement.getBoundingClientRect();
-
-    if (rect.width <= 0) {
-      return null;
-    }
-
-    const leftInset = Math.max(0, clientX - rect.left);
-    const rawPercent = ((rect.width - leftInset * 2) / rect.width) * 100;
+  const getEditorWidthPercentFromDragDelta = ({
+    startEditorWidthPercent,
+    containerWidth,
+    deltaX,
+  }: {
+    startEditorWidthPercent: number;
+    containerWidth: number;
+    deltaX: number;
+  }): number => {
+    const deltaPercent = ((deltaX * 2) / containerWidth) * 100;
+    const nextPercent = startEditorWidthPercent - deltaPercent;
 
     return Math.min(
       MAX_EDITOR_WIDTH_PERCENT,
-      Math.max(MIN_EDITOR_WIDTH_PERCENT, rawPercent),
+      Math.max(MIN_EDITOR_WIDTH_PERCENT, nextPercent),
     );
-  };
-
-  const updateEditorWidthPercentFromClientX = (clientX: number) => {
-    const nextPercent = getEditorWidthPercentFromClientX(clientX);
-
-    if (nextPercent === null) {
-      return;
-    }
-
-    setEditorWidthPercent(nextPercent);
-    requestEditorMeasure();
   };
 
   const handleEditorWidthPointerDown = (
@@ -434,24 +409,48 @@ const App = () => {
       return;
     }
 
+    const editorWidthContainer = editorWidthContainerRef.current;
+    const parentElement = editorWidthContainer?.parentElement;
+    const containerWidth = parentElement?.getBoundingClientRect().width ?? 0;
+
+    if (containerWidth <= 0) {
+      return;
+    }
+
     event.preventDefault();
-    editorWidthResizePointerIdRef.current = event.pointerId;
+    editorWidthDragStateRef.current = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startEditorWidthPercent: editorWidthPercent,
+      containerWidth,
+    };
     event.currentTarget.setPointerCapture(event.pointerId);
-    updateEditorWidthPercentFromClientX(event.clientX);
   };
 
   const handleEditorWidthPointerMove = (
     event: PointerEvent<HTMLDivElement>,
   ) => {
-    if (editorWidthResizePointerIdRef.current !== event.pointerId) {
+    const dragState = editorWidthDragStateRef.current;
+
+    if (!dragState || dragState.pointerId !== event.pointerId) {
       return;
     }
 
-    updateEditorWidthPercentFromClientX(event.clientX);
+    const deltaX = event.clientX - dragState.startClientX;
+    const nextPercent = getEditorWidthPercentFromDragDelta({
+      startEditorWidthPercent: dragState.startEditorWidthPercent,
+      containerWidth: dragState.containerWidth,
+      deltaX,
+    });
+
+    setEditorWidthPercent(nextPercent);
+    requestEditorMeasure();
   };
 
   const handleEditorWidthPointerUp = (event: PointerEvent<HTMLDivElement>) => {
-    if (editorWidthResizePointerIdRef.current !== event.pointerId) {
+    const dragState = editorWidthDragStateRef.current;
+
+    if (!dragState || dragState.pointerId !== event.pointerId) {
       return;
     }
 
@@ -459,7 +458,7 @@ const App = () => {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
 
-    editorWidthResizePointerIdRef.current = null;
+    editorWidthDragStateRef.current = null;
   };
 
   const handleEditorWidthDoubleClick = () => {
@@ -801,6 +800,13 @@ const toggleActiveFontStyleType = (
   return [...activeTypes, fontStyleType];
 };
 
+type EditorWidthDragState = {
+  pointerId: number;
+  startClientX: number;
+  startEditorWidthPercent: number;
+  containerWidth: number;
+};
+
 const DEFAULT_SPLIT_DRAFT_PERCENT = 50;
 const MIN_SPLIT_DRAFT_PERCENT = 15;
 const MAX_SPLIT_DRAFT_PERCENT = 85;
@@ -808,4 +814,4 @@ const DEFAULT_EDITOR_WIDTH_PERCENT = 100;
 const MIN_EDITOR_WIDTH_PERCENT = 55;
 const MAX_EDITOR_WIDTH_PERCENT = 100;
 const EDITOR_WIDTH_RESIZE_MIN_SCREEN_WIDTH = 640;
-const EDITOR_WIDTH_HANDLE_LEFT = '6ch';
+const EDITOR_WIDTH_HANDLE_LEFT = 'calc(6ch + 12px)';
