@@ -74,6 +74,7 @@ export const CodeMirrorPane = ({
   const onFocusPaneRef = useRef(onFocusPane);
   const onToggleFontStyleRef = useRef(onToggleFontStyle);
   const initialValueRef = useRef(value);
+  const lastPropValueRef = useRef(value);
   const lastLocalValueRef = useRef(value);
   const isApplyingExternalValueRef = useRef(false);
   const initialLineNumberRef = useRef(initialLineNumber);
@@ -193,6 +194,9 @@ export const CodeMirrorPane = ({
       return;
     }
 
+    const previousPropValue = lastPropValueRef.current;
+    lastPropValueRef.current = value;
+
     const currentValue = editorView.state.doc.toString();
 
     if (currentValue === value) {
@@ -200,6 +204,13 @@ export const CodeMirrorPane = ({
     }
 
     if (lastLocalValueRef.current === value) {
+      return;
+    }
+
+    const hasUncommittedLocalEdit =
+      value === previousPropValue && currentValue === lastLocalValueRef.current;
+
+    if (hasUncommittedLocalEdit) {
       return;
     }
 
