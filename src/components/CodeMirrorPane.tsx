@@ -74,6 +74,8 @@ export const CodeMirrorPane = ({
   const onFocusPaneRef = useRef(onFocusPane);
   const onToggleFontStyleRef = useRef(onToggleFontStyle);
   const initialValueRef = useRef(value);
+  const lastLocalValueRef = useRef(value);
+  const isApplyingExternalValueRef = useRef(false);
   const initialLineNumberRef = useRef(initialLineNumber);
   const initialScrollOffsetRef = useRef(savedScrollOffset);
   const decorationsRef = useRef(
@@ -151,8 +153,13 @@ export const CodeMirrorPane = ({
         extensions: getCodeMirrorExtensions({
           ariaLabel,
           theme,
-          onDocumentChange: ({ value: nextValue, changes }) =>
-            onDocumentChangeRef.current({ value: nextValue, changes }),
+          onDocumentChange: ({ value: nextValue, changes }) => {
+            if (!isApplyingExternalValueRef.current) {
+              lastLocalValueRef.current = nextValue;
+            }
+
+            onDocumentChangeRef.current({ value: nextValue, changes });
+          },
           onFocusPane: () => onFocusPaneRef.current?.(),
           onToggleFontStyle: (fontStyleType) =>
             onToggleFontStyleRef.current(fontStyleType),
@@ -192,13 +199,24 @@ export const CodeMirrorPane = ({
       return;
     }
 
-    editorView.dispatch({
-      changes: {
-        from: 0,
-        to: currentValue.length,
-        insert: value,
-      },
-    });
+    if (lastLocalValueRef.current === value) {
+      return;
+    }
+
+    isApplyingExternalValueRef.current = true;
+
+    try {
+      editorView.dispatch({
+        changes: {
+          from: 0,
+          to: currentValue.length,
+          insert: value,
+        },
+      });
+      lastLocalValueRef.current = value;
+    } finally {
+      isApplyingExternalValueRef.current = false;
+    }
   }, [value]);
 
   return <div ref={containerRef} className="h-full w-full" />;
