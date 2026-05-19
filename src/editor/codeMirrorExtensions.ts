@@ -171,6 +171,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       display: 'block',
       width: '100%',
       boxSizing: 'border-box',
+      lineHeight: '1.5',
       backgroundImage:
         'repeating-linear-gradient(-45deg, rgba(140, 140, 140, 0.7) 0, rgba(140, 140, 140, 0.7) 2px, transparent 2px, transparent 6px)',
     },

@@ -227,13 +227,13 @@ export const getEditorHighlightRanges = (
     }
 
     if (displayChange.type === 'replaced') {
-      const refinedRange = getReplacementEditorRange({
+      const replacementRanges = getReplacementEditorRanges({
         displayChange,
         editorPosition,
       });
 
-      if (refinedRange) {
-        ranges.push(refinedRange);
+      if (replacementRanges.length > 0) {
+        ranges.push(...replacementRanges);
       }
 
       editorPosition += displayChange.editorValue.length;
@@ -329,6 +329,22 @@ export const getDraftHighlightRanges = (
 
     if (
       displayChange.type === 'replaced' &&
+      shouldRefineCasePunctuationReplacement(
+        displayChange.draftValue,
+        displayChange.editorValue,
+      )
+    ) {
+      const casePunctuationRanges = getCasePunctuationReplacementDraftRanges({
+        draftValue: displayChange.draftValue,
+        editorValue: displayChange.editorValue,
+        draftPosition,
+      });
+
+      if (casePunctuationRanges.length > 0) {
+        ranges.push(...casePunctuationRanges);
+      }
+    } else if (
+      displayChange.type === 'replaced' &&
       shouldRefineReplacementHighlight(
         displayChange.draftValue,
         displayChange.editorValue,
@@ -340,16 +356,18 @@ export const getDraftHighlightRanges = (
       );
       from = draftPosition + offsets.draftFromOffset;
       to = draftPosition + offsets.draftToOffset;
-    }
 
-    if (to > from) {
+      if (to > from) {
+        ranges.push({ type: 'deleted', from, to });
+      }
+    } else if (to > from) {
       ranges.push({ type: 'deleted', from, to });
     }
 
     draftPosition = fullRangeTo;
   }
 
-  return ranges;
+  return mergeDeletedRangesAcrossSingleSpace(ranges, getDraftText(displayChanges));
 };
 
 export const getLowestEditedLine = (
@@ -378,13 +396,26 @@ export const getLowestEditedLine = (
   return { lineNumber: lowestEditedLineNumber };
 };
 
-const getReplacementEditorRange = ({
+const getReplacementEditorRanges = ({
   displayChange,
   editorPosition,
 }: {
   displayChange: DisplayChange;
   editorPosition: number;
-}): EditorHighlightRange | null => {
+}): EditorHighlightRange[] => {
+  if (
+    shouldRefineCasePunctuationReplacement(
+      displayChange.draftValue,
+      displayChange.editorValue,
+    )
+  ) {
+    return getCasePunctuationReplacementEditorRanges({
+      draftValue: displayChange.draftValue,
+      editorValue: displayChange.editorValue,
+      editorPosition,
+    });
+  }
+
   const shouldRefine = shouldRefineReplacementHighlight(
     displayChange.draftValue,
     displayChange.editorValue,
@@ -399,19 +430,19 @@ const getReplacementEditorRange = ({
     const to = editorPosition + offsets.editorToOffset;
 
     if (to > from) {
-      return { type: 'added', from, to };
+      return [{ type: 'added', from, to }];
     }
 
-    return null;
+    return [];
   }
 
   const from = editorPosition;
   const to = from + displayChange.editorValue.length;
   if (to <= from) {
-    return null;
+    return [];
   }
 
-  return { type: 'added', from, to };
+  return [{ type: 'added', from, to }];
 };
 
 const getLastEditedEditorLine = (
@@ -438,6 +469,10 @@ const shouldRefineReplacementHighlight = (
   draftValue: string,
   editorValue: string,
 ): boolean => {
+  if (shouldRefineCasePunctuationReplacement(draftValue, editorValue)) {
+    return true;
+  }
+
   if (!draftValue || !editorValue) {
     return false;
   }
@@ -456,6 +491,156 @@ const shouldRefineReplacementHighlight = (
   const sharedSuffixLength = draftValue.length - offsets.draftToOffset;
 
   return sharedPrefixLength > 0 || sharedSuffixLength > 0;
+};
+
+const shouldRefineCasePunctuationReplacement = (
+  draftValue: string,
+  editorValue: string,
+): boolean => {
+  if (!draftValue || !editorValue) {
+    return false;
+  }
+
+  if (/\s/.test(draftValue) || /\s/.test(editorValue)) {
+    return false;
+  }
+
+  const draftCore = getLowercaseAlphanumericText(draftValue);
+  const editorCore = getLowercaseAlphanumericText(editorValue);
+
+  if (!draftCore || !editorCore) {
+    return false;
+  }
+
+  if (draftCore !== editorCore) {
+    return false;
+  }
+
+  return draftValue !== editorValue;
+};
+
+const getLowercaseAlphanumericText = (value: string): string => {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+};
+
+const getCasePunctuationReplacementEditorRanges = ({
+  draftValue,
+  editorValue,
+  editorPosition,
+}: {
+  draftValue: string;
+  editorValue: string;
+  editorPosition: number;
+}): EditorHighlightRange[] => {
+  const draftAlphanumericPositions = getAlphanumericPositions(draftValue);
+  const editorAlphanumericPositions = getAlphanumericPositions(editorValue);
+
+  if (draftAlphanumericPositions.length !== editorAlphanumericPositions.length) {
+    return [];
+  }
+
+  const changedEditorPositions = new Set<number>();
+
+  for (let index = 0; index < editorValue.length; index += 1) {
+    if (!isAlphanumericCharacter(editorValue[index])) {
+      changedEditorPositions.add(index);
+    }
+  }
+
+  for (let index = 0; index < draftAlphanumericPositions.length; index += 1) {
+    const draftIndex = draftAlphanumericPositions[index];
+    const editorIndex = editorAlphanumericPositions[index];
+
+    if (draftValue[draftIndex] !== editorValue[editorIndex]) {
+      changedEditorPositions.add(editorIndex);
+    }
+  }
+
+  return getMergedCharacterRanges(changedEditorPositions).map((range) => ({
+    type: 'added',
+    from: editorPosition + range.from,
+    to: editorPosition + range.to,
+  }));
+};
+
+const getCasePunctuationReplacementDraftRanges = ({
+  draftValue,
+  editorValue,
+  draftPosition,
+}: {
+  draftValue: string;
+  editorValue: string;
+  draftPosition: number;
+}): DraftHighlightRange[] => {
+  const draftAlphanumericPositions = getAlphanumericPositions(draftValue);
+  const editorAlphanumericPositions = getAlphanumericPositions(editorValue);
+
+  if (draftAlphanumericPositions.length !== editorAlphanumericPositions.length) {
+    return [];
+  }
+
+  const changedDraftPositions = new Set<number>();
+
+  for (let index = 0; index < draftAlphanumericPositions.length; index += 1) {
+    const draftIndex = draftAlphanumericPositions[index];
+    const editorIndex = editorAlphanumericPositions[index];
+
+    if (draftValue[draftIndex] !== editorValue[editorIndex]) {
+      changedDraftPositions.add(draftIndex);
+    }
+  }
+
+  return getMergedCharacterRanges(changedDraftPositions).map((range) => ({
+    type: 'deleted',
+    from: draftPosition + range.from,
+    to: draftPosition + range.to,
+  }));
+};
+
+const getAlphanumericPositions = (value: string): number[] => {
+  const positions: number[] = [];
+
+  for (let index = 0; index < value.length; index += 1) {
+    if (isAlphanumericCharacter(value[index])) {
+      positions.push(index);
+    }
+  }
+
+  return positions;
+};
+
+const isAlphanumericCharacter = (value: string): boolean => {
+  return /[a-z0-9]/i.test(value);
+};
+
+const getMergedCharacterRanges = (
+  characterPositions: Set<number>,
+): Array<{ from: number; to: number }> => {
+  const sortedPositions = [...characterPositions].sort((left, right) => left - right);
+
+  if (sortedPositions.length === 0) {
+    return [];
+  }
+
+  const ranges: Array<{ from: number; to: number }> = [];
+  let currentFrom = sortedPositions[0];
+  let currentTo = currentFrom + 1;
+
+  for (let index = 1; index < sortedPositions.length; index += 1) {
+    const position = sortedPositions[index];
+
+    if (position === currentTo) {
+      currentTo += 1;
+      continue;
+    }
+
+    ranges.push({ from: currentFrom, to: currentTo });
+    currentFrom = position;
+    currentTo = position + 1;
+  }
+
+  ranges.push({ from: currentFrom, to: currentTo });
+  return ranges;
 };
 
 const getReplacementHighlightOffsets = (
@@ -601,6 +786,28 @@ const findSimilarLineIndex = ({
   return null;
 };
 
+const findExactLineIndex = ({
+  lines,
+  targetLine,
+  startIndex,
+}: {
+  lines: string[];
+  targetLine: string;
+  startIndex: number;
+}): number | null => {
+  if (!targetLine.trim()) {
+    return null;
+  }
+
+  for (let index = startIndex; index < lines.length; index += 1) {
+    if (lines[index] === targetLine) {
+      return index;
+    }
+  }
+
+  return null;
+};
+
 const getLinePairs = (draftText: string, editorText: string): LinePair[] => {
   const draftLines = draftText.split('\n');
   const editorLines = editorText.split('\n');
@@ -628,6 +835,17 @@ const getLinePairs = (draftText: string, editorText: string): LinePair[] => {
       continue;
     }
 
+    const exactDraftMatchInEditor = findExactLineIndex({
+      lines: editorLines,
+      targetLine: draftLine,
+      startIndex: editorIndex + 1,
+    });
+    const exactEditorMatchInDraft = findExactLineIndex({
+      lines: draftLines,
+      targetLine: editorLine,
+      startIndex: draftIndex + 1,
+    });
+
     const draftMatchInEditor = findSimilarLineIndex({
       lines: editorLines,
       targetLine: draftLine,
@@ -641,7 +859,29 @@ const getLinePairs = (draftText: string, editorText: string): LinePair[] => {
 
     let selectedAnchor: 'draftMatchInEditor' | 'editorMatchInDraft' | 'pairCurrent' =
       'pairCurrent';
-    if (draftMatchInEditor !== null && editorMatchInDraft === null) {
+    if (
+      exactDraftMatchInEditor !== null &&
+      exactEditorMatchInDraft === null
+    ) {
+      selectedAnchor = 'draftMatchInEditor';
+    } else if (
+      exactDraftMatchInEditor === null &&
+      exactEditorMatchInDraft !== null
+    ) {
+      selectedAnchor = 'editorMatchInDraft';
+    } else if (
+      exactDraftMatchInEditor !== null &&
+      exactEditorMatchInDraft !== null
+    ) {
+      const draftMatchDistance = exactDraftMatchInEditor - editorIndex;
+      const editorMatchDistance = exactEditorMatchInDraft - draftIndex;
+
+      if (draftMatchDistance < editorMatchDistance) {
+        selectedAnchor = 'draftMatchInEditor';
+      } else if (editorMatchDistance < draftMatchDistance) {
+        selectedAnchor = 'editorMatchInDraft';
+      }
+    } else if (draftMatchInEditor !== null && editorMatchInDraft === null) {
       selectedAnchor = 'draftMatchInEditor';
     } else if (draftMatchInEditor === null && editorMatchInDraft !== null) {
       selectedAnchor = 'editorMatchInDraft';
@@ -656,8 +896,16 @@ const getLinePairs = (draftText: string, editorText: string): LinePair[] => {
       }
     }
 
-    if (selectedAnchor === 'draftMatchInEditor' && draftMatchInEditor !== null) {
-      while (editorIndex < draftMatchInEditor) {
+    const selectedDraftMatchInEditor =
+      exactDraftMatchInEditor ?? draftMatchInEditor;
+    const selectedEditorMatchInDraft =
+      exactEditorMatchInDraft ?? editorMatchInDraft;
+
+    if (
+      selectedAnchor === 'draftMatchInEditor' &&
+      selectedDraftMatchInEditor !== null
+    ) {
+      while (editorIndex < selectedDraftMatchInEditor) {
         linePairs.push({
           draftLine: null,
           editorLine: editorLines[editorIndex],
@@ -670,8 +918,11 @@ const getLinePairs = (draftText: string, editorText: string): LinePair[] => {
       continue;
     }
 
-    if (selectedAnchor === 'editorMatchInDraft' && editorMatchInDraft !== null) {
-      while (draftIndex < editorMatchInDraft) {
+    if (
+      selectedAnchor === 'editorMatchInDraft' &&
+      selectedEditorMatchInDraft !== null
+    ) {
+      while (draftIndex < selectedEditorMatchInDraft) {
         linePairs.push({
           draftLine: draftLines[draftIndex],
           editorLine: null,
@@ -794,6 +1045,89 @@ const mergeAddedRangesAcrossSingleSpace = (
   }
 
   return mergedRanges;
+};
+
+const mergeDeletedRangesAcrossSingleSpace = (
+  ranges: DraftHighlightRange[],
+  draftText: string,
+): DraftHighlightRange[] => {
+  if (ranges.length <= 1) {
+    return ranges;
+  }
+
+  const mergedRanges: DraftHighlightRange[] = [];
+  let index = 0;
+
+  while (index < ranges.length) {
+    const currentRange = ranges[index];
+
+    if (currentRange.type !== 'deleted') {
+      mergedRanges.push(currentRange);
+      index += 1;
+      continue;
+    }
+
+    const mergedFrom = currentRange.from;
+    let mergedTo = currentRange.to;
+    let nextIndex = index + 1;
+
+    while (nextIndex < ranges.length) {
+      const nextRange = ranges[nextIndex];
+      if (nextRange.type !== 'deleted') {
+        break;
+      }
+
+      const gapText = draftText.slice(mergedTo, nextRange.from);
+      if (gapText !== ' ' && gapText !== '\t') {
+        break;
+      }
+
+      mergedTo = nextRange.to;
+      nextIndex += 1;
+    }
+
+    const normalizedMergedTo = getNormalizedDeletedRangeEnd({
+      draftText,
+      from: mergedFrom,
+      to: mergedTo,
+    });
+
+    mergedRanges.push({
+      type: 'deleted',
+      from: mergedFrom,
+      to: normalizedMergedTo,
+    });
+    index = nextIndex;
+  }
+
+  return mergedRanges;
+};
+
+const getDraftText = (displayChanges: DisplayChange[]): string => {
+  return displayChanges.map((displayChange) => displayChange.draftValue).join('');
+};
+
+const getNormalizedDeletedRangeEnd = ({
+  draftText,
+  from,
+  to,
+}: {
+  draftText: string;
+  from: number;
+  to: number;
+}): number => {
+  if (to <= from) {
+    return to;
+  }
+
+  const trailingCharacter = draftText[to - 1];
+  const nextCharacter = draftText[to];
+
+  if ((trailingCharacter === ' ' || trailingCharacter === '\t') && nextCharacter) {
+    return to - 1;
+  }
+
+  return to;
 };
 
 const mergeRawChanges = (changes: RawChange[]): RawChange[] => {

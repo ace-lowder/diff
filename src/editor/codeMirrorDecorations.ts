@@ -127,6 +127,9 @@ class MissingLineWidget extends WidgetType {
 
     line.className = 'byline-missing-line';
     line.style.height = `${this.lineCount * 1.5}em`;
+    line.style.margin = '0';
+    line.style.padding = '0';
+    line.style.border = '0';
     line.contentEditable = 'false';
     line.tabIndex = -1;
     line.setAttribute('aria-hidden', 'true');

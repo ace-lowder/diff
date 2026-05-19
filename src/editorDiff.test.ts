@@ -266,6 +266,17 @@ describe('getEditorHighlightRanges', () => {
       addedRanges.some((range) => editorText.slice(range.from, range.to).includes('\n')),
     ).toBe(false);
   });
+
+  it('refines case and punctuation replacement highlights', () => {
+    const editorText = 'Welcome to Byline!';
+    const changes = getDisplayChanges('Welcome to byline', editorText);
+    const ranges = getEditorHighlightRanges(changes);
+
+    expect(ranges.map((range) => editorText.slice(range.from, range.to))).toEqual([
+      'B',
+      '!',
+    ]);
+  });
 });
 
 describe('getLineDecorations', () => {
@@ -527,6 +538,27 @@ describe('getLineDecorations', () => {
       },
     ]);
   });
+
+  it('pairs exact matching lines after inserted editor lines', () => {
+    const draftText = [
+      'intro',
+      'Check out the bottom bar to track your word count, copy your drafts, and more',
+    ].join('\n');
+    const editorText = [
+      'intro',
+      'new lines will also be tracked',
+      'Check out the bottom bar to track your word count, copy your drafts, and more',
+    ].join('\n');
+
+    const decorations = getLineDecorations(draftText, editorText);
+
+    expect(decorations.draftLineDecorations).not.toContainEqual({
+      type: 'deletedDraftLine',
+      lineNumber: 2,
+      placement: 'before',
+    });
+    expect(decorations.editorLineDecorations).toContainEqual({ lineNumber: 2 });
+  });
 });
 
 describe('getDraftHighlightRanges', () => {
@@ -608,6 +640,38 @@ describe('getDraftHighlightRanges', () => {
     ]);
     expect(draftText.slice(ranges[0].from, ranges[0].to)).toBe('s');
     expect(draftText.slice(ranges[1].from, ranges[1].to)).toBe('wor');
+  });
+
+  it('refines draft case replacement highlights', () => {
+    const draftText = 'Welcome to byline';
+    const changes = getDisplayChanges(draftText, 'Welcome to Byline!');
+    const ranges = getDraftHighlightRanges(changes);
+
+    expect(ranges.map((range) => draftText.slice(range.from, range.to))).toEqual(['b']);
+  });
+
+  it('merges draft deleted ranges across a single space', () => {
+    const draftText = 'a text editor for messy first drafts';
+    const editorText = 'a text editor for polished drafts';
+    const changes = getDisplayChanges(draftText, editorText);
+    const ranges = getDraftHighlightRanges(changes);
+
+    expect(ranges.map((range) => draftText.slice(range.from, range.to))).toContain(
+      'messy first',
+    );
+    expect(
+      ranges.some((range) => draftText.slice(range.from, range.to) === 'drafts'),
+    ).toBe(false);
+  });
+
+  it('does not merge draft deleted ranges across newlines', () => {
+    const draftText = 'a b\nc d';
+    const editorText = 'a\nc';
+    const changes = getDisplayChanges(draftText, editorText);
+    const ranges = getDraftHighlightRanges(changes);
+    const slices = ranges.map((range) => draftText.slice(range.from, range.to));
+
+    expect(slices.some((slice) => slice.includes('\n'))).toBe(false);
   });
 });
 
