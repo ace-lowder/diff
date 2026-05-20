@@ -87,6 +87,13 @@ type LineAlignmentMatch = {
   editorIndex: number;
 };
 
+type ReplacementToken = {
+  value: string;
+  from: number;
+  to: number;
+  isWhitespace: boolean;
+};
+
 export const getWordCount = (text: string): number => {
   const trimmedText = text.trim();
 
@@ -325,6 +332,9 @@ export const getDraftHighlightRanges = (
     }
 
     if (displayChange.type === 'inserted') {
+      if (displayChange.editorValue.length === 0) {
+        continue;
+      }
       const markerPosition = getAddedMarkerPosition(draftText, draftPosition);
       ranges.push({ type: 'added', from: markerPosition, to: markerPosition });
       continue;
@@ -336,6 +346,18 @@ export const getDraftHighlightRanges = (
     let to = fullRangeTo;
 
     if (
+      displayChange.type === 'replaced' &&
+      hasReplacementTokenSeparators(displayChange.draftValue, displayChange.editorValue)
+    ) {
+      const tokenRanges = getTokenReplacementDraftRanges({
+        draftValue: displayChange.draftValue,
+        editorValue: displayChange.editorValue,
+        draftPosition,
+      });
+      if (tokenRanges.length > 0) {
+        ranges.push(...tokenRanges);
+      }
+    } else if (
       displayChange.type === 'replaced' &&
       shouldRefineCasePunctuationReplacement(
         displayChange.draftValue,
@@ -383,6 +405,13 @@ export const getDraftHighlightRanges = (
 
       if (to > from) {
         ranges.push({ type: 'deleted', from, to });
+      } else if (displayChange.editorValue.length > 0) {
+        const markerPosition = getAddedMarkerPosition(draftText, draftPosition + offsets.draftFromOffset);
+        ranges.push({
+          type: 'added',
+          from: markerPosition,
+          to: markerPosition,
+        });
       }
     } else if (to > from) {
       ranges.push({ type: 'deleted', from, to });
@@ -427,6 +456,14 @@ const getReplacementEditorRanges = ({
   displayChange: DisplayChange;
   editorPosition: number;
 }): EditorHighlightRange[] => {
+  if (shouldUseTokenReplacementRefinement(displayChange.draftValue, displayChange.editorValue)) {
+    return getTokenReplacementEditorRanges({
+      draftValue: displayChange.draftValue,
+      editorValue: displayChange.editorValue,
+      editorPosition,
+    });
+  }
+
   if (
     shouldRefineCasePunctuationReplacement(
       displayChange.draftValue,
@@ -457,12 +494,12 @@ const getReplacementEditorRanges = ({
     displayChange.draftValue,
     displayChange.editorValue,
   );
+  const offsets = getReplacementHighlightOffsets(
+    displayChange.draftValue,
+    displayChange.editorValue,
+  );
 
   if (shouldRefine) {
-    const offsets = getReplacementHighlightOffsets(
-      displayChange.draftValue,
-      displayChange.editorValue,
-    );
     const from = editorPosition + offsets.editorFromOffset;
     const to = editorPosition + offsets.editorToOffset;
 
@@ -470,7 +507,38 @@ const getReplacementEditorRanges = ({
       return [{ type: 'added', from, to }];
     }
 
+    if (displayChange.draftValue.length > 0) {
+      const markerPosition = getDeletedMarkerPosition(
+        displayChange.editorValue,
+        offsets.editorFromOffset,
+      );
+      return [
+        {
+          type: 'deleted',
+          from: editorPosition + markerPosition,
+          to: editorPosition + markerPosition,
+        },
+      ];
+    }
+
     return [];
+  }
+
+  if (
+    hasEmptyEditorReplacementSpan(offsets) &&
+    offsets.draftToOffset > offsets.draftFromOffset
+  ) {
+    const markerPosition = getDeletedMarkerPosition(
+      displayChange.editorValue,
+      offsets.editorFromOffset,
+    );
+    return [
+      {
+        type: 'deleted',
+        from: editorPosition + markerPosition,
+        to: editorPosition + markerPosition,
+      },
+    ];
   }
 
   const from = editorPosition;
@@ -584,6 +652,40 @@ const shouldRefineSameLengthReplacement = (
     changedCount <= 2 &&
     changedCount / draftValue.length <= 0.4
   );
+};
+
+const shouldUseTokenReplacementRefinement = (
+  draftValue: string,
+  editorValue: string,
+): boolean => {
+  if (!hasReplacementTokenSeparators(draftValue, editorValue)) {
+    return false;
+  }
+
+  const pairs = getTokenReplacementPairs({ draftValue, editorValue });
+
+  return pairs.some(({ draftToken, editorToken }) => {
+    if (!draftToken || !editorToken) {
+      return false;
+    }
+
+    if (draftToken.value === editorToken.value) {
+      return false;
+    }
+
+    return (
+      shouldRefineCasePunctuationReplacement(draftToken.value, editorToken.value) ||
+      shouldRefineSameLengthReplacement(draftToken.value, editorToken.value) ||
+      shouldRefineReplacementHighlight(draftToken.value, editorToken.value)
+    );
+  });
+};
+
+const hasReplacementTokenSeparators = (
+  draftValue: string,
+  editorValue: string,
+): boolean => {
+  return /\s/.test(draftValue) || /\s/.test(editorValue);
 };
 
 const getLowercaseAlphanumericText = (value: string): string => {
@@ -710,6 +812,382 @@ const getSameLengthReplacementDraftRanges = ({
     from: draftPosition + range.from,
     to: draftPosition + range.to,
   }));
+};
+
+const getTokenReplacementEditorRanges = ({
+  draftValue,
+  editorValue,
+  editorPosition,
+}: {
+  draftValue: string;
+  editorValue: string;
+  editorPosition: number;
+}): EditorHighlightRange[] => {
+  const pairs = getTokenReplacementPairs({ draftValue, editorValue });
+  const ranges: EditorHighlightRange[] = [];
+
+  for (const pair of pairs) {
+    const draftToken = pair.draftToken;
+    const editorToken = pair.editorToken;
+
+    if (draftToken && editorToken) {
+      if (draftToken.value === editorToken.value) {
+        continue;
+      }
+
+      if (shouldRefineCasePunctuationReplacement(draftToken.value, editorToken.value)) {
+        ranges.push(
+          ...getCasePunctuationReplacementEditorRanges({
+            draftValue: draftToken.value,
+            editorValue: editorToken.value,
+            editorPosition: editorPosition + editorToken.from,
+          }),
+        );
+        continue;
+      }
+
+      if (shouldRefineSameLengthReplacement(draftToken.value, editorToken.value)) {
+        ranges.push(
+          ...getSameLengthReplacementEditorRanges({
+            draftValue: draftToken.value,
+            editorValue: editorToken.value,
+            editorPosition: editorPosition + editorToken.from,
+          }),
+        );
+        continue;
+      }
+
+      if (shouldRefineReplacementHighlight(draftToken.value, editorToken.value)) {
+        const offsets = getReplacementHighlightOffsets(draftToken.value, editorToken.value);
+        const from = editorPosition + editorToken.from + offsets.editorFromOffset;
+        const to = editorPosition + editorToken.from + offsets.editorToOffset;
+
+        if (to > from) {
+          ranges.push({ type: 'added', from, to });
+        } else {
+          const markerPosition = getDeletedMarkerPosition(
+            editorToken.value,
+            offsets.editorFromOffset,
+          );
+          ranges.push({
+            type: 'deleted',
+            from: editorPosition + editorToken.from + markerPosition,
+            to: editorPosition + editorToken.from + markerPosition,
+          });
+        }
+        continue;
+      }
+
+      const offsets = getReplacementHighlightOffsets(draftToken.value, editorToken.value);
+      if (
+        hasEmptyEditorReplacementSpan(offsets) &&
+        offsets.draftToOffset > offsets.draftFromOffset
+      ) {
+        const markerPosition = getDeletedMarkerPosition(
+          editorToken.value,
+          offsets.editorFromOffset,
+        );
+        ranges.push({
+          type: 'deleted',
+          from: editorPosition + editorToken.from + markerPosition,
+          to: editorPosition + editorToken.from + markerPosition,
+        });
+        continue;
+      }
+
+      ranges.push({
+        type: 'added',
+        from: editorPosition + editorToken.from,
+        to: editorPosition + editorToken.to,
+      });
+      continue;
+    }
+
+    if (editorToken && !draftToken) {
+      ranges.push({
+        type: 'added',
+        from: editorPosition + editorToken.from,
+        to: editorPosition + editorToken.to,
+      });
+      continue;
+    }
+
+    if (draftToken && !editorToken) {
+      const markerPosition = getDeletedMarkerPosition(editorValue, draftToken.from);
+      ranges.push({
+        type: 'deleted',
+        from: editorPosition + markerPosition,
+        to: editorPosition + markerPosition,
+      });
+    }
+  }
+
+  return ranges;
+};
+
+const getTokenReplacementDraftRanges = ({
+  draftValue,
+  editorValue,
+  draftPosition,
+}: {
+  draftValue: string;
+  editorValue: string;
+  draftPosition: number;
+}): DraftHighlightRange[] => {
+  const pairs = getTokenReplacementPairs({ draftValue, editorValue });
+  const ranges: DraftHighlightRange[] = [];
+
+  for (const pair of pairs) {
+    const draftToken = pair.draftToken;
+    const editorToken = pair.editorToken;
+
+    if (draftToken && editorToken) {
+      if (draftToken.value === editorToken.value) {
+        continue;
+      }
+
+      if (shouldRefineCasePunctuationReplacement(draftToken.value, editorToken.value)) {
+        ranges.push(
+          ...getCasePunctuationReplacementDraftRanges({
+            draftValue: draftToken.value,
+            editorValue: editorToken.value,
+            draftPosition: draftPosition + draftToken.from,
+          }),
+        );
+        continue;
+      }
+
+      if (shouldRefineSameLengthReplacement(draftToken.value, editorToken.value)) {
+        ranges.push(
+          ...getSameLengthReplacementDraftRanges({
+            draftValue: draftToken.value,
+            editorValue: editorToken.value,
+            draftPosition: draftPosition + draftToken.from,
+          }),
+        );
+        continue;
+      }
+
+      if (shouldRefineReplacementHighlight(draftToken.value, editorToken.value)) {
+        const offsets = getReplacementHighlightOffsets(draftToken.value, editorToken.value);
+        const from = draftPosition + draftToken.from + offsets.draftFromOffset;
+        const to = draftPosition + draftToken.from + offsets.draftToOffset;
+
+        if (to > from) {
+          ranges.push({ type: 'deleted', from, to });
+        } else {
+          const markerPosition = getAddedMarkerPosition(
+            draftValue,
+            draftToken.from + offsets.draftFromOffset,
+          );
+          ranges.push({
+            type: 'added',
+            from: draftPosition + markerPosition,
+            to: draftPosition + markerPosition,
+          });
+        }
+        continue;
+      }
+
+      const offsets = getReplacementHighlightOffsets(draftToken.value, editorToken.value);
+      if (
+        hasEmptyDraftReplacementSpan(offsets) &&
+        offsets.editorToOffset > offsets.editorFromOffset
+      ) {
+        const markerPosition = getAddedMarkerPosition(
+          draftToken.value,
+          offsets.draftFromOffset,
+        );
+        ranges.push({
+          type: 'added',
+          from: draftPosition + draftToken.from + markerPosition,
+          to: draftPosition + draftToken.from + markerPosition,
+        });
+        continue;
+      }
+
+      ranges.push({
+        type: 'deleted',
+        from: draftPosition + draftToken.from,
+        to: draftPosition + draftToken.to,
+      });
+      continue;
+    }
+
+    if (draftToken && !editorToken) {
+      ranges.push({
+        type: 'deleted',
+        from: draftPosition + draftToken.from,
+        to: draftPosition + draftToken.to,
+      });
+      continue;
+    }
+
+    if (editorToken && !draftToken) {
+      const markerPosition = getAddedMarkerPosition(draftValue, editorToken.from);
+      ranges.push({
+        type: 'added',
+        from: draftPosition + markerPosition,
+        to: draftPosition + markerPosition,
+      });
+    }
+  }
+
+  return ranges;
+};
+
+const getTokenReplacementPairs = ({
+  draftValue,
+  editorValue,
+}: {
+  draftValue: string;
+  editorValue: string;
+}): Array<{
+  draftToken: ReplacementToken | null;
+  editorToken: ReplacementToken | null;
+}> => {
+  const draftTokens = getReplacementTokens(draftValue).filter(
+    (token) => !token.isWhitespace,
+  );
+  const editorTokens = getReplacementTokens(editorValue).filter(
+    (token) => !token.isWhitespace,
+  );
+
+  const pairs: Array<{
+    draftToken: ReplacementToken | null;
+    editorToken: ReplacementToken | null;
+  }> = [];
+
+  if (draftTokens.length === editorTokens.length) {
+    for (let index = 0; index < draftTokens.length; index += 1) {
+      pairs.push({
+        draftToken: draftTokens[index],
+        editorToken: editorTokens[index],
+      });
+    }
+    return pairs;
+  }
+
+  let draftIndex = 0;
+  let editorIndex = 0;
+
+  while (draftIndex < draftTokens.length && editorIndex < editorTokens.length) {
+    const draftToken = draftTokens[draftIndex];
+    const editorToken = editorTokens[editorIndex];
+
+    if (draftToken.value === editorToken.value) {
+      pairs.push({ draftToken, editorToken });
+      draftIndex += 1;
+      editorIndex += 1;
+      continue;
+    }
+
+    const draftMatchInEditor = findTokenIndex({
+      tokens: editorTokens,
+      value: draftToken.value,
+      startIndex: editorIndex + 1,
+    });
+    const editorMatchInDraft = findTokenIndex({
+      tokens: draftTokens,
+      value: editorToken.value,
+      startIndex: draftIndex + 1,
+    });
+
+    if (draftMatchInEditor !== null && editorMatchInDraft === null) {
+      while (editorIndex < draftMatchInEditor) {
+        pairs.push({ draftToken: null, editorToken: editorTokens[editorIndex] });
+        editorIndex += 1;
+      }
+      continue;
+    }
+
+    if (draftMatchInEditor === null && editorMatchInDraft !== null) {
+      while (draftIndex < editorMatchInDraft) {
+        pairs.push({ draftToken: draftTokens[draftIndex], editorToken: null });
+        draftIndex += 1;
+      }
+      continue;
+    }
+
+    if (draftMatchInEditor !== null && editorMatchInDraft !== null) {
+      const draftDistance = draftMatchInEditor - editorIndex;
+      const editorDistance = editorMatchInDraft - draftIndex;
+
+      if (draftDistance <= editorDistance) {
+        while (editorIndex < draftMatchInEditor) {
+          pairs.push({ draftToken: null, editorToken: editorTokens[editorIndex] });
+          editorIndex += 1;
+        }
+      } else {
+        while (draftIndex < editorMatchInDraft) {
+          pairs.push({ draftToken: draftTokens[draftIndex], editorToken: null });
+          draftIndex += 1;
+        }
+      }
+      continue;
+    }
+
+    pairs.push({ draftToken, editorToken });
+    draftIndex += 1;
+    editorIndex += 1;
+  }
+
+  while (draftIndex < draftTokens.length) {
+    pairs.push({ draftToken: draftTokens[draftIndex], editorToken: null });
+    draftIndex += 1;
+  }
+
+  while (editorIndex < editorTokens.length) {
+    pairs.push({ draftToken: null, editorToken: editorTokens[editorIndex] });
+    editorIndex += 1;
+  }
+
+  return pairs;
+};
+
+const findTokenIndex = ({
+  tokens,
+  value,
+  startIndex,
+}: {
+  tokens: ReplacementToken[];
+  value: string;
+  startIndex: number;
+}): number | null => {
+  for (let index = startIndex; index < tokens.length; index += 1) {
+    if (tokens[index].value === value) {
+      return index;
+    }
+  }
+
+  return null;
+};
+
+const getReplacementTokens = (value: string): ReplacementToken[] => {
+  if (!value) {
+    return [];
+  }
+
+  const tokens: ReplacementToken[] = [];
+  let index = 0;
+
+  while (index < value.length) {
+    const start = index;
+    const isWhitespace = /\s/.test(value[index]);
+
+    while (index < value.length && /\s/.test(value[index]) === isWhitespace) {
+      index += 1;
+    }
+
+    tokens.push({
+      value: value.slice(start, index),
+      from: start,
+      to: index,
+      isWhitespace,
+    });
+  }
+
+  return tokens;
 };
 
 const getAlphanumericPositions = (value: string): number[] => {
@@ -1305,6 +1783,18 @@ const compareDraftHighlightRanges = (
   }
 
   return left.type === 'deleted' ? -1 : 1;
+};
+
+const hasEmptyEditorReplacementSpan = (
+  offsets: ReplacementHighlightOffsets,
+): boolean => {
+  return offsets.editorToOffset <= offsets.editorFromOffset;
+};
+
+const hasEmptyDraftReplacementSpan = (
+  offsets: ReplacementHighlightOffsets,
+): boolean => {
+  return offsets.draftToOffset <= offsets.draftFromOffset;
 };
 
 const mergeRawChanges = (changes: RawChange[]): RawChange[] => {

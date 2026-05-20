@@ -92,7 +92,7 @@ export const getCodeMirrorDecorations = (
   return Decoration.set(ranges, true);
 };
 
-class DeletedMarkerWidget extends WidgetType {
+class InlineMarkerWidget extends WidgetType {
   private readonly wrapperClassName: string;
   private readonly stripClassName: string;
 
@@ -114,6 +114,7 @@ class DeletedMarkerWidget extends WidgetType {
 
     wrapper.className = this.wrapperClassName;
     wrapper.setAttribute('aria-hidden', 'true');
+    wrapper.contentEditable = 'false';
     marker.className = this.stripClassName;
     wrapper.append(marker);
 
@@ -196,11 +197,11 @@ const getEditorHighlightDecorations = (
     }
 
     decorations.push(
-      Decoration.widget({
-        widget: new DeletedMarkerWidget({
-          wrapperClassName: 'byline-deleted-marker',
-          stripClassName: 'byline-deleted-marker-strip',
-        }),
+        Decoration.widget({
+          widget: new InlineMarkerWidget({
+            wrapperClassName: 'byline-deleted-marker',
+            stripClassName: 'byline-deleted-marker-strip',
+          }),
         side: -1,
       }).range(validRange.from),
     );
@@ -230,7 +231,7 @@ const getDraftHighlightDecorations = (
 
       decorations.push(
         Decoration.widget({
-          widget: new DeletedMarkerWidget({
+          widget: new InlineMarkerWidget({
             wrapperClassName: 'byline-added-marker',
             stripClassName: 'byline-added-marker-strip',
           }),

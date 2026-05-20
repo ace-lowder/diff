@@ -313,6 +313,92 @@ describe('getEditorHighlightRanges', () => {
         .map((range) => draftText.slice(range.from, range.to)),
     ).toEqual(['messy']);
   });
+
+  it('refines same-token edits after unchanged words', () => {
+    const draftText = 'test drafts';
+    const editorText = 'test drufts';
+    const changes = getDisplayChanges(draftText, editorText);
+
+    expect(
+      getEditorHighlightRanges(changes)
+        .filter((range) => range.type === 'added')
+        .map((range) => editorText.slice(range.from, range.to)),
+    ).toEqual(['u']);
+
+    expect(
+      getDraftHighlightRanges(changes)
+        .filter((range) => range.type === 'deleted')
+        .map((range) => draftText.slice(range.from, range.to)),
+    ).toEqual(['a']);
+  });
+
+  it('refines same-token edits inside larger replacements', () => {
+    const draftText = 'messy drafts';
+    const editorText = 'polished drufts';
+    const changes = getDisplayChanges(draftText, editorText);
+
+    const editorSlices = getEditorHighlightRanges(changes)
+      .filter((range) => range.type === 'added')
+      .map((range) => editorText.slice(range.from, range.to));
+    const draftSlices = getDraftHighlightRanges(changes)
+      .filter((range) => range.type === 'deleted')
+      .map((range) => draftText.slice(range.from, range.to));
+
+    expect(editorSlices).toContain('polished');
+    expect(editorSlices).toContain('u');
+    expect(draftSlices).toContain('messy');
+    expect(draftSlices).toContain('a');
+  });
+
+  it('highlights only inserted words between equal words', () => {
+    const draftText = 'test drafts';
+    const editorText = 'test new drafts';
+    const changes = getDisplayChanges(draftText, editorText);
+
+    expect(
+      getEditorHighlightRanges(changes)
+        .filter((range) => range.type === 'added')
+        .map((range) => editorText.slice(range.from, range.to)),
+    ).toEqual(['new ']);
+    expect(
+      getDraftHighlightRanges(changes).filter((range) => range.type === 'deleted'),
+    ).toEqual([]);
+    expect(getDraftHighlightRanges(changes)).toContainEqual({
+      type: 'added',
+      from: 5,
+      to: 5,
+    });
+  });
+
+  it('uses editor deletion markers for deleted prefix characters', () => {
+    const draftText = 'tThis is the DRAFT view';
+    const editorText = 'This is the EDITOR view';
+    const changes = getDisplayChanges(draftText, editorText);
+    const editorRanges = getEditorHighlightRanges(changes);
+
+    expect(editorRanges).toContainEqual({ type: 'deleted', from: 0, to: 0 });
+    expect(
+      editorRanges.some(
+        (range) =>
+          range.type === 'added' && editorText.slice(range.from, range.to) === 'T',
+      ),
+    ).toBe(false);
+  });
+
+  it('does not highlight surviving numbered prefixes as additions', () => {
+    const draftText = 't1. Updates are highlighted red';
+    const editorText = '1. Updates are highlighted green';
+    const changes = getDisplayChanges(draftText, editorText);
+    const editorRanges = getEditorHighlightRanges(changes);
+
+    expect(editorRanges).toContainEqual({ type: 'deleted', from: 0, to: 0 });
+    expect(
+      editorRanges.some(
+        (range) =>
+          range.type === 'added' && editorText.slice(range.from, range.to) === '1',
+      ),
+    ).toBe(false);
+  });
 });
 
 describe('getLineDecorations', () => {
@@ -721,7 +807,9 @@ describe('getDraftHighlightRanges', () => {
     const changes = getDisplayChanges(draftText, 'Three hundred men');
     const ranges = getDraftHighlightRanges(changes);
 
-    expect(ranges).toEqual([{ type: 'deleted', from: 0, to: 3 }]);
+    expect(ranges.filter((range) => range.type === 'deleted')).toEqual([
+      { type: 'deleted', from: 0, to: 3 },
+    ]);
   });
 
   it('maps deleted draft text to deleted highlight ranges', () => {
@@ -751,7 +839,9 @@ describe('getDraftHighlightRanges', () => {
     expect(editorText.slice(editorRanges[0].from, editorRanges[0].to)).toBe(
       'Three hundred',
     );
-    expect(draftRanges).toEqual([{ type: 'deleted', from: 0, to: 3 }]);
+    expect(draftRanges.filter((range) => range.type === 'deleted')).toEqual([
+      { type: 'deleted', from: 0, to: 3 },
+    ]);
     expect(draftText.slice(draftRanges[0].from, draftRanges[0].to)).toBe('300');
   });
 
