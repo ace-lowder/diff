@@ -11,6 +11,10 @@ import {
 
 import { editorDecorationsField } from './codeMirrorDecorations';
 import { getTopVisibleLineNumber } from './codeMirrorScroll';
+import {
+  CODE_MIRROR_FONT_SIZE,
+  CODE_MIRROR_LINE_HEIGHT,
+} from './codeMirrorThemeConstants';
 import type { CodeMirrorTheme, ScrollOffset } from '../appTypes';
 import type { FontStyleType, TextChange } from '../fontStyles';
 
@@ -90,7 +94,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       height: '100%',
       backgroundColor,
       color: textColor,
-      fontSize: '16px',
+      fontSize: CODE_MIRROR_FONT_SIZE,
     },
     '.cm-editor': {
       height: '100%',
@@ -101,7 +105,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       overflow: 'auto',
       fontFamily:
         'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-      lineHeight: '1.5',
+      lineHeight: CODE_MIRROR_LINE_HEIGHT,
     },
     '.cm-content': {
       padding: '8px 12px',
@@ -109,6 +113,9 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     },
     '.cm-line': {
       padding: '0',
+      lineHeight: CODE_MIRROR_LINE_HEIGHT,
+      minHeight: CODE_MIRROR_LINE_HEIGHT,
+      boxSizing: 'border-box',
     },
     '.cm-gutters': {
       backgroundColor,
@@ -122,9 +129,14 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       paddingLeft: '0',
       paddingRight: '2ch',
       textAlign: 'right',
+      lineHeight: CODE_MIRROR_LINE_HEIGHT,
+      minHeight: CODE_MIRROR_LINE_HEIGHT,
     },
     '.cm-activeLine': {
       backgroundColor: '#242526',
+      lineHeight: CODE_MIRROR_LINE_HEIGHT,
+      minHeight: CODE_MIRROR_LINE_HEIGHT,
+      boxSizing: 'border-box',
     },
     '.cm-activeLineGutter': {
       backgroundColor: 'transparent',
@@ -140,54 +152,25 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       backgroundColor: '#2A4C2C',
       boxDecorationBreak: 'clone',
       WebkitBoxDecorationBreak: 'clone',
-      lineHeight: 'inherit',
+      lineHeight: CODE_MIRROR_LINE_HEIGHT,
     },
     '.byline-deleted-text': {
       backgroundColor: '#693330',
       boxDecorationBreak: 'clone',
       WebkitBoxDecorationBreak: 'clone',
-      lineHeight: 'inherit',
+      lineHeight: CODE_MIRROR_LINE_HEIGHT,
     },
     '.cm-line.byline-added-line': {
       backgroundColor: '#2A4C2C',
-    },
-    '.byline-deleted-marker': {
-      position: 'relative',
-      display: 'inline-block',
-      width: '0',
-      height: '1.5em',
-      verticalAlign: '-0.25em',
-      pointerEvents: 'none',
-    },
-    '.byline-deleted-marker-strip': {
-      position: 'absolute',
-      right: '0',
-      top: '0',
-      width: '0.35ch',
-      height: '1.5em',
-      backgroundColor: '#693330',
-    },
-    '.byline-added-marker': {
-      position: 'relative',
-      display: 'inline-block',
-      width: '0',
-      height: '1.5em',
-      verticalAlign: '-0.25em',
-      pointerEvents: 'none',
-    },
-    '.byline-added-marker-strip': {
-      position: 'absolute',
-      right: '0',
-      top: '0',
-      width: '0.35ch',
-      height: '1.5em',
-      backgroundColor: '#2A4C2C',
+      lineHeight: CODE_MIRROR_LINE_HEIGHT,
+      minHeight: CODE_MIRROR_LINE_HEIGHT,
+      boxSizing: 'border-box',
     },
     '.byline-missing-line': {
       display: 'block',
       width: '100%',
       boxSizing: 'border-box',
-      lineHeight: '1.5',
+      lineHeight: CODE_MIRROR_LINE_HEIGHT,
       margin: '0',
       padding: '0',
       border: '0',
@@ -196,9 +179,12 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     },
     '.cm-line.byline-deleted-draft-line': {
       backgroundColor: '#693330',
+      lineHeight: CODE_MIRROR_LINE_HEIGHT,
+      minHeight: CODE_MIRROR_LINE_HEIGHT,
+      boxSizing: 'border-box',
     },
     '.cm-line.byline-lowest-edited-line': {
-      borderBottom: '1px dashed #8C8C8C',
+      boxShadow: 'inset 0 -1px 0 0 #8C8C8C',
     },
     '.byline-font-bold': {
       fontWeight: '700',

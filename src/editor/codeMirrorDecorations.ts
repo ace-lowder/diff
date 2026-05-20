@@ -14,6 +14,7 @@ import type {
   LowestEditedLine,
 } from '../editorDiff';
 import { normalizeFontStyleRanges, type FontStyleRange, type FontStyleType } from '../fontStyles';
+import { CODE_MIRROR_LINE_HEIGHT } from './codeMirrorThemeConstants';
 
 export type CodeMirrorDecorations = {
   editorHighlightRanges: EditorHighlightRange[];
@@ -92,40 +93,6 @@ export const getCodeMirrorDecorations = (
   return Decoration.set(ranges, true);
 };
 
-class InlineMarkerWidget extends WidgetType {
-  private readonly wrapperClassName: string;
-  private readonly stripClassName: string;
-
-  constructor({
-    wrapperClassName,
-    stripClassName,
-  }: {
-    wrapperClassName: string;
-    stripClassName: string;
-  }) {
-    super();
-    this.wrapperClassName = wrapperClassName;
-    this.stripClassName = stripClassName;
-  }
-
-  toDOM() {
-    const wrapper = document.createElement('span');
-    const marker = document.createElement('span');
-
-    wrapper.className = this.wrapperClassName;
-    wrapper.setAttribute('aria-hidden', 'true');
-    wrapper.contentEditable = 'false';
-    marker.className = this.stripClassName;
-    wrapper.append(marker);
-
-    return wrapper;
-  }
-
-  ignoreEvent() {
-    return true;
-  }
-}
-
 class MissingLineWidget extends WidgetType {
   private readonly lineCount: number;
 
@@ -142,7 +109,7 @@ class MissingLineWidget extends WidgetType {
     const line = document.createElement('div');
 
     line.className = 'byline-missing-line';
-    line.style.height = `${this.lineCount * 1.5}em`;
+    line.style.height = `calc(${this.lineCount} * ${CODE_MIRROR_LINE_HEIGHT})`;
     line.style.margin = '0';
     line.style.padding = '0';
     line.style.border = '0';
@@ -185,26 +152,7 @@ const getEditorHighlightDecorations = (
       continue;
     }
 
-    const validRange = getValidTextRange({
-      from: range.from,
-      to: range.from,
-      docLength,
-      allowEmpty: true,
-    });
-
-    if (!validRange) {
-      continue;
-    }
-
-    decorations.push(
-        Decoration.widget({
-          widget: new InlineMarkerWidget({
-            wrapperClassName: 'byline-deleted-marker',
-            stripClassName: 'byline-deleted-marker-strip',
-          }),
-        side: -1,
-      }).range(validRange.from),
-    );
+    continue;
   }
 
   return decorations;
@@ -218,26 +166,6 @@ const getDraftHighlightDecorations = (
 
   for (const range of draftHighlightRanges) {
     if (range.type === 'added') {
-      const validRange = getValidTextRange({
-        from: range.from,
-        to: range.from,
-        docLength,
-        allowEmpty: true,
-      });
-
-      if (!validRange) {
-        continue;
-      }
-
-      decorations.push(
-        Decoration.widget({
-          widget: new InlineMarkerWidget({
-            wrapperClassName: 'byline-added-marker',
-            stripClassName: 'byline-added-marker-strip',
-          }),
-          side: -1,
-        }).range(validRange.from),
-      );
       continue;
     }
 

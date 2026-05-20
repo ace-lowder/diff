@@ -1,25 +1,25 @@
 import { normalizeFontStyleRanges, type FontStyleRange } from './fontStyles';
 
-export const DEFAULT_DRAFT_TEXT = `Welcome to Byline
+export const DEFAULT_DRAFT_TEXT = `Welcome to byline: a text editor for authors with messy first drafts
 
-A text editor for messy first drafts.
+This is the DRAFT view
+1. Updates are highlighted red
+2. Your work saves as you type
+3. New lines will look patterned
+4. no dotted lines will appear in the draft
+5. Check out the bottom bar to track your word count, copy your drafts, and more
 
-This is the draft view. Write freely here.
+---`;
 
-Deleted text will be highlighted in red.`;
+export const DEFAULT_EDITOR_TEXT = `Welcome to Byline: a text editor for authors who rewrite
 
-export const DEFAULT_EDITOR_TEXT = `Welcome to Byline!
+This is the EDITOR view
+1. Updates are highlighted green
+2. Your work saves as you type
 
-A text editor for cleaner revisions.
-
-This is the editor view. Rewrite your draft here and track what changed.
-
-Updates are highlighted in green.
-New lines are tracked too.
-
-Your writing saves as you type on this device. It will not survive incognito mode, clearing browser data, or switching devices.
-
-Use the footer to switch views, resize panes, copy with highlights, add bold/italic/underline, or support Byline with the coffee icon.`;
+3. New lines will look green
+4. a dotted line will appear below your last edit
+5. Check out the bottom bar to track your word count, copy your drafts, and more`;
 
 export const storageKeys = {
   draftText: 'byline:draftText',

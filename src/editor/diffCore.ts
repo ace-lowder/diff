@@ -131,7 +131,8 @@ export const getDisplayChanges = (
     if (
       nextChange &&
       ((currentChange.type === 'deleted' && nextChange.type === 'inserted') ||
-        (currentChange.type === 'inserted' && nextChange.type === 'deleted'))
+        (currentChange.type === 'inserted' && nextChange.type === 'deleted')) &&
+      shouldPairAsReplacement(currentChange.value, nextChange.value)
     ) {
       if (currentChange.type === 'deleted') {
         displayChanges.push({
@@ -147,6 +148,35 @@ export const getDisplayChanges = (
         });
       }
 
+      index += 1;
+      continue;
+    }
+
+    if (
+      nextChange &&
+      currentChange.type === 'deleted' &&
+      nextChange.type === 'inserted' &&
+      currentChange.value.includes('\n') &&
+      currentChange.value.replace(/\n/g, '') === nextChange.value
+    ) {
+      const draftParts = currentChange.value.split('\n');
+      for (let partIndex = 0; partIndex < draftParts.length; partIndex += 1) {
+        const part = draftParts[partIndex];
+        if (part) {
+          displayChanges.push({
+            type: 'equal',
+            draftValue: part,
+            editorValue: part,
+          });
+        }
+        if (partIndex < draftParts.length - 1) {
+          displayChanges.push({
+            type: 'deleted',
+            draftValue: '\n',
+            editorValue: '',
+          });
+        }
+      }
       index += 1;
       continue;
     }
@@ -180,7 +210,13 @@ export const getDisplayChanges = (
     combineWhitespaceBridgedChanges(mergeDisplayChanges(displayChanges)),
   );
 
-  return normalizeReplacementWhitespace(combinedChanges);
+  return normalizeInsertedLineBeforeJoinedDraftLines(
+    normalizeRepeatedLineReplacements(
+      collapseNoisySingleLineReplacements(
+        normalizeInsertedWhitespace(normalizeReplacementWhitespace(combinedChanges)),
+      ),
+    ),
+  );
 };
 
 export const getEditorStats = (
@@ -227,14 +263,13 @@ export const getEditorHighlightRanges = (
     }
 
     if (displayChange.type === 'inserted') {
-      const from = editorPosition;
-      const to = from + displayChange.editorValue.length;
-
-      if (to > from) {
-        ranges.push({ type: 'added', from, to });
-      }
-
-      editorPosition = to;
+      ranges.push(
+        ...getVisibleEditorRangeSegments({
+          text: displayChange.editorValue,
+          basePosition: editorPosition,
+        }),
+      );
+      editorPosition += displayChange.editorValue.length;
       continue;
     }
 
@@ -252,12 +287,13 @@ export const getEditorHighlightRanges = (
       continue;
     }
 
-    const markerPosition = getDeletedMarkerPosition(editorText, editorPosition);
-
-    ranges.push({ type: 'deleted', from: markerPosition, to: markerPosition });
+    continue;
   }
 
-  return mergeAddedRangesAcrossSingleSpace(ranges, editorText);
+  return mergeAddedRangesAcrossSingleSpace(
+    getVisibleEditorRanges(ranges, editorText),
+    editorText,
+  );
 };
 
 export const getLineDecorations = (
@@ -268,15 +304,21 @@ export const getLineDecorations = (
   draftLineDecorations: DraftLineDecoration[];
 } => {
   const linePairs = getLinePairs(draftText, editorText);
+  const draftLines = draftText.split('\n');
   const editorLineDecorations: EditorLineDecoration[] = [];
   const draftLineDecorations: DraftLineDecoration[] = [];
   const missingEditorLineIndexes = new Map<string, number>();
   const deletedDraftLineKeys = new Set<string>();
 
-  for (const linePair of linePairs) {
+  for (let linePairIndex = 0; linePairIndex < linePairs.length; linePairIndex += 1) {
+    const linePair = linePairs[linePairIndex];
     if (linePair.draftLine === null && linePair.editorLine !== null) {
       editorLineDecorations.push({ lineNumber: linePair.editorLineNumber });
-      const draftLineNumber = Math.max(1, linePair.draftLineNumber);
+      const draftLineNumber = getMissingEditorLineAnchor({
+        linePairs,
+        linePairIndex,
+        draftLines,
+      });
       const missingEditorLineKey = `${draftLineNumber}:${linePair.placement}`;
       const existingDecorationIndex =
         missingEditorLineIndexes.get(missingEditorLineKey);
@@ -302,6 +344,9 @@ export const getLineDecorations = (
     }
 
     if (linePair.draftLine !== null && linePair.editorLine === null) {
+      if (isDraftLineTextPreservedNearPair(linePairs, linePairIndex)) {
+        continue;
+      }
       const decoration: DraftLineDecoration = {
         type: 'deletedDraftLine',
         lineNumber: linePair.draftLineNumber,
@@ -318,10 +363,72 @@ export const getLineDecorations = (
   return { editorLineDecorations, draftLineDecorations };
 };
 
+const getMissingEditorLineAnchor = ({
+  linePairs,
+  linePairIndex,
+  draftLines,
+}: {
+  linePairs: LinePair[];
+  linePairIndex: number;
+  draftLines: string[];
+}): number => {
+  const linePair = linePairs[linePairIndex];
+  if (!linePair || linePair.draftLine !== null || linePair.editorLine === null) {
+    return 1;
+  }
+
+  let draftLineNumber = Math.max(1, linePair.draftLineNumber);
+  const nextEditorLine = linePairs
+    .slice(linePairIndex + 1)
+    .find((pair) => pair.editorLine !== null)?.editorLine;
+  if (linePair.placement === 'before' && nextEditorLine) {
+    const normalizedNextEditorLine = getNormalizedVisibleLineText(nextEditorLine);
+    const previousDraftLineNumber = getPreviousDraftLineNumber(linePairs, linePairIndex);
+    const scanStart = Math.max(1, previousDraftLineNumber + 1);
+    const scanEnd = Math.min(draftLines.length, draftLineNumber);
+
+    for (let candidateLineNumber = scanStart; candidateLineNumber <= scanEnd; candidateLineNumber += 1) {
+      const candidateDraftLine = draftLines[candidateLineNumber - 1] ?? '';
+      const normalizedCandidate = getNormalizedVisibleLineText(candidateDraftLine);
+      if (!normalizedCandidate) {
+        continue;
+      }
+      if (normalizedNextEditorLine.includes(normalizedCandidate)) {
+        draftLineNumber = candidateLineNumber;
+        break;
+      }
+    }
+  }
+
+  if (
+    linePair.placement === 'before' &&
+    linePair.editorLine.trim() === '' &&
+    draftLineNumber > 1
+  ) {
+    const previousDraftLine = draftLines[draftLineNumber - 2] ?? '';
+    const normalizedPreviousDraftLine = getNormalizedVisibleLineText(previousDraftLine);
+    if (!normalizedPreviousDraftLine) {
+      return draftLineNumber;
+    }
+    const nextMatchedPair = linePairs
+      .slice(linePairIndex + 1)
+      .find((pair) => pair.draftLine !== null && pair.editorLine !== null);
+    if (
+      nextMatchedPair?.editorLine &&
+      getNormalizedVisibleLineText(nextMatchedPair.editorLine).includes(
+        normalizedPreviousDraftLine,
+      )
+    ) {
+      draftLineNumber -= 1;
+    }
+  }
+
+  return draftLineNumber;
+};
+
 export const getDraftHighlightRanges = (
   displayChanges: DisplayChange[],
 ): DraftHighlightRange[] => {
-  const draftText = getDraftText(displayChanges);
   const ranges: DraftHighlightRange[] = [];
   let draftPosition = 0;
 
@@ -332,11 +439,6 @@ export const getDraftHighlightRanges = (
     }
 
     if (displayChange.type === 'inserted') {
-      if (displayChange.editorValue.length === 0) {
-        continue;
-      }
-      const markerPosition = getAddedMarkerPosition(draftText, draftPosition);
-      ranges.push({ type: 'added', from: markerPosition, to: markerPosition });
       continue;
     }
 
@@ -344,6 +446,23 @@ export const getDraftHighlightRanges = (
     const fullRangeTo = fullRangeFrom + displayChange.draftValue.length;
     let from = fullRangeFrom;
     let to = fullRangeTo;
+
+    if (displayChange.type === 'replaced') {
+      if (isWhitespaceOnlyReplacement(displayChange.draftValue, displayChange.editorValue)) {
+        draftPosition = fullRangeTo;
+        continue;
+      }
+      const characterRanges = getCharacterReplacementDraftRanges({
+        draftValue: displayChange.draftValue,
+        editorValue: displayChange.editorValue,
+        draftPosition,
+      });
+      if (characterRanges) {
+        ranges.push(...characterRanges);
+        draftPosition = fullRangeTo;
+        continue;
+      }
+    }
 
     if (
       displayChange.type === 'replaced' &&
@@ -405,13 +524,6 @@ export const getDraftHighlightRanges = (
 
       if (to > from) {
         ranges.push({ type: 'deleted', from, to });
-      } else if (displayChange.editorValue.length > 0) {
-        const markerPosition = getAddedMarkerPosition(draftText, draftPosition + offsets.draftFromOffset);
-        ranges.push({
-          type: 'added',
-          from: markerPosition,
-          to: markerPosition,
-        });
       }
     } else if (to > from) {
       ranges.push({ type: 'deleted', from, to });
@@ -420,7 +532,11 @@ export const getDraftHighlightRanges = (
     draftPosition = fullRangeTo;
   }
 
-  return mergeDeletedRangesAcrossSingleSpace(ranges, draftText);
+  const draftText = getDraftText(displayChanges);
+  return filterVisibleDraftDeletedRanges(
+    mergeDeletedRangesAcrossSingleSpace(ranges, draftText),
+    draftText,
+  );
 };
 
 export const getLowestEditedLine = (
@@ -456,6 +572,19 @@ const getReplacementEditorRanges = ({
   displayChange: DisplayChange;
   editorPosition: number;
 }): EditorHighlightRange[] => {
+  if (isWhitespaceOnlyReplacement(displayChange.draftValue, displayChange.editorValue)) {
+    return [];
+  }
+
+  const characterRanges = getCharacterReplacementEditorRanges({
+    draftValue: displayChange.draftValue,
+    editorValue: displayChange.editorValue,
+    editorPosition,
+  });
+  if (characterRanges) {
+    return characterRanges;
+  }
+
   if (shouldUseTokenReplacementRefinement(displayChange.draftValue, displayChange.editorValue)) {
     return getTokenReplacementEditorRanges({
       draftValue: displayChange.draftValue,
@@ -507,20 +636,6 @@ const getReplacementEditorRanges = ({
       return [{ type: 'added', from, to }];
     }
 
-    if (displayChange.draftValue.length > 0) {
-      const markerPosition = getDeletedMarkerPosition(
-        displayChange.editorValue,
-        offsets.editorFromOffset,
-      );
-      return [
-        {
-          type: 'deleted',
-          from: editorPosition + markerPosition,
-          to: editorPosition + markerPosition,
-        },
-      ];
-    }
-
     return [];
   }
 
@@ -528,17 +643,7 @@ const getReplacementEditorRanges = ({
     hasEmptyEditorReplacementSpan(offsets) &&
     offsets.draftToOffset > offsets.draftFromOffset
   ) {
-    const markerPosition = getDeletedMarkerPosition(
-      displayChange.editorValue,
-      offsets.editorFromOffset,
-    );
-    return [
-      {
-        type: 'deleted',
-        from: editorPosition + markerPosition,
-        to: editorPosition + markerPosition,
-      },
-    ];
+    return [];
   }
 
   const from = editorPosition;
@@ -864,16 +969,6 @@ const getTokenReplacementEditorRanges = ({
 
         if (to > from) {
           ranges.push({ type: 'added', from, to });
-        } else {
-          const markerPosition = getDeletedMarkerPosition(
-            editorToken.value,
-            offsets.editorFromOffset,
-          );
-          ranges.push({
-            type: 'deleted',
-            from: editorPosition + editorToken.from + markerPosition,
-            to: editorPosition + editorToken.from + markerPosition,
-          });
         }
         continue;
       }
@@ -883,15 +978,6 @@ const getTokenReplacementEditorRanges = ({
         hasEmptyEditorReplacementSpan(offsets) &&
         offsets.draftToOffset > offsets.draftFromOffset
       ) {
-        const markerPosition = getDeletedMarkerPosition(
-          editorToken.value,
-          offsets.editorFromOffset,
-        );
-        ranges.push({
-          type: 'deleted',
-          from: editorPosition + editorToken.from + markerPosition,
-          to: editorPosition + editorToken.from + markerPosition,
-        });
         continue;
       }
 
@@ -913,12 +999,7 @@ const getTokenReplacementEditorRanges = ({
     }
 
     if (draftToken && !editorToken) {
-      const markerPosition = getDeletedMarkerPosition(editorValue, draftToken.from);
-      ranges.push({
-        type: 'deleted',
-        from: editorPosition + markerPosition,
-        to: editorPosition + markerPosition,
-      });
+      continue;
     }
   }
 
@@ -975,16 +1056,6 @@ const getTokenReplacementDraftRanges = ({
 
         if (to > from) {
           ranges.push({ type: 'deleted', from, to });
-        } else {
-          const markerPosition = getAddedMarkerPosition(
-            draftValue,
-            draftToken.from + offsets.draftFromOffset,
-          );
-          ranges.push({
-            type: 'added',
-            from: draftPosition + markerPosition,
-            to: draftPosition + markerPosition,
-          });
         }
         continue;
       }
@@ -994,15 +1065,6 @@ const getTokenReplacementDraftRanges = ({
         hasEmptyDraftReplacementSpan(offsets) &&
         offsets.editorToOffset > offsets.editorFromOffset
       ) {
-        const markerPosition = getAddedMarkerPosition(
-          draftToken.value,
-          offsets.draftFromOffset,
-        );
-        ranges.push({
-          type: 'added',
-          from: draftPosition + draftToken.from + markerPosition,
-          to: draftPosition + draftToken.from + markerPosition,
-        });
         continue;
       }
 
@@ -1024,12 +1086,7 @@ const getTokenReplacementDraftRanges = ({
     }
 
     if (editorToken && !draftToken) {
-      const markerPosition = getAddedMarkerPosition(draftValue, editorToken.from);
-      ranges.push({
-        type: 'added',
-        from: draftPosition + markerPosition,
-        to: draftPosition + markerPosition,
-      });
+      continue;
     }
   }
 
@@ -1240,6 +1297,18 @@ const getReplacementHighlightOffsets = (
   draftValue: string,
   editorValue: string,
 ): ReplacementHighlightOffsets => {
+  if (
+    draftValue.length === editorValue.length + 1 &&
+    editorValue === draftValue.slice(0, -1)
+  ) {
+    return {
+      draftFromOffset: draftValue.length - 1,
+      draftToOffset: draftValue.length,
+      editorFromOffset: editorValue.length,
+      editorToOffset: editorValue.length,
+    };
+  }
+
   if (draftValue.length > editorValue.length) {
     return getDeletionBiasedReplacementHighlightOffsets(draftValue, editorValue);
   }
@@ -1599,6 +1668,107 @@ const getLinePairsWithoutAnchors = (
   return linePairs;
 };
 
+const isDraftLineTextPreservedNearPair = (
+  linePairs: LinePair[],
+  linePairIndex: number,
+): boolean => {
+  const linePair = linePairs[linePairIndex];
+  if (linePair.draftLine === null || linePair.editorLine !== null) {
+    return false;
+  }
+
+  const normalizedDraftLine = getNormalizedVisibleLineText(linePair.draftLine);
+  if (!normalizedDraftLine) {
+    return false;
+  }
+
+  for (let offset = -2; offset <= 2; offset += 1) {
+    if (offset === 0) {
+      continue;
+    }
+    const nearbyPair = linePairs[linePairIndex + offset];
+    if (!nearbyPair || nearbyPair.editorLine === null) {
+      continue;
+    }
+
+    const normalizedEditorLine = getNormalizedVisibleLineText(nearbyPair.editorLine);
+    if (
+      normalizedEditorLine.includes(normalizedDraftLine) ||
+      hasSimilarVisibleToken(normalizedDraftLine, nearbyPair.editorLine)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+const getNormalizedVisibleLineText = (line: string): string => {
+  return line.replace(/\s+/g, '').toLowerCase();
+};
+
+const getPreviousDraftLineNumber = (
+  linePairs: LinePair[],
+  linePairIndex: number,
+): number => {
+  for (let index = linePairIndex - 1; index >= 0; index -= 1) {
+    const linePair = linePairs[index];
+    if (linePair?.draftLine !== null) {
+      return linePair.draftLineNumber;
+    }
+  }
+
+  return 0;
+};
+
+const hasSimilarVisibleToken = (
+  normalizedDraftLine: string,
+  editorLine: string,
+): boolean => {
+  const normalizedEditorLine = getNormalizedVisibleLineText(editorLine);
+  if (areSimilarVisibleTexts(normalizedDraftLine, normalizedEditorLine)) {
+    return true;
+  }
+
+  const editorTokens = editorLine
+    .toLowerCase()
+    .split(/[^a-z0-9]+/g)
+    .filter(Boolean);
+  return editorTokens.some((token) => areSimilarVisibleTexts(normalizedDraftLine, token));
+};
+
+const areSimilarVisibleTexts = (left: string, right: string): boolean => {
+  if (!left || !right) {
+    return false;
+  }
+  if (left === right) {
+    return true;
+  }
+
+  return getStringLcsLength(left, right) / Math.max(left.length, right.length) >= 0.75;
+};
+
+const getStringLcsLength = (left: string, right: string): number => {
+  const scores: number[][] = Array.from({ length: left.length + 1 }, () =>
+    Array(right.length + 1).fill(0),
+  );
+
+  for (let leftIndex = left.length - 1; leftIndex >= 0; leftIndex -= 1) {
+    for (let rightIndex = right.length - 1; rightIndex >= 0; rightIndex -= 1) {
+      if (left[leftIndex] === right[rightIndex]) {
+        scores[leftIndex][rightIndex] = 1 + scores[leftIndex + 1][rightIndex + 1];
+      } else {
+        scores[leftIndex][rightIndex] = Math.max(
+          scores[leftIndex + 1][rightIndex],
+          scores[leftIndex][rightIndex + 1],
+        );
+      }
+    }
+  }
+
+  return scores[0][0];
+};
+
 const getDraftLineDecorationKey = (
   decoration: DraftLineDecoration,
 ): string => {
@@ -1609,34 +1779,53 @@ const getEditorText = (displayChanges: DisplayChange[]): string => {
   return displayChanges.map((displayChange) => displayChange.editorValue).join('');
 };
 
-const getDeletedMarkerPosition = (
-  editorText: string,
-  editorPosition: number,
-): number => {
-  if (editorPosition <= 0) {
-    return editorPosition;
+const getVisibleEditorRangeSegments = ({
+  text,
+  basePosition,
+}: {
+  text: string;
+  basePosition: number;
+}): EditorHighlightRange[] => {
+  const ranges: EditorHighlightRange[] = [];
+  let segmentStart = 0;
+
+  for (let index = 0; index <= text.length; index += 1) {
+    const isSegmentBreak = index === text.length || text[index] === '\n';
+    if (!isSegmentBreak) {
+      continue;
+    }
+
+    const segment = text.slice(segmentStart, index);
+    if (segment.trim().length > 0) {
+      ranges.push({
+        type: 'added',
+        from: basePosition + segmentStart,
+        to: basePosition + index,
+      });
+    }
+    segmentStart = index + 1;
   }
 
-  const previousCharacter = editorText.at(editorPosition - 1);
-
-  if (previousCharacter === ' ' || previousCharacter === '\t') {
-    return editorPosition - 1;
-  }
-
-  return editorPosition;
+  return ranges;
 };
 
-const getAddedMarkerPosition = (
-  draftText: string,
-  draftPosition: number,
-): number => {
-  const clampedPosition = Math.min(draftText.length, Math.max(0, draftPosition));
+const getVisibleEditorRanges = (
+  ranges: EditorHighlightRange[],
+  editorText: string,
+): EditorHighlightRange[] => {
+  const visibleRanges: EditorHighlightRange[] = [];
 
-  if (clampedPosition < draftText.length && draftText[clampedPosition] === '\n') {
-    return clampedPosition;
+  for (const range of ranges) {
+    const text = editorText.slice(range.from, range.to);
+    visibleRanges.push(
+      ...getVisibleEditorRangeSegments({
+        text,
+        basePosition: range.from,
+      }),
+    );
   }
 
-  return clampedPosition;
+  return visibleRanges;
 };
 
 const mergeAddedRangesAcrossSingleSpace = (
@@ -1737,6 +1926,18 @@ const mergeDeletedRangesAcrossSingleSpace = (
   return [...mergedRanges, ...addedRanges].sort(compareDraftHighlightRanges);
 };
 
+const filterVisibleDraftDeletedRanges = (
+  ranges: DraftHighlightRange[],
+  draftText: string,
+): DraftHighlightRange[] => {
+  return ranges.filter((range) => {
+    if (range.type !== 'deleted') {
+      return false;
+    }
+    return draftText.slice(range.from, range.to).trim().length > 0;
+  });
+};
+
 const getDraftText = (displayChanges: DisplayChange[]): string => {
   return displayChanges.map((displayChange) => displayChange.draftValue).join('');
 };
@@ -1797,6 +1998,13 @@ const hasEmptyDraftReplacementSpan = (
   return offsets.draftToOffset <= offsets.draftFromOffset;
 };
 
+const isWhitespaceOnlyReplacement = (
+  draftValue: string,
+  editorValue: string,
+): boolean => {
+  return draftValue.trim() === '' && editorValue.trim() === '';
+};
+
 const mergeRawChanges = (changes: RawChange[]): RawChange[] => {
   const mergedChanges: RawChange[] = [];
 
@@ -1812,6 +2020,22 @@ const mergeRawChanges = (changes: RawChange[]): RawChange[] => {
   }
 
   return mergedChanges;
+};
+
+const shouldPairAsReplacement = (
+  currentValue: string,
+  nextValue: string,
+): boolean => {
+  if (!currentValue.includes('\n') && !nextValue.includes('\n')) {
+    return true;
+  }
+
+  const withoutNewlinesLeft = currentValue.replace(/\n/g, '');
+  const withoutNewlinesRight = nextValue.replace(/\n/g, '');
+  return (
+    withoutNewlinesLeft.includes(withoutNewlinesRight) ||
+    withoutNewlinesRight.includes(withoutNewlinesLeft)
+  );
 };
 
 const combineWhitespaceBridgedChanges = (
@@ -1999,6 +2223,491 @@ const splitReplacementBoundaries = (draftValue: string, editorValue: string) => 
     draftCore: draftValue.slice(draftStart, draftEnd + 1),
     editorCore: editorValue.slice(editorStart, editorEnd + 1),
   };
+};
+
+const normalizeInsertedWhitespace = (changes: DisplayChange[]): DisplayChange[] => {
+  const normalizedChanges = changes.map((change) => ({ ...change }));
+
+  for (let index = 1; index < normalizedChanges.length - 1; index += 1) {
+    const previousChange = normalizedChanges[index - 1];
+    const currentChange = normalizedChanges[index];
+    const nextChange = normalizedChanges[index + 1];
+
+    if (
+      previousChange.type !== 'equal' ||
+      currentChange.type !== 'inserted' ||
+      nextChange.type !== 'equal'
+    ) {
+      continue;
+    }
+
+    if (
+      !previousChange.editorValue.endsWith(' ') ||
+      currentChange.editorValue.startsWith(' ') ||
+      !currentChange.editorValue.endsWith(' ') ||
+      nextChange.editorValue.startsWith('\n')
+    ) {
+      continue;
+    }
+
+    previousChange.draftValue = previousChange.draftValue.slice(0, -1);
+    previousChange.editorValue = previousChange.editorValue.slice(0, -1);
+    currentChange.editorValue = ` ${currentChange.editorValue.slice(0, -1)}`;
+    nextChange.draftValue = ` ${nextChange.draftValue}`;
+    nextChange.editorValue = ` ${nextChange.editorValue}`;
+  }
+
+  return mergeDisplayChanges(normalizedChanges);
+};
+
+const normalizeRepeatedLineReplacements = (
+  changes: DisplayChange[],
+): DisplayChange[] => {
+  const normalizedChanges: DisplayChange[] = [];
+
+  for (let index = 0; index < changes.length; index += 1) {
+    const deletedChange = changes[index];
+    const newlineChange = changes[index + 1];
+    const replacedChange = changes[index + 2];
+
+    if (
+      deletedChange &&
+      newlineChange &&
+      replacedChange &&
+      deletedChange.type === 'deleted' &&
+      newlineChange.type === 'equal' &&
+      newlineChange.draftValue === '\n' &&
+      replacedChange.type === 'replaced' &&
+      deletedChange.draftValue === replacedChange.editorValue &&
+      !deletedChange.draftValue.includes('\n') &&
+      !deletedChange.draftValue.includes(' ')
+    ) {
+      normalizedChanges.push({
+        type: 'inserted',
+        draftValue: '',
+        editorValue: '\n',
+      });
+      normalizedChanges.push({
+        type: 'equal',
+        draftValue: deletedChange.draftValue,
+        editorValue: deletedChange.draftValue,
+      });
+      normalizedChanges.push({
+        type: 'deleted',
+        draftValue: `\n${replacedChange.draftValue}`,
+        editorValue: '',
+      });
+      index += 2;
+      continue;
+    }
+
+    const insertedChange = changes[index + 2];
+    if (
+      deletedChange &&
+      newlineChange &&
+      insertedChange &&
+      deletedChange.type === 'deleted' &&
+      newlineChange.type === 'equal' &&
+      newlineChange.draftValue === '\n' &&
+      insertedChange.type === 'inserted' &&
+      insertedChange.editorValue.startsWith(deletedChange.draftValue) &&
+      !deletedChange.draftValue.includes('\n')
+    ) {
+      const insertedTail = insertedChange.editorValue.slice(deletedChange.draftValue.length);
+      normalizedChanges.push({
+        type: 'equal',
+        draftValue: deletedChange.draftValue,
+        editorValue: deletedChange.draftValue,
+      });
+      if (insertedTail || newlineChange.draftValue) {
+        normalizedChanges.push({
+          type: 'replaced',
+          draftValue: newlineChange.draftValue,
+          editorValue: insertedTail,
+        });
+      }
+      index += 2;
+      continue;
+    }
+
+    normalizedChanges.push({ ...deletedChange });
+  }
+
+  return mergeDisplayChanges(normalizedChanges);
+};
+
+const normalizeInsertedLineBeforeJoinedDraftLines = (
+  changes: DisplayChange[],
+): DisplayChange[] => {
+  const normalizedChanges: DisplayChange[] = [];
+
+  for (let index = 0; index < changes.length; index += 1) {
+    const replacedLine = changes[index];
+    const equalNewline = changes[index + 1];
+    const followingChange = changes[index + 2];
+
+    if (
+      !replacedLine ||
+      !equalNewline ||
+      !followingChange ||
+      replacedLine.type !== 'replaced' ||
+      equalNewline.type !== 'equal' ||
+      equalNewline.draftValue !== '\n' ||
+      replacedLine.draftValue.includes('\n') ||
+      replacedLine.editorValue.includes('\n') ||
+      replacedLine.draftValue.trim() === '' ||
+      replacedLine.editorValue.trim() === ''
+    ) {
+      normalizedChanges.push({ ...changes[index] });
+      continue;
+    }
+
+    const preservedPrefix = `${replacedLine.draftValue} `;
+    if (
+      (followingChange.type !== 'inserted' && followingChange.type !== 'replaced') ||
+      !followingChange.editorValue.startsWith(preservedPrefix)
+    ) {
+      normalizedChanges.push({ ...changes[index] });
+      continue;
+    }
+
+    const followingEditorRemainder = followingChange.editorValue.slice(
+      preservedPrefix.length,
+    );
+    const followingDraftValue =
+      followingChange.type === 'replaced' ? followingChange.draftValue : '';
+
+    normalizedChanges.push({
+      type: 'inserted',
+      draftValue: '',
+      editorValue: `${replacedLine.editorValue}\n`,
+    });
+    normalizedChanges.push({
+      type: 'equal',
+      draftValue: replacedLine.draftValue,
+      editorValue: replacedLine.draftValue,
+    });
+    normalizedChanges.push({
+      type: 'replaced',
+      draftValue: '\n',
+      editorValue: ' ',
+    });
+    if (followingDraftValue || followingEditorRemainder) {
+      normalizedChanges.push({
+        type: followingChange.type,
+        draftValue: followingDraftValue,
+        editorValue: followingEditorRemainder,
+      });
+    }
+
+    index += 2;
+  }
+
+  return mergeDisplayChanges(normalizedChanges);
+};
+
+const collapseNoisySingleLineReplacements = (
+  changes: DisplayChange[],
+): DisplayChange[] => {
+  const collapsedChanges: DisplayChange[] = [];
+  let index = 0;
+
+  while (index < changes.length) {
+    const currentChange = changes[index];
+    if (currentChange.type === 'equal' && currentChange.editorValue.includes('\n')) {
+      collapsedChanges.push({ ...currentChange });
+      index += 1;
+      continue;
+    }
+
+    const segment: DisplayChange[] = [];
+    while (index < changes.length) {
+      const segmentChange = changes[index];
+      if (segmentChange.editorValue.includes('\n') || segmentChange.draftValue.includes('\n')) {
+        break;
+      }
+      segment.push(segmentChange);
+      index += 1;
+    }
+
+    if (segment.length === 0) {
+      collapsedChanges.push({ ...changes[index] });
+      index += 1;
+      continue;
+    }
+
+    if (shouldCollapseNoisyRewrite(segment)) {
+      collapsedChanges.push({
+        type: 'replaced',
+        draftValue: segment.map((change) => change.draftValue).join(''),
+        editorValue: segment.map((change) => change.editorValue).join(''),
+      });
+    } else {
+      collapsedChanges.push(...segment.map((change) => ({ ...change })));
+    }
+  }
+
+  return mergeDisplayChanges(collapsedChanges);
+};
+
+const shouldCollapseNoisyRewrite = (changes: DisplayChange[]): boolean => {
+  const draftText = changes.map((change) => change.draftValue).join('');
+  const editorText = changes.map((change) => change.editorValue).join('');
+  if (!draftText || !editorText || draftText.includes('\n') || editorText.includes('\n')) {
+    return false;
+  }
+
+  const draftWordCount = getWordCount(draftText);
+  const editorWordCount = getWordCount(editorText);
+  if (Math.max(draftWordCount, editorWordCount) < 6) {
+    return false;
+  }
+
+  const meaningfulSharedRatio = getSharedTokenRatio(
+    getMeaningfulTokens(draftText),
+    getMeaningfulTokens(editorText),
+  );
+  if (meaningfulSharedRatio >= 0.35) {
+    return false;
+  }
+
+  const equalFragments = changes
+    .filter((change) => change.type === 'equal')
+    .map((change) => change.editorValue.trim())
+    .filter(Boolean);
+  if (equalFragments.length < 1) {
+    return false;
+  }
+
+  const totalEqualLength = equalFragments.reduce((sum, fragment) => sum + fragment.length, 0);
+  if (totalEqualLength > Math.max(draftText.length, editorText.length) * 0.3) {
+    return false;
+  }
+
+  return equalFragments.every((fragment) => {
+    const tokens = fragment.toLowerCase().split(/[^a-z0-9]+/g).filter(Boolean);
+    if (tokens.length === 0) {
+      return true;
+    }
+    return tokens.every((token) => token.length <= 4 || COMMON_NOISY_TOKENS.has(token));
+  });
+};
+
+const getMeaningfulTokens = (text: string): string[] => {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/g)
+    .filter((token) => token.length >= 4 && !COMMON_NOISY_TOKENS.has(token));
+};
+
+const getSharedTokenRatio = (draftTokens: string[], editorTokens: string[]): number => {
+  if (draftTokens.length === 0 || editorTokens.length === 0) {
+    return 0;
+  }
+
+  const draftSet = new Set(draftTokens);
+  let sharedCount = 0;
+  for (const token of new Set(editorTokens)) {
+    if (draftSet.has(token)) {
+      sharedCount += 1;
+    }
+  }
+
+  return sharedCount / Math.max(new Set(draftTokens).size, new Set(editorTokens).size);
+};
+
+const COMMON_NOISY_TOKENS = new Set([
+  'a',
+  'an',
+  'and',
+  'are',
+  'for',
+  'from',
+  'have',
+  'his',
+  'name',
+  'that',
+  'the',
+  'their',
+  'there',
+  'they',
+  'this',
+  'was',
+  'were',
+  'with',
+]);
+
+const getCharacterReplacementEditorRanges = ({
+  draftValue,
+  editorValue,
+  editorPosition,
+}: {
+  draftValue: string;
+  editorValue: string;
+  editorPosition: number;
+}): EditorHighlightRange[] | null => {
+  const ranges = getCharacterReplacementRanges(draftValue, editorValue);
+  if (!ranges) {
+    return null;
+  }
+
+  if (ranges.editorRanges.length > 0) {
+    return ranges.editorRanges.map((range) => ({
+      type: 'added',
+      from: editorPosition + range.from,
+      to: editorPosition + range.to,
+    }));
+  }
+
+  return [];
+};
+
+const getCharacterReplacementDraftRanges = ({
+  draftValue,
+  editorValue,
+  draftPosition,
+}: {
+  draftValue: string;
+  editorValue: string;
+  draftPosition: number;
+}): DraftHighlightRange[] | null => {
+  const ranges = getCharacterReplacementRanges(draftValue, editorValue);
+  if (!ranges) {
+    return null;
+  }
+
+  if (ranges.draftRanges.length > 0) {
+    return ranges.draftRanges.map((range) => ({
+      type: 'deleted',
+      from: draftPosition + range.from,
+      to: draftPosition + range.to,
+    }));
+  }
+
+  return [];
+};
+
+const getCharacterReplacementRanges = (
+  draftValue: string,
+  editorValue: string,
+): {
+  draftRanges: Array<{ from: number; to: number }>;
+  editorRanges: Array<{ from: number; to: number }>;
+} | null => {
+  if (!draftValue || !editorValue) {
+    return null;
+  }
+
+  if (
+    (/\s/.test(draftValue) || /\s/.test(editorValue)) &&
+    !draftValue.includes('\n') &&
+    !editorValue.includes('\n') &&
+    Math.max(getWordCount(draftValue), getWordCount(editorValue)) >= 3
+  ) {
+    return null;
+  }
+
+  const matches = getCharacterMatches(draftValue, editorValue);
+  const lcsLength = matches.length;
+  const longestLength = Math.max(draftValue.length, editorValue.length);
+  if (lcsLength / longestLength < 0.5) {
+    return null;
+  }
+
+  const draftRanges = getUnmatchedRanges(
+    draftValue.length,
+    matches.map((match) => match.draftIndex),
+  );
+  const editorRanges = getUnmatchedRanges(
+    editorValue.length,
+    matches.map((match) => match.editorIndex),
+  );
+
+  if (draftRanges.length === 0 && editorRanges.length === 0) {
+    return null;
+  }
+
+  return { draftRanges, editorRanges };
+};
+
+const getCharacterMatches = (
+  draftValue: string,
+  editorValue: string,
+): Array<{ draftIndex: number; editorIndex: number }> => {
+  const draftCount = draftValue.length;
+  const editorCount = editorValue.length;
+  const scores: number[][] = Array.from({ length: draftCount + 1 }, () =>
+    Array(editorCount + 1).fill(0),
+  );
+
+  for (let draftIndex = draftCount - 1; draftIndex >= 0; draftIndex -= 1) {
+    for (let editorIndex = editorCount - 1; editorIndex >= 0; editorIndex -= 1) {
+      const bestWithoutMatch = Math.max(
+        scores[draftIndex + 1][editorIndex],
+        scores[draftIndex][editorIndex + 1],
+      );
+      if (draftValue[draftIndex] === editorValue[editorIndex]) {
+        scores[draftIndex][editorIndex] = Math.max(
+          bestWithoutMatch,
+          1 + scores[draftIndex + 1][editorIndex + 1],
+        );
+      } else {
+        scores[draftIndex][editorIndex] = bestWithoutMatch;
+      }
+    }
+  }
+
+  const matches: Array<{ draftIndex: number; editorIndex: number }> = [];
+  let draftIndex = 0;
+  let editorIndex = 0;
+  while (draftIndex < draftCount && editorIndex < editorCount) {
+    if (
+      draftValue[draftIndex] === editorValue[editorIndex] &&
+      scores[draftIndex][editorIndex] === 1 + scores[draftIndex + 1][editorIndex + 1]
+    ) {
+      matches.push({ draftIndex, editorIndex });
+      draftIndex += 1;
+      editorIndex += 1;
+      continue;
+    }
+
+    if (scores[draftIndex][editorIndex + 1] >= scores[draftIndex + 1][editorIndex]) {
+      editorIndex += 1;
+    } else {
+      draftIndex += 1;
+    }
+  }
+
+  return matches;
+};
+
+const getUnmatchedRanges = (
+  length: number,
+  matchedIndexes: number[],
+): Array<{ from: number; to: number }> => {
+  const matchedSet = new Set(matchedIndexes);
+  const ranges: Array<{ from: number; to: number }> = [];
+  let from: number | null = null;
+
+  for (let index = 0; index < length; index += 1) {
+    if (!matchedSet.has(index)) {
+      if (from === null) {
+        from = index;
+      }
+      continue;
+    }
+
+    if (from !== null) {
+      ranges.push({ from, to: index });
+      from = null;
+    }
+  }
+
+  if (from !== null) {
+    ranges.push({ from, to: length });
+  }
+
+  return ranges;
 };
 
 const mergeDisplayChanges = (changes: DisplayChange[]): DisplayChange[] => {
