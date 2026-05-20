@@ -166,8 +166,10 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       backgroundImage:
         'repeating-linear-gradient(-45deg, rgba(140, 140, 140, 0.7) 0, rgba(140, 140, 140, 0.7) 2px, transparent 2px, transparent 6px)',
     },
-    '.cm-line.byline-lowest-edited-line': {
-      boxShadow: 'inset 0 -1px 0 0 #8C8C8C',
+    '.byline-lowest-edited-line-marker': {
+      backgroundColor: 'transparent',
+      backgroundImage:
+        'repeating-linear-gradient(to right, #8C8C8C 0, #8C8C8C 2px, transparent 2px, transparent 6px)',
     },
     '.byline-font-bold': {
       fontWeight: '700',

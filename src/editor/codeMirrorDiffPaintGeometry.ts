@@ -3,7 +3,8 @@ export type DiffPaintGeometryRole =
   | 'tick'
   | 'missingLine'
   | 'fullLine'
-  | 'activeLine';
+  | 'activeLine'
+  | 'lowestEditedLine';
 
 export type PaintGeometryAdjustment = {
   topOffsetPx: number;
@@ -24,6 +25,9 @@ export const DIFF_PAINT_VERTICAL_OFFSET_PX = 8;
 export const DIFF_TICK_WIDTH_PX = 3;
 export const DIFF_FULL_LINE_LEFT_OFFSET_PX = 64;
 export const DIFF_FULL_LINE_RIGHT_OFFSET_PX = 40;
+export const LOWEST_EDITED_LINE_HEIGHT_PX = 1;
+export const LOWEST_EDITED_LINE_DOT_WIDTH_PX = 2;
+export const LOWEST_EDITED_LINE_GAP_WIDTH_PX = 4;
 
 export const DIFF_PAINT_GEOMETRY: Record<
   DiffPaintGeometryRole,
@@ -60,6 +64,12 @@ export const DIFF_PAINT_GEOMETRY: Record<
     leftOffsetPx: DIFF_FULL_LINE_LEFT_OFFSET_PX,
     rightOffsetPx: DIFF_FULL_LINE_RIGHT_OFFSET_PX,
   },
+  lowestEditedLine: {
+    topOffsetPx: DIFF_PAINT_VERTICAL_OFFSET_PX,
+    bottomOffsetPx: DIFF_PAINT_VERTICAL_OFFSET_PX,
+    leftOffsetPx: DIFF_FULL_LINE_LEFT_OFFSET_PX,
+    rightOffsetPx: DIFF_FULL_LINE_RIGHT_OFFSET_PX,
+  },
 };
 
 export const getAdjustedPaintRectBox = (
@@ -86,4 +96,23 @@ export const getAdjustedPaintRectBox = (
   }
 
   return { left, top, width, height };
+};
+
+export const getLowestEditedLineRuleBox = (
+  linePaintBox: PaintRectBox,
+): PaintRectBox | null => {
+  const adjustedBox = getAdjustedPaintRectBox(
+    linePaintBox,
+    DIFF_PAINT_GEOMETRY.lowestEditedLine,
+  );
+  if (!adjustedBox) {
+    return null;
+  }
+
+  return {
+    left: adjustedBox.left,
+    top: adjustedBox.top + adjustedBox.height - LOWEST_EDITED_LINE_HEIGHT_PX,
+    width: adjustedBox.width,
+    height: LOWEST_EDITED_LINE_HEIGHT_PX,
+  };
 };

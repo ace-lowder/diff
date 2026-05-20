@@ -7,12 +7,14 @@ import type {
   DraftLineDecoration,
   EditorHighlightRange,
   EditorLineDecoration,
+  LowestEditedLine,
 } from '../editorDiff';
 import type { CodeMirrorDecorations } from './codeMirrorDecorations';
 import {
   DIFF_PAINT_GEOMETRY,
   DIFF_TICK_WIDTH_PX,
   getAdjustedPaintRectBox,
+  getLowestEditedLineRuleBox,
   type DiffPaintGeometryRole,
   type PaintRectBox,
 } from './codeMirrorDiffPaintGeometry';
@@ -51,6 +53,7 @@ export type DiffPaintState = {
   draftHighlightRanges: DraftHighlightRange[];
   editorLineDecorations: EditorLineDecoration[];
   draftLineDecorations: DraftLineDecoration[];
+  lowestEditedLine: LowestEditedLine | null;
 };
 
 export type VisualLineBoxInput = {
@@ -81,6 +84,7 @@ export const diffPaintField = StateField.define<DiffPaintState>({
       draftHighlightRanges: [],
       editorLineDecorations: [],
       draftLineDecorations: [],
+      lowestEditedLine: null,
     };
   },
   update(value, transaction) {
@@ -96,6 +100,7 @@ export const diffPaintField = StateField.define<DiffPaintState>({
         draftHighlightRanges: [],
         editorLineDecorations: [],
         draftLineDecorations: [],
+        lowestEditedLine: null,
       };
     }
 
@@ -111,6 +116,7 @@ export const getDiffPaintEffectValue = (
     draftHighlightRanges: decorations.draftHighlightRanges,
     editorLineDecorations: decorations.editorLineDecorations,
     draftLineDecorations: decorations.draftLineDecorations,
+    lowestEditedLine: decorations.lowestEditedLine,
   };
 };
 
@@ -178,6 +184,21 @@ export const getCodeMirrorDiffPaintExtension = (
       },
       markers(view) {
         return getDiffPaintMarkers(view, theme);
+      },
+    }),
+    layer({
+      above: true,
+      class: 'byline-diff-rule-layer',
+      update(update) {
+        return (
+          update.docChanged ||
+          update.viewportChanged ||
+          update.geometryChanged ||
+          update.startState.field(diffPaintField) !== update.state.field(diffPaintField)
+        );
+      },
+      markers(view) {
+        return getLowestEditedLineMarkers(view);
       },
     }),
   ];
@@ -268,6 +289,28 @@ const getDiffPaintMarkers = (
     ...getRangeMarkers(view, rangeTargets),
     ...getMarkerTickMarkers(view, markerTargets),
   ];
+};
+
+const getLowestEditedLineMarkers = (view: EditorView): RectangleMarker[] => {
+  const { lowestEditedLine } = view.state.field(diffPaintField);
+  if (!lowestEditedLine) {
+    return [];
+  }
+
+  if (!isValidLineNumber(lowestEditedLine.lineNumber, view.state.doc.lines)) {
+    return [];
+  }
+
+  const contentWidth = getContentWidth(view);
+  if (contentWidth <= 0) {
+    return [];
+  }
+
+  return getLowestEditedLineRuleMarkers({
+    view,
+    lineNumber: lowestEditedLine.lineNumber,
+    contentWidth,
+  });
 };
 
 const getLineMarkers = (
@@ -620,6 +663,52 @@ const getLineBlockMarkers = ({
   }
 
   return markers;
+};
+
+const getLowestEditedLineRuleMarkers = ({
+  view,
+  lineNumber,
+  contentWidth,
+}: {
+  view: EditorView;
+  lineNumber: number;
+  contentWidth: number;
+}): RectangleMarker[] => {
+  if (lineNumber < 1 || lineNumber > view.state.doc.lines) {
+    return [];
+  }
+
+  const line = view.state.doc.line(lineNumber);
+  const block = view.lineBlockAt(line.from);
+  const textBlocks = getTextBlocksFromLineBlock(block);
+  if (textBlocks.length === 0) {
+    return [];
+  }
+
+  const lineHeight = getLineHeight(view);
+  const lastTextBlock = textBlocks[textBlocks.length - 1];
+  const rowCount = Math.max(1, Math.floor(lastTextBlock.height / lineHeight));
+  const finalTextRowTop = lastTextBlock.top + (rowCount - 1) * lineHeight;
+
+  const ruleBox = getLowestEditedLineRuleBox({
+    left: 0,
+    top: finalTextRowTop,
+    width: contentWidth,
+    height: lineHeight,
+  });
+  if (!ruleBox) {
+    return [];
+  }
+
+  return [
+    new RectangleMarker(
+      'byline-lowest-edited-line-marker',
+      ruleBox.left,
+      ruleBox.top,
+      ruleBox.width,
+      ruleBox.height,
+    ),
+  ];
 };
 
 const getNormalizedRangeBoxes = (

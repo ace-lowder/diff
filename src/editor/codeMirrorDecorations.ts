@@ -91,7 +91,6 @@ export const getCodeMirrorDecorations = (
       decorations.draftLineDecorations,
       docText,
     ),
-    ...getLowestEditedLineDecorations(editorView, decorations.lowestEditedLine),
   ];
 
   return Decoration.set(ranges, true);
@@ -182,25 +181,6 @@ const getDraftLineDecorations = (
   }
 
   return decorations;
-};
-
-const getLowestEditedLineDecorations = (
-  editorView: EditorView,
-  lowestEditedLine: LowestEditedLine | null,
-): Range<Decoration>[] => {
-  if (!lowestEditedLine) {
-    return [];
-  }
-
-  if (
-    lowestEditedLine.lineNumber < 1 ||
-    lowestEditedLine.lineNumber > editorView.state.doc.lines
-  ) {
-    return [];
-  }
-
-  const line = editorView.state.doc.line(lowestEditedLine.lineNumber);
-  return [Decoration.line({ class: 'byline-lowest-edited-line' }).range(line.from)];
 };
 
 const getFontStyleDecorations = (

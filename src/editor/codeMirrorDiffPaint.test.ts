@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { DraftHighlightRange, DraftLineDecoration, EditorHighlightRange } from '../editorDiff';
 import {
+  getDiffPaintEffectValue,
   getDiffPaintTargets,
   getNonWidgetTextBlocks,
   getVisualLineBox,
@@ -10,6 +11,8 @@ import {
 import {
   DIFF_PAINT_GEOMETRY,
   getAdjustedPaintRectBox,
+  getLowestEditedLineRuleBox,
+  LOWEST_EDITED_LINE_HEIGHT_PX,
 } from './codeMirrorDiffPaintGeometry';
 
 const BASE_TEXT = 'one\ntwo\nthree';
@@ -32,6 +35,7 @@ const getTargets = ({
     draftHighlightRanges,
     editorLineDecorations,
     draftLineDecorations,
+    lowestEditedLine: null,
   };
 
   return getDiffPaintTargets({
@@ -70,6 +74,7 @@ describe('getDiffPaintTargets', () => {
         draftHighlightRanges: [],
         editorLineDecorations: [],
         draftLineDecorations: [],
+        lowestEditedLine: null,
       },
     });
 
@@ -123,6 +128,7 @@ describe('getDiffPaintTargets', () => {
         draftHighlightRanges: [{ type: 'added', from: 3, to: 3 }],
         editorLineDecorations: [],
         draftLineDecorations: [],
+        lowestEditedLine: null,
       },
     });
 
@@ -204,6 +210,27 @@ describe('getDiffPaintTargets', () => {
       className: 'byline-diff-active-line',
       lineNumber: 2,
       geometryRole: 'activeLine',
+    });
+  });
+});
+
+describe('getDiffPaintEffectValue', () => {
+  it('includes lowest edited line', () => {
+    expect(
+      getDiffPaintEffectValue({
+        editorHighlightRanges: [],
+        draftHighlightRanges: [],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        fontStyleRanges: [],
+        lowestEditedLine: { lineNumber: 8 },
+      }),
+    ).toEqual({
+      editorHighlightRanges: [],
+      draftHighlightRanges: [],
+      editorLineDecorations: [],
+      draftLineDecorations: [],
+      lowestEditedLine: { lineNumber: 8 },
     });
   });
 });
@@ -317,6 +344,43 @@ describe('getAdjustedPaintRectBox', () => {
         { left: 10, top: 20, width: 30, height: 1 },
         { topOffsetPx: 1, bottomOffsetPx: -1, leftOffsetPx: 0, rightOffsetPx: 0 },
       ),
+    ).toBeNull();
+  });
+});
+
+describe('lowest edited line geometry', () => {
+  it('uses same offsets as full line geometry', () => {
+    expect(DIFF_PAINT_GEOMETRY.lowestEditedLine).toEqual(DIFF_PAINT_GEOMETRY.fullLine);
+  });
+
+  it('uses 1px rule height', () => {
+    expect(LOWEST_EDITED_LINE_HEIGHT_PX).toBe(1);
+  });
+
+  it('builds bottom-edge rule box from adjusted line box', () => {
+    expect(
+      getLowestEditedLineRuleBox({
+        left: 0,
+        top: 20,
+        width: 100,
+        height: 24,
+      }),
+    ).toEqual({
+      left: 64,
+      top: 51,
+      width: 76,
+      height: 1,
+    });
+  });
+
+  it('returns null when adjusted box is invalid', () => {
+    expect(
+      getLowestEditedLineRuleBox({
+        left: 0,
+        top: 20,
+        width: 10,
+        height: 24,
+      }),
     ).toBeNull();
   });
 });
