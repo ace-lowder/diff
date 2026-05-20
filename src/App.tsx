@@ -11,6 +11,9 @@ import {
   getLowestEditedLine,
   type StatsMode,
 } from './editorDiff';
+import type {
+  RunConsoleCommand,
+} from './editor/codeMirrorConsoleCommands';
 import { Footer } from './components/Footer';
 import { CodeMirrorPane } from './components/CodeMirrorPane';
 import {
@@ -200,22 +203,34 @@ const App = () => {
 
   const handleCopyText = async () => {
     const copyText = mode === 'draft' ? draftText : editorText;
-    const clipboardHighlightRanges: ClipboardHighlightRange[] =
-      mode === 'draft'
-        ? getDraftClipboardHighlightRanges({
-            text: draftText,
-            highlightRanges: draftHighlightRanges
-              .filter((range) => range.type === 'deleted')
-              .map((range) => ({
-                type: 'deleted',
-                from: range.from,
-                to: range.to,
-              })),
-          })
-        : editorHighlightRanges;
-    const fontStyleRanges: ClipboardFontStyleRange[] =
-      mode === 'draft' ? draftFontStyleRanges : editorFontStyleRanges;
+    await copyDocumentText({
+      copyText,
+      clipboardHighlightRanges:
+        mode === 'draft'
+          ? getDraftClipboardHighlightRanges({
+              text: draftText,
+              highlightRanges: draftHighlightRanges
+                .filter((range) => range.type === 'deleted')
+                .map((range) => ({
+                  type: 'deleted',
+                  from: range.from,
+                  to: range.to,
+                })),
+            })
+          : editorHighlightRanges,
+      fontStyleRanges: mode === 'draft' ? draftFontStyleRanges : editorFontStyleRanges,
+    });
+  };
 
+  const copyDocumentText = async ({
+    copyText,
+    clipboardHighlightRanges,
+    fontStyleRanges,
+  }: {
+    copyText: string;
+    clipboardHighlightRanges: ClipboardHighlightRange[];
+    fontStyleRanges: ClipboardFontStyleRange[];
+  }) => {
     try {
       const htmlText = getClipboardHtml({
         text: copyText,
@@ -230,10 +245,14 @@ const App = () => {
         }),
       ]);
 
-      setCopyStatus('copied');
+      setTemporaryCopyStatus('copied');
     } catch {
-      setCopyStatus('failed');
+      setTemporaryCopyStatus('failed');
     }
+  };
+
+  const setTemporaryCopyStatus = (status: CopyStatus) => {
+    setCopyStatus(status);
 
     if (copyStatusTimeoutRef.current !== null) {
       window.clearTimeout(copyStatusTimeoutRef.current);
@@ -243,6 +262,37 @@ const App = () => {
       setCopyStatus('idle');
       copyStatusTimeoutRef.current = null;
     }, 1500);
+  };
+
+  const handleRunConsoleCommand: RunConsoleCommand = async (command, context) => {
+    if (command.type === 'view') {
+      if (command.mode === 'next') {
+        handleModeToggle();
+        return;
+      }
+
+      refreshActiveLineFromVisiblePane();
+      setInitialLineNumber(activeLineNumberRef.current);
+      setMode(command.mode);
+      return;
+    }
+
+    if (command.type === 'copy') {
+      if (command.target === 'document') {
+        await handleCopyText();
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(context.previousLineText);
+        setTemporaryCopyStatus('copied');
+      } catch {
+        setTemporaryCopyStatus('failed');
+      }
+      return;
+    }
+
+    setStatsMode(command.statsMode);
   };
 
   const handleCoffeeClick = () => {
@@ -568,6 +618,7 @@ const App = () => {
                 onToggleFontStyle={(fontStyleType) =>
                   handleToggleFontStyleForPane('draft', fontStyleType)
                 }
+                onRunConsoleCommand={handleRunConsoleCommand}
                 ariaLabel="Draft text"
                 theme="draft"
                 initialLineNumber={initialLineNumber}
@@ -610,6 +661,7 @@ const App = () => {
                 onToggleFontStyle={(fontStyleType) =>
                   handleToggleFontStyleForPane('editor', fontStyleType)
                 }
+                onRunConsoleCommand={handleRunConsoleCommand}
                 ariaLabel="Editor text"
                 theme="editor"
                 initialLineNumber={initialLineNumber}
@@ -656,6 +708,7 @@ const App = () => {
                     onToggleFontStyle={(fontStyleType) =>
                       handleToggleFontStyleForPane('draft', fontStyleType)
                     }
+                    onRunConsoleCommand={handleRunConsoleCommand}
                     ariaLabel="Draft text"
                     theme="draft"
                     initialLineNumber={initialLineNumber}
@@ -714,6 +767,7 @@ const App = () => {
                     onToggleFontStyle={(fontStyleType) =>
                       handleToggleFontStyleForPane('editor', fontStyleType)
                     }
+                    onRunConsoleCommand={handleRunConsoleCommand}
                     ariaLabel="Editor text"
                     theme="editor"
                     initialLineNumber={initialLineNumber}

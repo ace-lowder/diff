@@ -9,18 +9,24 @@ import {
 } from '@codemirror/view';
 
 import { editorDecorationsField } from './codeMirrorDecorations';
+import {
+  getCodeMirrorConsoleCommandExtension,
+  type RunConsoleCommand,
+} from './codeMirrorConsoleCommands';
 import { getCodeMirrorDiffPaintExtension } from './codeMirrorDiffPaint';
 import { getTopVisibleLineNumber } from './codeMirrorScroll';
 import {
   CODE_MIRROR_FONT_SIZE,
   CODE_MIRROR_LINE_HEIGHT,
 } from './codeMirrorThemeConstants';
-import type { CodeMirrorTheme, ScrollOffset } from '../appTypes';
+import type { CodeMirrorTheme, PaneId, ScrollOffset } from '../appTypes';
 import type { FontStyleType, TextChange } from '../fontStyles';
 
 type CodeMirrorExtensionOptions = {
   ariaLabel: string;
+  pane: PaneId;
   theme: CodeMirrorTheme;
+  onRunConsoleCommand: RunConsoleCommand;
   onDocumentChange: ({
     value,
     changes,
@@ -35,7 +41,9 @@ type CodeMirrorExtensionOptions = {
 
 export const getCodeMirrorExtensions = ({
   ariaLabel,
+  pane,
   theme,
+  onRunConsoleCommand,
   onDocumentChange,
   onFocusPane,
   onToggleFontStyle,
@@ -45,6 +53,10 @@ export const getCodeMirrorExtensions = ({
     lineNumbers(),
     highlightActiveLineGutter(),
     history(),
+    ...getCodeMirrorConsoleCommandExtension({
+      pane,
+      onRunConsoleCommand,
+    }),
     keymap.of([
       ...getFontStyleKeyBindings(onToggleFontStyle),
       ...defaultKeymap,
@@ -170,6 +182,28 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       backgroundColor: 'transparent',
       backgroundImage:
         'repeating-linear-gradient(to right, #8C8C8C 0, #8C8C8C 2px, transparent 2px, transparent 6px)',
+    },
+    '.byline-command-panel': {
+      backgroundColor: '#191A1B',
+      border: '1px solid #2A2B2C',
+      borderRadius: '6px',
+      padding: '4px',
+      minWidth: '120px',
+      boxShadow: '0 6px 24px rgba(0, 0, 0, 0.45)',
+    },
+    '.byline-command-option': {
+      color: '#BFBFBF',
+      padding: '3px 8px',
+      borderRadius: '4px',
+      lineHeight: '1.4',
+      whiteSpace: 'nowrap',
+    },
+    '.byline-command-option-active': {
+      backgroundColor: '#242526',
+    },
+    '.byline-command-prediction': {
+      color: '#6F7375',
+      pointerEvents: 'none',
     },
     '.byline-font-bold': {
       fontWeight: '700',

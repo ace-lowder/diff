@@ -8,6 +8,7 @@ import {
   getCodeMirrorDecorationsInput,
   setEditorDecorationsEffect,
 } from '../editor/codeMirrorDecorations';
+import type { RunConsoleCommand } from '../editor/codeMirrorConsoleCommands';
 import {
   getDiffPaintEffectValue,
   setDiffPaintEffect,
@@ -35,6 +36,7 @@ type CodeMirrorPaneProps = {
   }) => void;
   onFocusPane?: () => void;
   onToggleFontStyle: (fontStyleType: FontStyleType) => void;
+  onRunConsoleCommand: RunConsoleCommand;
   ariaLabel: string;
   theme: CodeMirrorTheme;
   initialLineNumber: number;
@@ -57,6 +59,7 @@ export const CodeMirrorPane = ({
   onDocumentChange,
   onFocusPane,
   onToggleFontStyle,
+  onRunConsoleCommand,
   ariaLabel,
   theme,
   initialLineNumber,
@@ -77,6 +80,7 @@ export const CodeMirrorPane = ({
   const onEditorViewChangeRef = useRef(onEditorViewChange);
   const onFocusPaneRef = useRef(onFocusPane);
   const onToggleFontStyleRef = useRef(onToggleFontStyle);
+  const onRunConsoleCommandRef = useRef(onRunConsoleCommand);
   const initialValueRef = useRef(value);
   const lastPropValueRef = useRef(value);
   const lastLocalValueRef = useRef(value);
@@ -113,6 +117,10 @@ export const CodeMirrorPane = ({
   useEffect(() => {
     onToggleFontStyleRef.current = onToggleFontStyle;
   }, [onToggleFontStyle]);
+
+  useEffect(() => {
+    onRunConsoleCommandRef.current = onRunConsoleCommand;
+  }, [onRunConsoleCommand]);
 
   useEffect(() => {
     decorationsRef.current = getCodeMirrorDecorationsInput({
@@ -160,7 +168,10 @@ export const CodeMirrorPane = ({
         doc: initialValueRef.current,
         extensions: getCodeMirrorExtensions({
           ariaLabel,
+          pane: theme,
           theme,
+          onRunConsoleCommand: (command, context) =>
+            onRunConsoleCommandRef.current(command, context),
           onDocumentChange: ({ value: nextValue, changes }) => {
             if (!isApplyingExternalValueRef.current) {
               lastLocalValueRef.current = nextValue;
