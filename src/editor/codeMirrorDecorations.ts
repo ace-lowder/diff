@@ -7,15 +7,15 @@ import {
 } from '@codemirror/view';
 
 import type {
+  EditorHighlightRange,
   DraftHighlightRange,
   DraftLineDecoration,
-  EditorHighlightRange,
   EditorLineDecoration,
   LowestEditedLine,
 } from '../editorDiff';
 import { normalizeFontStyleRanges, type FontStyleRange, type FontStyleType } from '../fontStyles';
 import { CODE_MIRROR_LINE_HEIGHT } from './codeMirrorThemeConstants';
-import { getMarkerRange } from './markerRanges';
+import { DIFF_PAINT_GEOMETRY } from './codeMirrorDiffPaintGeometry';
 import { getMissingLineWidgetAnchor } from './missingLineAnchors';
 
 export type CodeMirrorDecorations = {
@@ -86,17 +86,6 @@ export const getCodeMirrorDecorations = (
   const docText = editorView.state.doc.toString();
   const ranges: Range<Decoration>[] = [
     ...getFontStyleDecorations(decorations.fontStyleRanges, docLength),
-    ...getEditorHighlightDecorations(
-      decorations.editorHighlightRanges,
-      docLength,
-      docText,
-    ),
-    ...getDraftHighlightDecorations(
-      decorations.draftHighlightRanges,
-      docLength,
-      docText,
-    ),
-    ...getEditorLineDecorations(editorView, decorations.editorLineDecorations),
     ...getDraftLineDecorations(
       editorView,
       decorations.draftLineDecorations,
@@ -121,167 +110,39 @@ class MissingLineWidget extends WidgetType {
   }
 
   toDOM() {
-    const line = document.createElement('div');
+    const adjustment = DIFF_PAINT_GEOMETRY.missingLine;
+    const spacer = document.createElement('div');
+    const paint = document.createElement('div');
 
-    line.className = 'byline-missing-line';
-    line.style.height = `calc(${this.lineCount} * ${CODE_MIRROR_LINE_HEIGHT})`;
-    line.style.margin = '0';
-    line.style.padding = '0';
-    line.style.border = '0';
-    line.contentEditable = 'false';
-    line.tabIndex = -1;
-    line.setAttribute('aria-hidden', 'true');
+    spacer.className = 'byline-missing-line';
+    spacer.style.height = `calc(${this.lineCount} * ${CODE_MIRROR_LINE_HEIGHT})`;
+    spacer.style.position = 'relative';
+    spacer.style.display = 'block';
+    spacer.style.lineHeight = CODE_MIRROR_LINE_HEIGHT;
+    spacer.style.boxSizing = 'border-box';
+    spacer.style.margin = '0';
+    spacer.style.padding = '0';
+    spacer.style.border = '0';
+    spacer.contentEditable = 'false';
+    spacer.tabIndex = -1;
+    spacer.setAttribute('aria-hidden', 'true');
 
-    return line;
+    paint.className = 'byline-missing-line-paint';
+    paint.style.position = 'absolute';
+    paint.style.top = `${adjustment.topOffsetPx}px`;
+    paint.style.left = `${adjustment.leftOffsetPx}px`;
+    paint.style.height = `calc(${this.lineCount} * ${CODE_MIRROR_LINE_HEIGHT} + ${adjustment.bottomOffsetPx - adjustment.topOffsetPx}px)`;
+    paint.style.width = `calc(100% + ${adjustment.rightOffsetPx - adjustment.leftOffsetPx}px)`;
+
+    spacer.appendChild(paint);
+
+    return spacer;
   }
 
   ignoreEvent() {
     return true;
   }
 }
-
-const getEditorHighlightDecorations = (
-  highlightRanges: EditorHighlightRange[],
-  docLength: number,
-  docText: string,
-): Range<Decoration>[] => {
-  const decorations: Range<Decoration>[] = [];
-
-  for (const range of highlightRanges) {
-    if (range.type === 'added') {
-      const validRange = getValidTextRange({
-        from: range.from,
-        to: range.to,
-        docLength,
-      });
-
-      if (!validRange) {
-        continue;
-      }
-
-      decorations.push(
-        Decoration.mark({ class: 'byline-added-text' }).range(
-          validRange.from,
-          validRange.to,
-        ),
-      );
-      continue;
-    }
-
-    const validMarkerRange = getValidTextRange({
-      from: range.from,
-      to: range.to,
-      docLength,
-      allowEmpty: true,
-    });
-    if (!validMarkerRange || validMarkerRange.from !== validMarkerRange.to) {
-      continue;
-    }
-
-    const markerRange = getMarkerRange({
-      text: docText,
-      position: validMarkerRange.from,
-    });
-    if (!markerRange) {
-      continue;
-    }
-
-    decorations.push(
-      Decoration.mark({
-        class:
-          markerRange.side === 'left'
-            ? 'byline-deleted-marker-left'
-            : 'byline-deleted-marker-right',
-      }).range(markerRange.from, markerRange.to),
-    );
-  }
-
-  return decorations;
-};
-
-const getDraftHighlightDecorations = (
-  draftHighlightRanges: DraftHighlightRange[],
-  docLength: number,
-  docText: string,
-): Range<Decoration>[] => {
-  const decorations: Range<Decoration>[] = [];
-
-  for (const range of draftHighlightRanges) {
-    if (range.type === 'added' && range.from === range.to) {
-      const validMarkerRange = getValidTextRange({
-        from: range.from,
-        to: range.to,
-        docLength,
-        allowEmpty: true,
-      });
-      if (!validMarkerRange) {
-        continue;
-      }
-
-      const markerRange = getMarkerRange({
-        text: docText,
-        position: validMarkerRange.from,
-      });
-      if (!markerRange) {
-        continue;
-      }
-
-      decorations.push(
-        Decoration.mark({
-          class:
-            markerRange.side === 'left'
-              ? 'byline-added-marker-left'
-              : 'byline-added-marker-right',
-        }).range(markerRange.from, markerRange.to),
-      );
-      continue;
-    }
-
-    if (range.type === 'added') {
-      continue;
-    }
-
-    const validRange = getValidTextRange({
-      from: range.from,
-      to: range.to,
-      docLength,
-    });
-
-    if (!validRange) {
-      continue;
-    }
-
-    decorations.push(
-      Decoration.mark({ class: 'byline-deleted-text' }).range(
-        validRange.from,
-        validRange.to,
-      ),
-    );
-  }
-
-  return decorations;
-};
-
-const getEditorLineDecorations = (
-  editorView: EditorView,
-  editorLineDecorations: EditorLineDecoration[],
-): Range<Decoration>[] => {
-  const decorations: Range<Decoration>[] = [];
-
-  for (const decoration of editorLineDecorations) {
-    if (
-      decoration.lineNumber < 1 ||
-      decoration.lineNumber > editorView.state.doc.lines
-    ) {
-      continue;
-    }
-
-    const line = editorView.state.doc.line(decoration.lineNumber);
-    decorations.push(Decoration.line({ class: 'byline-added-line' }).range(line.from));
-  }
-
-  return decorations;
-};
 
 const getDraftLineDecorations = (
   editorView: EditorView,
@@ -298,12 +159,7 @@ const getDraftLineDecorations = (
       continue;
     }
 
-    const line = editorView.state.doc.line(decoration.lineNumber);
-
     if (decoration.type === 'deletedDraftLine') {
-      decorations.push(
-        Decoration.line({ class: 'byline-deleted-draft-line' }).range(line.from),
-      );
       continue;
     }
 

@@ -2,7 +2,6 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import type { Extension } from '@codemirror/state';
 import {
   EditorView,
-  highlightActiveLine,
   highlightActiveLineGutter,
   keymap,
   lineNumbers,
@@ -10,12 +9,11 @@ import {
 } from '@codemirror/view';
 
 import { editorDecorationsField } from './codeMirrorDecorations';
+import { getCodeMirrorDiffPaintExtension } from './codeMirrorDiffPaint';
 import { getTopVisibleLineNumber } from './codeMirrorScroll';
 import {
   CODE_MIRROR_FONT_SIZE,
   CODE_MIRROR_LINE_HEIGHT,
-  DIFF_INLINE_FILL_OFFSET,
-  DIFF_MARKER_WIDTH,
 } from './codeMirrorThemeConstants';
 import type { CodeMirrorTheme, ScrollOffset } from '../appTypes';
 import type { FontStyleType, TextChange } from '../fontStyles';
@@ -45,7 +43,6 @@ export const getCodeMirrorExtensions = ({
 }: CodeMirrorExtensionOptions): Extension[] => {
   return [
     lineNumbers(),
-    highlightActiveLine(),
     highlightActiveLineGutter(),
     history(),
     keymap.of([
@@ -83,6 +80,7 @@ export const getCodeMirrorExtensions = ({
       },
     }),
     editorDecorationsField,
+    ...getCodeMirrorDiffPaintExtension(theme),
     getCodeMirrorTheme(theme),
   ];
 };
@@ -131,12 +129,6 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       paddingRight: '2ch',
       textAlign: 'right',
     },
-    '.cm-activeLine': {
-      backgroundColor: '#242526',
-      lineHeight: CODE_MIRROR_LINE_HEIGHT,
-      minHeight: CODE_MIRROR_LINE_HEIGHT,
-      boxSizing: 'border-box',
-    },
     '.cm-activeLineGutter': {
       backgroundColor: 'transparent',
       color: '#BBBEBF',
@@ -147,62 +139,32 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     '.cm-selectionBackground': {
       backgroundColor: '#264F78 !important',
     },
-    '.byline-added-text': {
-      backgroundColor: '#2A4C2C',
-      boxDecorationBreak: 'clone',
-      WebkitBoxDecorationBreak: 'clone',
-      lineHeight: CODE_MIRROR_LINE_HEIGHT,
-      boxShadow: `0 ${DIFF_INLINE_FILL_OFFSET} 0 #2A4C2C, 0 -${DIFF_INLINE_FILL_OFFSET} 0 #2A4C2C`,
+    '.byline-diff-active-line': {
+      backgroundColor: '#242526',
     },
-    '.byline-deleted-text': {
+    '.byline-diff-added': {
+      backgroundColor: '#2A4C2C',
+    },
+    '.byline-diff-deleted': {
       backgroundColor: '#693330',
-      boxDecorationBreak: 'clone',
-      WebkitBoxDecorationBreak: 'clone',
-      lineHeight: CODE_MIRROR_LINE_HEIGHT,
-      boxShadow: `0 ${DIFF_INLINE_FILL_OFFSET} 0 #693330, 0 -${DIFF_INLINE_FILL_OFFSET} 0 #693330`,
-    },
-    '.byline-deleted-marker-left': {
-      backgroundImage: `linear-gradient(to right, #693330 0, #693330 ${DIFF_MARKER_WIDTH}, transparent ${DIFF_MARKER_WIDTH})`,
-      backgroundRepeat: 'no-repeat',
-      lineHeight: CODE_MIRROR_LINE_HEIGHT,
-    },
-    '.byline-deleted-marker-right': {
-      backgroundImage: `linear-gradient(to left, #693330 0, #693330 ${DIFF_MARKER_WIDTH}, transparent ${DIFF_MARKER_WIDTH})`,
-      backgroundRepeat: 'no-repeat',
-      lineHeight: CODE_MIRROR_LINE_HEIGHT,
-    },
-    '.byline-added-marker-left': {
-      backgroundImage: `linear-gradient(to right, #2A4C2C 0, #2A4C2C ${DIFF_MARKER_WIDTH}, transparent ${DIFF_MARKER_WIDTH})`,
-      backgroundRepeat: 'no-repeat',
-      lineHeight: CODE_MIRROR_LINE_HEIGHT,
-    },
-    '.byline-added-marker-right': {
-      backgroundImage: `linear-gradient(to left, #2A4C2C 0, #2A4C2C ${DIFF_MARKER_WIDTH}, transparent ${DIFF_MARKER_WIDTH})`,
-      backgroundRepeat: 'no-repeat',
-      lineHeight: CODE_MIRROR_LINE_HEIGHT,
-    },
-    '.cm-line.byline-added-line': {
-      backgroundColor: '#2A4C2C',
-      lineHeight: CODE_MIRROR_LINE_HEIGHT,
-      minHeight: CODE_MIRROR_LINE_HEIGHT,
-      boxSizing: 'border-box',
     },
     '.byline-missing-line': {
       display: 'block',
-      width: '100%',
-      boxSizing: 'border-box',
-      lineHeight: CODE_MIRROR_LINE_HEIGHT,
+      position: 'relative',
       margin: '0',
       padding: '0',
       border: '0',
+      boxSizing: 'border-box',
+      lineHeight: CODE_MIRROR_LINE_HEIGHT,
+    },
+    '.byline-missing-line-paint': {
+      display: 'block',
+      margin: '0',
+      padding: '0',
+      border: '0',
+      boxSizing: 'border-box',
       backgroundImage:
         'repeating-linear-gradient(-45deg, rgba(140, 140, 140, 0.7) 0, rgba(140, 140, 140, 0.7) 2px, transparent 2px, transparent 6px)',
-    },
-    '.cm-line.byline-deleted-draft-line': {
-      backgroundColor: '#693330',
-      lineHeight: CODE_MIRROR_LINE_HEIGHT,
-      minHeight: CODE_MIRROR_LINE_HEIGHT,
-      boxSizing: 'border-box',
     },
     '.cm-line.byline-lowest-edited-line': {
       boxShadow: 'inset 0 -1px 0 0 #8C8C8C',

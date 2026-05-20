@@ -8,6 +8,10 @@ import {
   getCodeMirrorDecorationsInput,
   setEditorDecorationsEffect,
 } from '../editor/codeMirrorDecorations';
+import {
+  getDiffPaintEffectValue,
+  setDiffPaintEffect,
+} from '../editor/codeMirrorDiffPaint';
 import { getCodeMirrorExtensions } from '../editor/codeMirrorExtensions';
 import { scrollToLineNumber } from '../editor/codeMirrorScroll';
 import type { CodeMirrorTheme, ScrollOffset } from '../appTypes';
@@ -127,9 +131,12 @@ export const CodeMirrorPane = ({
     }
 
     editorView.dispatch({
-      effects: setEditorDecorationsEffect.of(
-        getCodeMirrorDecorations(editorView, decorationsRef.current),
-      ),
+      effects: [
+        setEditorDecorationsEffect.of(
+          getCodeMirrorDecorations(editorView, decorationsRef.current),
+        ),
+        setDiffPaintEffect.of(getDiffPaintEffectValue(decorationsRef.current)),
+      ],
     });
   }, [
     draftHighlightRanges,
@@ -175,9 +182,12 @@ export const CodeMirrorPane = ({
     editorView.scrollDOM.scrollLeft = initialScrollOffsetRef.current.left;
     scrollToLineNumber(editorView, initialLineNumberRef.current);
     editorView.dispatch({
-      effects: setEditorDecorationsEffect.of(
-        getCodeMirrorDecorations(editorView, decorationsRef.current),
-      ),
+      effects: [
+        setEditorDecorationsEffect.of(
+          getCodeMirrorDecorations(editorView, decorationsRef.current),
+        ),
+        setDiffPaintEffect.of(getDiffPaintEffectValue(decorationsRef.current)),
+      ],
     });
 
     return () => {
