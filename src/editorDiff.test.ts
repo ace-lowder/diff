@@ -1122,6 +1122,56 @@ describe('getLineDecorations', () => {
     expect(editorAdded).not.toContain('two');
     expect(editorAdded).not.toContain('wo');
   });
+
+  it('does not decorate matching single trailing blank line', () => {
+    const decorations = getLineDecorations('ending\n', 'ending\n');
+
+    expect(decorations.editorLineDecorations).toEqual([]);
+    expect(decorations.draftLineDecorations).toEqual([]);
+  });
+
+  it('does not decorate matching two trailing blank lines', () => {
+    const decorations = getLineDecorations('ending\n\n', 'ending\n\n');
+
+    expect(decorations.editorLineDecorations).toEqual([]);
+    expect(decorations.draftLineDecorations).toEqual([]);
+  });
+
+  it('does not decorate matching trailing whitespace-only blank lines', () => {
+    const decorations = getLineDecorations('ending\n   ', 'ending\n\t');
+
+    expect(decorations.editorLineDecorations).toEqual([]);
+    expect(decorations.draftLineDecorations).toEqual([]);
+  });
+
+  it('keeps unmatched draft line deleted before shared trailing blank suffix', () => {
+    const decorations = getLineDecorations('one\nremoved\n\n', 'one\n\n');
+
+    expect(decorations.draftLineDecorations).toContainEqual({
+      type: 'deletedDraftLine',
+      lineNumber: 2,
+      placement: 'before',
+    });
+    expect(decorations.editorLineDecorations).toEqual([]);
+  });
+
+  it('keeps unmatched editor line inserted before shared trailing blank suffix', () => {
+    const decorations = getLineDecorations('one\n\n', 'one\nadded\n\n');
+
+    expect(decorations.editorLineDecorations).toContainEqual({ lineNumber: 2 });
+    expect(
+      decorations.draftLineDecorations.some(
+        (decoration) =>
+          decoration.type === 'missingEditorLine' && decoration.lineCount >= 1,
+      ),
+    ).toBe(true);
+    expect(
+      decorations.draftLineDecorations.some(
+        (decoration) =>
+          decoration.type === 'deletedDraftLine' && decoration.lineNumber === 2,
+      ),
+    ).toBe(false);
+  });
 });
 
 describe('getDraftHighlightRanges', () => {

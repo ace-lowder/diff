@@ -1659,7 +1659,16 @@ const getLinePairsFromMatches = ({
     editorIndex = match.editorIndex + 1;
   }
 
-  while (editorIndex < editorLines.length) {
+  const trailingBlankPairCount = getCommonTrailingBlankLineCount({
+    draftLines,
+    editorLines,
+    draftStartIndex: draftIndex,
+    editorStartIndex: editorIndex,
+  });
+  const draftTailEndIndex = draftLines.length - trailingBlankPairCount;
+  const editorTailEndIndex = editorLines.length - trailingBlankPairCount;
+
+  while (editorIndex < editorTailEndIndex) {
     linePairs.push({
       draftLine: null,
       editorLine: editorLines[editorIndex],
@@ -1670,7 +1679,7 @@ const getLinePairsFromMatches = ({
     editorIndex += 1;
   }
 
-  while (draftIndex < draftLines.length) {
+  while (draftIndex < draftTailEndIndex) {
     linePairs.push({
       draftLine: draftLines[draftIndex],
       editorLine: null,
@@ -1681,7 +1690,50 @@ const getLinePairsFromMatches = ({
     draftIndex += 1;
   }
 
+  while (draftIndex < draftLines.length && editorIndex < editorLines.length) {
+    linePairs.push({
+      draftLine: draftLines[draftIndex],
+      editorLine: editorLines[editorIndex],
+      draftLineNumber: draftIndex + 1,
+      editorLineNumber: editorIndex + 1,
+      placement: 'after',
+    });
+
+    draftIndex += 1;
+    editorIndex += 1;
+  }
+
   return linePairs;
+};
+
+const getCommonTrailingBlankLineCount = ({
+  draftLines,
+  editorLines,
+  draftStartIndex,
+  editorStartIndex,
+}: {
+  draftLines: string[];
+  editorLines: string[];
+  draftStartIndex: number;
+  editorStartIndex: number;
+}): number => {
+  let count = 0;
+
+  while (
+    draftLines.length - count - 1 >= draftStartIndex &&
+    editorLines.length - count - 1 >= editorStartIndex
+  ) {
+    const draftLine = draftLines[draftLines.length - count - 1] ?? '';
+    const editorLine = editorLines[editorLines.length - count - 1] ?? '';
+
+    if (draftLine.trim() || editorLine.trim()) {
+      break;
+    }
+
+    count += 1;
+  }
+
+  return count;
 };
 
 const getLinePairsWithoutAnchors = (
