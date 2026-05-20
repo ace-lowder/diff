@@ -94,6 +94,18 @@ type ReplacementToken = {
   isWhitespace: boolean;
 };
 
+type ReplacementRange = {
+  from: number;
+  to: number;
+};
+
+type ReplacementRangePair = {
+  draftRanges: ReplacementRange[];
+  editorRanges: ReplacementRange[];
+};
+
+const FULL_WORD_MEANINGFUL_CHANGE_THRESHOLD = 2;
+
 export const getWordCount = (text: string): number => {
   const trimmedText = text.trim();
 
@@ -294,7 +306,7 @@ export const getEditorHighlightRanges = (
     continue;
   }
 
-  return mergeAddedRangesAcrossSingleSpace(
+  return mergeAddedRangesAcrossInlineGaps(
     getVisibleEditorRanges(ranges, editorText),
     editorText,
   );
@@ -543,7 +555,7 @@ export const getDraftHighlightRanges = (
 
   const draftText = getDraftText(displayChanges);
   return filterVisibleDraftDeletedRanges(
-    mergeDeletedRangesAcrossSingleSpace(ranges, draftText),
+    mergeDeletedRangesAcrossInlineGaps(ranges, draftText),
     draftText,
   );
 };
@@ -813,6 +825,140 @@ const getLowercaseAlphanumericText = (value: string): string => {
   return value.toLowerCase().replace(/[^a-z0-9]/g, '');
 };
 
+const getAlphanumericWordSpan = (value: string): ReplacementRange | null => {
+  const wordMatches = [...value.matchAll(/[a-z0-9]+/gi)];
+  if (wordMatches.length !== 1) {
+    return null;
+  }
+
+  const [wordMatch] = wordMatches;
+  const from = wordMatch.index ?? -1;
+  if (from < 0) {
+    return null;
+  }
+  const to = from + wordMatch[0].length;
+
+  return { from, to };
+};
+
+const getLowercaseAlphanumericCore = (value: string): string => {
+  return getLowercaseAlphanumericText(value);
+};
+
+const removeIgnoredTrailingPluralS = (value: string): string => {
+  if (value.length <= 1 || !value.endsWith('s')) {
+    return value;
+  }
+
+  return value.slice(0, -1);
+};
+
+const getMeaningfulWordCore = (value: string): string => {
+  return removeIgnoredTrailingPluralS(getLowercaseAlphanumericCore(value));
+};
+
+const getEditDistance = (left: string, right: string): number => {
+  const leftLength = left.length;
+  const rightLength = right.length;
+  const table: number[][] = Array.from({ length: leftLength + 1 }, () =>
+    Array(rightLength + 1).fill(0),
+  );
+
+  for (let leftIndex = 0; leftIndex <= leftLength; leftIndex += 1) {
+    table[leftIndex][0] = leftIndex;
+  }
+  for (let rightIndex = 0; rightIndex <= rightLength; rightIndex += 1) {
+    table[0][rightIndex] = rightIndex;
+  }
+
+  for (let leftIndex = 1; leftIndex <= leftLength; leftIndex += 1) {
+    for (let rightIndex = 1; rightIndex <= rightLength; rightIndex += 1) {
+      const substitutionCost =
+        left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1;
+      table[leftIndex][rightIndex] = Math.min(
+        table[leftIndex - 1][rightIndex] + 1,
+        table[leftIndex][rightIndex - 1] + 1,
+        table[leftIndex - 1][rightIndex - 1] + substitutionCost,
+      );
+    }
+  }
+
+  return table[leftLength][rightLength];
+};
+
+const isPureWordEdgeChange = ({
+  draftValue,
+  editorValue,
+}: {
+  draftValue: string;
+  editorValue: string;
+}): boolean => {
+  const draftCore = getLowercaseAlphanumericCore(draftValue);
+  const editorCore = getLowercaseAlphanumericCore(editorValue);
+
+  if (!draftCore || !editorCore) {
+    return false;
+  }
+
+  if (draftCore === editorCore) {
+    return true;
+  }
+
+  return (
+    draftCore.startsWith(editorCore) ||
+    draftCore.endsWith(editorCore) ||
+    editorCore.startsWith(draftCore) ||
+    editorCore.endsWith(draftCore)
+  );
+};
+
+const getWholeWordReplacementRanges = ({
+  draftValue,
+  editorValue,
+}: {
+  draftValue: string;
+  editorValue: string;
+}): ReplacementRangePair | null => {
+  const draftSpan = getAlphanumericWordSpan(draftValue);
+  const editorSpan = getAlphanumericWordSpan(editorValue);
+
+  if (!draftSpan || !editorSpan) {
+    return null;
+  }
+
+  if (isPureWordEdgeChange({ draftValue, editorValue })) {
+    return null;
+  }
+
+  const meaningfulDraftCore = getMeaningfulWordCore(draftValue);
+  const meaningfulEditorCore = getMeaningfulWordCore(editorValue);
+
+  if (!meaningfulDraftCore || !meaningfulEditorCore) {
+    return null;
+  }
+
+  const offsets = getReplacementHighlightOffsets(draftValue, editorValue);
+  const draftChangedLength = offsets.draftToOffset - offsets.draftFromOffset;
+  const editorChangedLength = offsets.editorToOffset - offsets.editorFromOffset;
+  if (draftChangedLength <= 0 || editorChangedLength <= 0) {
+    return null;
+  }
+
+  const meaningfulDistance = getEditDistance(
+    meaningfulDraftCore,
+    meaningfulEditorCore,
+  );
+
+  if (meaningfulDistance < FULL_WORD_MEANINGFUL_CHANGE_THRESHOLD) {
+    return null;
+  }
+
+  return {
+    draftRanges: [draftSpan],
+    editorRanges: [editorSpan],
+  };
+};
+
 const getCasePunctuationReplacementEditorRanges = ({
   draftValue,
   editorValue,
@@ -956,6 +1102,21 @@ const getTokenReplacementEditorRanges = ({
         continue;
       }
 
+      const wholeWordRanges = getWholeWordReplacementRanges({
+        draftValue: draftToken.value,
+        editorValue: editorToken.value,
+      });
+      if (wholeWordRanges) {
+        ranges.push(
+          ...wholeWordRanges.editorRanges.map((range) => ({
+            type: 'added' as const,
+            from: editorPosition + editorToken.from + range.from,
+            to: editorPosition + editorToken.from + range.to,
+          })),
+        );
+        continue;
+      }
+
       if (shouldRefineCasePunctuationReplacement(draftToken.value, editorToken.value)) {
         ranges.push(
           ...getCasePunctuationReplacementEditorRanges({
@@ -1060,6 +1221,21 @@ const getTokenReplacementDraftRanges = ({
 
     if (draftToken && editorToken) {
       if (draftToken.value === editorToken.value) {
+        continue;
+      }
+
+      const wholeWordRanges = getWholeWordReplacementRanges({
+        draftValue: draftToken.value,
+        editorValue: editorToken.value,
+      });
+      if (wholeWordRanges) {
+        ranges.push(
+          ...wholeWordRanges.draftRanges.map((range) => ({
+            type: 'deleted' as const,
+            from: draftPosition + draftToken.from + range.from,
+            to: draftPosition + draftToken.from + range.to,
+          })),
+        );
         continue;
       }
 
@@ -1941,7 +2117,28 @@ const getVisibleEditorRanges = (
   return visibleRanges;
 };
 
-const mergeAddedRangesAcrossSingleSpace = (
+const isMergeableInlineHighlightGap = (gapText: string): boolean => {
+  if (!gapText || /[\n\r]/.test(gapText)) {
+    return false;
+  }
+
+  for (const character of gapText) {
+    if (character === ' ' || character === '\t') {
+      continue;
+    }
+    if (/[a-z0-9]/i.test(character)) {
+      return false;
+    }
+    if (/[\p{P}\p{S}]/u.test(character)) {
+      continue;
+    }
+    return false;
+  }
+
+  return true;
+};
+
+const mergeAddedRangesAcrossInlineGaps = (
   ranges: EditorHighlightRange[],
   editorText: string,
 ): EditorHighlightRange[] => {
@@ -1971,7 +2168,7 @@ const mergeAddedRangesAcrossSingleSpace = (
       }
 
       const gapText = editorText.slice(mergedRange.to, nextRange.from);
-      if (gapText !== ' ' && gapText !== '\t') {
+      if (!isMergeableInlineHighlightGap(gapText)) {
         break;
       }
 
@@ -1990,7 +2187,7 @@ const mergeAddedRangesAcrossSingleSpace = (
   return mergedRanges;
 };
 
-const mergeDeletedRangesAcrossSingleSpace = (
+const mergeDeletedRangesAcrossInlineGaps = (
   ranges: DraftHighlightRange[],
   draftText: string,
 ): DraftHighlightRange[] => {
@@ -2014,7 +2211,7 @@ const mergeDeletedRangesAcrossSingleSpace = (
     while (nextIndex < deletedRanges.length) {
       const nextRange = deletedRanges[nextIndex];
       const gapText = draftText.slice(mergedTo, nextRange.from);
-      if (gapText !== ' ' && gapText !== '\t') {
+      if (!isMergeableInlineHighlightGap(gapText)) {
         break;
       }
 
@@ -2671,6 +2868,18 @@ const getCharacterReplacementEditorRanges = ({
   editorValue: string;
   editorPosition: number;
 }): EditorHighlightRange[] | null => {
+  const wholeWordRanges = getWholeWordReplacementRanges({
+    draftValue,
+    editorValue,
+  });
+  if (wholeWordRanges) {
+    return wholeWordRanges.editorRanges.map((range) => ({
+      type: 'added',
+      from: editorPosition + range.from,
+      to: editorPosition + range.to,
+    }));
+  }
+
   const ranges = getCharacterReplacementRanges(draftValue, editorValue);
   if (!ranges) {
     return null;
@@ -2715,6 +2924,18 @@ const getCharacterReplacementDraftRanges = ({
   editorValue: string;
   draftPosition: number;
 }): DraftHighlightRange[] | null => {
+  const wholeWordRanges = getWholeWordReplacementRanges({
+    draftValue,
+    editorValue,
+  });
+  if (wholeWordRanges) {
+    return wholeWordRanges.draftRanges.map((range) => ({
+      type: 'deleted',
+      from: draftPosition + range.from,
+      to: draftPosition + range.to,
+    }));
+  }
+
   const ranges = getCharacterReplacementRanges(draftValue, editorValue);
   if (!ranges) {
     return null;
@@ -2745,10 +2966,7 @@ const getCharacterReplacementDraftRanges = ({
 const getCharacterReplacementRanges = (
   draftValue: string,
   editorValue: string,
-): {
-  draftRanges: Array<{ from: number; to: number }>;
-  editorRanges: Array<{ from: number; to: number }>;
-} | null => {
+): ReplacementRangePair | null => {
   if (!draftValue || !editorValue) {
     return null;
   }

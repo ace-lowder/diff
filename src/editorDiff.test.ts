@@ -269,6 +269,28 @@ describe('getEditorHighlightRanges', () => {
     ).toBe(true);
   });
 
+  it('merges editor added ranges across punctuation and spaces', () => {
+    const draftText = 'one old. old two';
+    const editorText = 'one test. test two';
+    const changes = getDisplayChanges(draftText, editorText);
+    const slices = getEditorHighlightRanges(changes)
+      .filter((range) => range.type === 'added')
+      .map((range) => editorText.slice(range.from, range.to));
+
+    expect(slices).toContain('test. test');
+  });
+
+  it('merges editor added ranges across exclamation punctuation and spaces', () => {
+    const draftText = 'one old! old two';
+    const editorText = 'one test! test two';
+    const changes = getDisplayChanges(draftText, editorText);
+    const slices = getEditorHighlightRanges(changes)
+      .filter((range) => range.type === 'added')
+      .map((range) => editorText.slice(range.from, range.to));
+
+    expect(slices).toContain('test! test');
+  });
+
   it('does not merge added ranges across newlines', () => {
     const editorText = 'one added\nmore added';
     const changes = getDisplayChanges('one\nmore', editorText);
@@ -290,6 +312,95 @@ describe('getEditorHighlightRanges', () => {
       'B',
       '!',
     ]);
+  });
+
+  it('highlights full words for substantial single-word replacements', () => {
+    const cases = [
+      { draftText: 'drafts', editorText: 'edits' },
+      { draftText: 'test', editorText: 'tats' },
+      { draftText: 'test', editorText: 'molest' },
+      { draftText: 'test', editorText: 'tesla' },
+    ];
+
+    for (const testCase of cases) {
+      const changes = getDisplayChanges(testCase.draftText, testCase.editorText);
+      const editorAdded = getEditorHighlightRanges(changes)
+        .filter((range) => range.type === 'added')
+        .map((range) => testCase.editorText.slice(range.from, range.to));
+      const draftDeleted = getDraftHighlightRanges(changes)
+        .filter((range) => range.type === 'deleted')
+        .map((range) => testCase.draftText.slice(range.from, range.to));
+
+      expect(editorAdded).toContain(testCase.editorText);
+      expect(draftDeleted).toContain(testCase.draftText);
+    }
+  });
+
+  it('keeps punctuation/case/trailing-s heavy replacements character-level', () => {
+    const bylineWithPunctuation = getDisplayChanges('byline', 'Byline!');
+    const bylinePunctuationAdded = getEditorHighlightRanges(bylineWithPunctuation)
+      .filter((range) => range.type === 'added')
+      .map((range) => 'Byline!'.slice(range.from, range.to));
+    expect(bylinePunctuationAdded).toEqual(['B', '!']);
+    expect(bylinePunctuationAdded).not.toContain('Byline!');
+
+    const bylineBolinesPunctuation = getDisplayChanges('byline', 'Bolines!');
+    const bolinesPunctuationAdded = getEditorHighlightRanges(bylineBolinesPunctuation)
+      .filter((range) => range.type === 'added')
+      .map((range) => 'Bolines!'.slice(range.from, range.to));
+    const bolinesPunctuationDeleted = getDraftHighlightRanges(bylineBolinesPunctuation)
+      .filter((range) => range.type === 'deleted')
+      .map((range) => 'byline'.slice(range.from, range.to));
+    expect(bolinesPunctuationAdded).not.toContain('Bolines!');
+    expect(bolinesPunctuationDeleted).not.toContain('byline');
+
+    const bylineBolines = getDisplayChanges('byline', 'Bolines');
+    const bolinesAdded = getEditorHighlightRanges(bylineBolines)
+      .filter((range) => range.type === 'added')
+      .map((range) => 'Bolines'.slice(range.from, range.to));
+    const bolinesDeleted = getDraftHighlightRanges(bylineBolines)
+      .filter((range) => range.type === 'deleted')
+      .map((range) => 'byline'.slice(range.from, range.to));
+    expect(bolinesAdded).not.toContain('Bolines');
+    expect(bolinesDeleted).not.toContain('byline');
+
+    const teests = getDisplayChanges('test', 'Teests');
+    const teestsAdded = getEditorHighlightRanges(teests)
+      .filter((range) => range.type === 'added')
+      .map((range) => 'Teests'.slice(range.from, range.to));
+    const teestsDeleted = getDraftHighlightRanges(teests)
+      .filter((range) => range.type === 'deleted')
+      .map((range) => 'test'.slice(range.from, range.to));
+    expect(teestsAdded).not.toContain('Teests');
+    expect(teestsDeleted).not.toContain('test');
+
+    const wrappedByline = getDisplayChanges('byline', '*byline*');
+    const wrappedBylineAdded = getEditorHighlightRanges(wrappedByline)
+      .filter((range) => range.type === 'added')
+      .map((range) => '*byline*'.slice(range.from, range.to));
+    expect(wrappedBylineAdded).toEqual(['*', '*']);
+    expect(wrappedBylineAdded).not.toContain('*byline*');
+  });
+
+  it('keeps pure word-edge additions character-level', () => {
+    const cases = [
+      { draftText: 'test', editorText: 'tester', expectedSlice: 'er' },
+      { draftText: 'test', editorText: 'testing', expectedSlice: 'ing' },
+      { draftText: 'test', editorText: 'backtest', expectedSlice: 'back' },
+    ];
+
+    for (const testCase of cases) {
+      const changes = getDisplayChanges(testCase.draftText, testCase.editorText);
+      const editorAdded = getEditorHighlightRanges(changes)
+        .filter((range) => range.type === 'added')
+        .map((range) => testCase.editorText.slice(range.from, range.to));
+      const draftDeleted = getDraftHighlightRanges(changes)
+        .filter((range) => range.type === 'deleted')
+        .map((range) => testCase.draftText.slice(range.from, range.to));
+
+      expect(editorAdded).toContain(testCase.expectedSlice);
+      expect(draftDeleted).not.toContain(testCase.draftText);
+    }
   });
 
   it('refines same-token character substitutions', () => {
@@ -1256,7 +1367,7 @@ describe('getDraftHighlightRanges', () => {
 
     expect(ranges).toHaveLength(2);
     expect(draftText.slice(ranges[0].from, ranges[0].to)).toBe('s');
-    expect(draftText.slice(ranges[1].from, ranges[1].to)).toBe('wor');
+    expect(draftText.slice(ranges[1].from, ranges[1].to)).toBe('word');
   });
 
   it('refines draft case replacement highlights', () => {
@@ -1279,6 +1390,17 @@ describe('getDraftHighlightRanges', () => {
     expect(
       ranges.some((range) => draftText.slice(range.from, range.to) === 'drafts'),
     ).toBe(false);
+  });
+
+  it('merges draft deleted ranges across punctuation and spaces', () => {
+    const draftText = 'one test. test two';
+    const editorText = 'one old. old two';
+    const changes = getDisplayChanges(draftText, editorText);
+    const deletedSlices = getDraftHighlightRanges(changes)
+      .filter((range) => range.type === 'deleted')
+      .map((range) => draftText.slice(range.from, range.to));
+
+    expect(deletedSlices).toContain('test. test');
   });
 
   it('does not merge draft deleted ranges across newlines', () => {
