@@ -247,6 +247,137 @@ export const getNonWidgetTextBlocks = (blocks: PaintBlock[]): PaintBlock[] => {
   });
 };
 
+export type InlineRangeSegment = {
+  from: number;
+  to: number;
+};
+
+export type PositionSide = -1 | 1;
+
+export type PositionRowLookup = (
+  position: number,
+  side: PositionSide,
+) => number | null;
+
+export const getLineBoundedRangeSegments = ({
+  text,
+  from,
+  to,
+}: {
+  text: string;
+  from: number;
+  to: number;
+}): InlineRangeSegment[] => {
+  if (
+    !Number.isFinite(from) ||
+    !Number.isFinite(to) ||
+    from < 0 ||
+    to <= from ||
+    to > text.length
+  ) {
+    return [];
+  }
+
+  const segments: InlineRangeSegment[] = [];
+  let segmentStart = from;
+  let index = from;
+
+  while (index < to) {
+    const character = text[index];
+    const isLineBreak = character === '\n' || character === '\r';
+
+    if (!isLineBreak) {
+      index += 1;
+      continue;
+    }
+
+    if (segmentStart < index) {
+      segments.push({ from: segmentStart, to: index });
+    }
+
+    if (character === '\r' && text[index + 1] === '\n') {
+      index += 2;
+    } else {
+      index += 1;
+    }
+    segmentStart = index;
+  }
+
+  if (segmentStart < to) {
+    segments.push({ from: segmentStart, to });
+  }
+
+  return segments;
+};
+
+export const getVisualRowRangeSegments = ({
+  from,
+  to,
+  lineHeight,
+  getPositionTop,
+}: {
+  from: number;
+  to: number;
+  lineHeight: number;
+  getPositionTop: PositionRowLookup;
+}): InlineRangeSegment[] => {
+  if (
+    !Number.isFinite(from) ||
+    !Number.isFinite(to) ||
+    !Number.isInteger(from) ||
+    !Number.isInteger(to) ||
+    from < 0 ||
+    to <= from ||
+    !Number.isFinite(lineHeight) ||
+    lineHeight <= 0
+  ) {
+    return [];
+  }
+
+  const segments: InlineRangeSegment[] = [];
+  let start = from;
+  const rowTolerance = Math.max(1, lineHeight / 3);
+
+  while (start < to) {
+    const startTop = getPositionTop(start, 1);
+    if (startTop === null || !Number.isFinite(startTop)) {
+      return [];
+    }
+    const rowTop = startTop;
+
+    let low = start + 1;
+    let high = to;
+    let best = start;
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const endTop = getPositionTop(mid, -1);
+      if (endTop === null || !Number.isFinite(endTop)) {
+        high = mid - 1;
+        continue;
+      }
+      const rowEndTop = endTop;
+
+      const sameRow = Math.abs(rowTop - rowEndTop) < rowTolerance;
+      if (sameRow) {
+        best = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    if (best <= start) {
+      return [];
+    }
+
+    segments.push({ from: start, to: best });
+    start = best;
+  }
+
+  return segments;
+};
+
 // === Helpers ===
 
 const getDiffPaintMarkers = (
@@ -718,27 +849,61 @@ const getNormalizedRangeBoxes = (
   to: number,
 ): PaintRectBox[] => {
   const boxes: PaintRectBox[] = [];
-  const rects = RectangleMarker.forRange(view, className, EditorSelection.range(from, to));
+  const segments = getLineBoundedRangeSegments({
+    text: view.state.doc.toString(),
+    from,
+    to,
+  });
 
-  for (const rect of rects) {
-    if (rect.width === null || rect.width <= 0 || rect.height <= 0) {
-      continue;
+  for (const segment of segments) {
+    const visualSegments = getViewVisualRowRangeSegments(view, segment);
+
+    for (const visualSegment of visualSegments) {
+      const rects = RectangleMarker.forRange(
+        view,
+        className,
+        EditorSelection.range(visualSegment.from, visualSegment.to),
+      );
+
+      for (const rect of rects) {
+        if (rect.width === null || rect.width <= 0 || rect.height <= 0) {
+          continue;
+        }
+
+        const lineBox = getLineBoxForRect(view, rect);
+        if (!lineBox) {
+          continue;
+        }
+
+        boxes.push({
+          left: rect.left,
+          top: lineBox.top,
+          width: rect.width,
+          height: lineBox.height,
+        });
+      }
     }
-
-    const lineBox = getLineBoxForRect(view, rect);
-    if (!lineBox) {
-      continue;
-    }
-
-    boxes.push({
-      left: rect.left,
-      top: lineBox.top,
-      width: rect.width,
-      height: lineBox.height,
-    });
   }
 
   return boxes;
+};
+
+const getViewVisualRowRangeSegments = (
+  view: EditorView,
+  segment: InlineRangeSegment,
+): InlineRangeSegment[] => {
+  const lineHeight = getLineHeight(view);
+  const visualSegments = getVisualRowRangeSegments({
+    from: segment.from,
+    to: segment.to,
+    lineHeight,
+    getPositionTop(position, side) {
+      const coords = view.coordsAtPos(position, side);
+      return coords ? coords.top : null;
+    },
+  });
+
+  return visualSegments.length > 0 ? visualSegments : [segment];
 };
 
 const getLineBoxForRect = (

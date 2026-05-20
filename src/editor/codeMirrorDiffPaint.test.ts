@@ -4,7 +4,9 @@ import type { DraftHighlightRange, DraftLineDecoration, EditorHighlightRange } f
 import {
   getDiffPaintEffectValue,
   getDiffPaintTargets,
+  getLineBoundedRangeSegments,
   getNonWidgetTextBlocks,
+  getVisualRowRangeSegments,
   getVisualLineBox,
   type DiffPaintState,
 } from './codeMirrorDiffPaint';
@@ -291,6 +293,240 @@ describe('getVisualLineBox', () => {
         lineHeight: 0,
       }),
     ).toBeNull();
+  });
+});
+
+describe('getLineBoundedRangeSegments', () => {
+  it('returns same range for a single-line segment', () => {
+    expect(
+      getLineBoundedRangeSegments({
+        text: 'abcdef',
+        from: 1,
+        to: 5,
+      }),
+    ).toEqual([{ from: 1, to: 5 }]);
+  });
+
+  it('splits a range crossing one newline into two text segments', () => {
+    expect(
+      getLineBoundedRangeSegments({
+        text: 'abc\ndef',
+        from: 1,
+        to: 6,
+      }),
+    ).toEqual([
+      { from: 1, to: 3 },
+      { from: 4, to: 6 },
+    ]);
+  });
+
+  it('excludes newline-only ranges', () => {
+    expect(
+      getLineBoundedRangeSegments({
+        text: 'abc\ndef',
+        from: 3,
+        to: 4,
+      }),
+    ).toEqual([]);
+  });
+
+  it('skips empty lines in ranges crossing blank lines', () => {
+    expect(
+      getLineBoundedRangeSegments({
+        text: 'abc\n\ndef',
+        from: 2,
+        to: 7,
+      }),
+    ).toEqual([
+      { from: 2, to: 3 },
+      { from: 5, to: 7 },
+    ]);
+  });
+
+  it('preserves spaces inside line segments', () => {
+    expect(
+      getLineBoundedRangeSegments({
+        text: 'ab  \n  cd',
+        from: 1,
+        to: 8,
+      }),
+    ).toEqual([
+      { from: 1, to: 4 },
+      { from: 5, to: 8 },
+    ]);
+  });
+
+  it('supports CRLF line endings', () => {
+    expect(
+      getLineBoundedRangeSegments({
+        text: 'abc\r\ndef',
+        from: 1,
+        to: 7,
+      }),
+    ).toEqual([
+      { from: 1, to: 3 },
+      { from: 5, to: 7 },
+    ]);
+  });
+
+  it('returns empty array for invalid ranges', () => {
+    expect(
+      getLineBoundedRangeSegments({
+        text: 'abc',
+        from: Number.NaN,
+        to: 2,
+      }),
+    ).toEqual([]);
+    expect(
+      getLineBoundedRangeSegments({
+        text: 'abc',
+        from: -1,
+        to: 2,
+      }),
+    ).toEqual([]);
+    expect(
+      getLineBoundedRangeSegments({
+        text: 'abc',
+        from: 2,
+        to: 2,
+      }),
+    ).toEqual([]);
+    expect(
+      getLineBoundedRangeSegments({
+        text: 'abc',
+        from: 1,
+        to: 4,
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe('getVisualRowRangeSegments', () => {
+  const getPositionTop = (position: number, side: -1 | 1) => {
+    const effectivePosition = side === -1 ? Math.max(0, position - 1) : position;
+
+    if (effectivePosition < 7) {
+      return 0;
+    }
+    if (effectivePosition < 14) {
+      return 24;
+    }
+
+    return 48;
+  };
+
+  it('returns one segment when all positions are on same row', () => {
+    expect(
+      getVisualRowRangeSegments({
+        from: 0,
+        to: 6,
+        lineHeight: 24,
+        getPositionTop,
+      }),
+    ).toEqual([{ from: 0, to: 6 }]);
+  });
+
+  it('splits at one wrap boundary', () => {
+    expect(
+      getVisualRowRangeSegments({
+        from: 0,
+        to: 12,
+        lineHeight: 24,
+        getPositionTop,
+      }),
+    ).toEqual([
+      { from: 0, to: 7 },
+      { from: 7, to: 12 },
+    ]);
+  });
+
+  it('splits when starting in middle of first row', () => {
+    expect(
+      getVisualRowRangeSegments({
+        from: 3,
+        to: 10,
+        lineHeight: 24,
+        getPositionTop,
+      }),
+    ).toEqual([
+      { from: 3, to: 7 },
+      { from: 7, to: 10 },
+    ]);
+  });
+
+  it('splits across multiple wrap boundaries', () => {
+    expect(
+      getVisualRowRangeSegments({
+        from: 0,
+        to: 18,
+        lineHeight: 24,
+        getPositionTop,
+      }),
+    ).toEqual([
+      { from: 0, to: 7 },
+      { from: 7, to: 14 },
+      { from: 14, to: 18 },
+    ]);
+  });
+
+  it('returns empty array for invalid ranges', () => {
+    expect(
+      getVisualRowRangeSegments({
+        from: Number.NaN,
+        to: 5,
+        lineHeight: 24,
+        getPositionTop,
+      }),
+    ).toEqual([]);
+    expect(
+      getVisualRowRangeSegments({
+        from: -1,
+        to: 5,
+        lineHeight: 24,
+        getPositionTop,
+      }),
+    ).toEqual([]);
+    expect(
+      getVisualRowRangeSegments({
+        from: 3,
+        to: 3,
+        lineHeight: 24,
+        getPositionTop,
+      }),
+    ).toEqual([]);
+    expect(
+      getVisualRowRangeSegments({
+        from: 0,
+        to: 6,
+        lineHeight: 0,
+        getPositionTop,
+      }),
+    ).toEqual([]);
+  });
+
+  it('returns empty array when row lookup returns null and no safe split can be made', () => {
+    expect(
+      getVisualRowRangeSegments({
+        from: 0,
+        to: 10,
+        lineHeight: 24,
+        getPositionTop: () => null,
+      }),
+    ).toEqual([]);
+  });
+
+  it('treats nearby top values within tolerance as same row', () => {
+    expect(
+      getVisualRowRangeSegments({
+        from: 0,
+        to: 8,
+        lineHeight: 24,
+        getPositionTop(position, side) {
+          const effectivePosition = side === -1 ? Math.max(0, position - 1) : position;
+          return effectivePosition < 7 ? 0 : 5;
+        },
+      }),
+    ).toEqual([{ from: 0, to: 8 }]);
   });
 });
 
