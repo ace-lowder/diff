@@ -29,10 +29,8 @@ import {
   type TextSelectionRange,
 } from './fontStyles';
 import {
-  DEFAULT_DRAFT_TEXT,
-  DEFAULT_EDITOR_TEXT,
+  getStoredDocumentText,
   getStoredFontStyleRanges,
-  getStoredText,
   setStoredFontStyleRanges,
   setStoredText,
   storageKeys,
@@ -51,20 +49,12 @@ import type {
 } from './appTypes';
 
 const App = () => {
+  const initialDocumentText = useMemo(() => getStoredDocumentText(), []);
+
   const [mode, setMode] = useState<AppMode>('split');
   const [statsMode, setStatsMode] = useState<StatsMode>('words');
-  const [draftText, setDraftText] = useState(() =>
-    getStoredText({
-      key: storageKeys.draftText,
-      fallback: DEFAULT_DRAFT_TEXT,
-    }),
-  );
-  const [editorText, setEditorText] = useState(() =>
-    getStoredText({
-      key: storageKeys.editorText,
-      fallback: DEFAULT_EDITOR_TEXT,
-    }),
-  );
+  const [draftText, setDraftText] = useState(() => initialDocumentText.draftText);
+  const [editorText, setEditorText] = useState(() => initialDocumentText.editorText);
   const [draftFontStyleRanges, setDraftFontStyleRanges] = useState<FontStyleRange[]>(
     () => getStoredFontStyleRanges(storageKeys.draftFontStyleRanges),
   );

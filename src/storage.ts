@@ -26,23 +26,36 @@ export const storageKeys = {
   editorFontStyleRanges: "byline:editorFontStyleRanges",
 } as const;
 
-export const getStoredText = ({
-  key,
-  fallback,
-}: {
-  key: string;
-  fallback: string;
-}): string => {
-  try {
-    const storedValue = window.localStorage.getItem(key);
+export type StoredDocumentText = {
+  draftText: string;
+  editorText: string;
+};
 
-    if (storedValue === null || storedValue === "") {
-      return fallback;
+export const getStoredDocumentText = (): StoredDocumentText => {
+  try {
+    const storedDraftText = window.localStorage.getItem(storageKeys.draftText);
+    const storedEditorText = window.localStorage.getItem(storageKeys.editorText);
+
+    const shouldUseTemplates =
+      (storedDraftText === null && storedEditorText === null) ||
+      (storedDraftText === "" && storedEditorText === "");
+
+    if (shouldUseTemplates) {
+      return {
+        draftText: DEFAULT_DRAFT_TEXT,
+        editorText: DEFAULT_EDITOR_TEXT,
+      };
     }
 
-    return storedValue;
+    return {
+      draftText: storedDraftText ?? "",
+      editorText: storedEditorText ?? "",
+    };
   } catch {
-    return fallback;
+    return {
+      draftText: DEFAULT_DRAFT_TEXT,
+      editorText: DEFAULT_EDITOR_TEXT,
+    };
   }
 };
 

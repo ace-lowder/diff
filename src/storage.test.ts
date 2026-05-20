@@ -1,10 +1,13 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import { getStoredText } from './storage';
+import {
+  DEFAULT_DRAFT_TEXT,
+  DEFAULT_EDITOR_TEXT,
+  getStoredDocumentText,
+  storageKeys,
+} from './storage';
 
-describe('getStoredText', () => {
-  const key = 'byline:test-key';
-  const fallback = 'fallback value';
+describe('getStoredDocumentText', () => {
   const store = new Map<string, string>();
 
   (globalThis as { window?: unknown }).window = {
@@ -25,25 +28,85 @@ describe('getStoredText', () => {
     store.clear();
   });
 
-  it('returns fallback when key is missing', () => {
-    expect(getStoredText({ key, fallback })).toBe(fallback);
+  it('returns both templates when both keys are missing', () => {
+    expect(getStoredDocumentText()).toEqual({
+      draftText: DEFAULT_DRAFT_TEXT,
+      editorText: DEFAULT_EDITOR_TEXT,
+    });
   });
 
-  it('returns fallback when value is empty string', () => {
-    store.set(key, '');
+  it('returns both templates when both values are empty strings', () => {
+    store.set(storageKeys.draftText, '');
+    store.set(storageKeys.editorText, '');
 
-    expect(getStoredText({ key, fallback })).toBe(fallback);
+    expect(getStoredDocumentText()).toEqual({
+      draftText: DEFAULT_DRAFT_TEXT,
+      editorText: DEFAULT_EDITOR_TEXT,
+    });
   });
 
-  it('returns stored value when non-empty', () => {
-    store.set(key, 'saved text');
+  it('returns saved draft and empty editor when draft has content and editor is empty', () => {
+    store.set(storageKeys.draftText, 'saved draft');
+    store.set(storageKeys.editorText, '');
 
-    expect(getStoredText({ key, fallback })).toBe('saved text');
+    expect(getStoredDocumentText()).toEqual({
+      draftText: 'saved draft',
+      editorText: '',
+    });
   });
 
-  it('returns whitespace-only stored value', () => {
-    store.set(key, ' \n');
+  it('returns empty draft and saved editor when draft is empty and editor has content', () => {
+    store.set(storageKeys.draftText, '');
+    store.set(storageKeys.editorText, 'saved editor');
 
-    expect(getStoredText({ key, fallback })).toBe(' \n');
+    expect(getStoredDocumentText()).toEqual({
+      draftText: '',
+      editorText: 'saved editor',
+    });
+  });
+
+  it('returns both saved values when both have content', () => {
+    store.set(storageKeys.draftText, 'saved draft');
+    store.set(storageKeys.editorText, 'saved editor');
+
+    expect(getStoredDocumentText()).toEqual({
+      draftText: 'saved draft',
+      editorText: 'saved editor',
+    });
+  });
+
+  it('returns whitespace-only values as saved content', () => {
+    store.set(storageKeys.draftText, ' \n');
+    store.set(storageKeys.editorText, '\n\t');
+
+    expect(getStoredDocumentText()).toEqual({
+      draftText: ' \n',
+      editorText: '\n\t',
+    });
+  });
+
+  it('returns empty string for missing side when other side has content', () => {
+    store.set(storageKeys.editorText, 'saved editor');
+
+    expect(getStoredDocumentText()).toEqual({
+      draftText: '',
+      editorText: 'saved editor',
+    });
+  });
+
+  it('returns templates when localStorage getItem throws', () => {
+    const originalGetItem = window.localStorage.getItem;
+    window.localStorage.getItem = () => {
+      throw new Error('boom');
+    };
+
+    try {
+      expect(getStoredDocumentText()).toEqual({
+        draftText: DEFAULT_DRAFT_TEXT,
+        editorText: DEFAULT_EDITOR_TEXT,
+      });
+    } finally {
+      window.localStorage.getItem = originalGetItem;
+    }
   });
 });
