@@ -15,6 +15,8 @@ import type {
 } from '../editorDiff';
 import { normalizeFontStyleRanges, type FontStyleRange, type FontStyleType } from '../fontStyles';
 import { CODE_MIRROR_LINE_HEIGHT } from './codeMirrorThemeConstants';
+import { getMarkerRange } from './markerRanges';
+import { getMissingLineWidgetAnchor } from './missingLineAnchors';
 
 export type CodeMirrorDecorations = {
   editorHighlightRanges: EditorHighlightRange[];
@@ -81,12 +83,25 @@ export const getCodeMirrorDecorations = (
   decorations: CodeMirrorDecorations,
 ): DecorationSet => {
   const docLength = editorView.state.doc.length;
+  const docText = editorView.state.doc.toString();
   const ranges: Range<Decoration>[] = [
     ...getFontStyleDecorations(decorations.fontStyleRanges, docLength),
-    ...getEditorHighlightDecorations(decorations.editorHighlightRanges, docLength),
-    ...getDraftHighlightDecorations(decorations.draftHighlightRanges, docLength),
+    ...getEditorHighlightDecorations(
+      decorations.editorHighlightRanges,
+      docLength,
+      docText,
+    ),
+    ...getDraftHighlightDecorations(
+      decorations.draftHighlightRanges,
+      docLength,
+      docText,
+    ),
     ...getEditorLineDecorations(editorView, decorations.editorLineDecorations),
-    ...getDraftLineDecorations(editorView, decorations.draftLineDecorations),
+    ...getDraftLineDecorations(
+      editorView,
+      decorations.draftLineDecorations,
+      docText,
+    ),
     ...getLowestEditedLineDecorations(editorView, decorations.lowestEditedLine),
   ];
 
@@ -128,6 +143,7 @@ class MissingLineWidget extends WidgetType {
 const getEditorHighlightDecorations = (
   highlightRanges: EditorHighlightRange[],
   docLength: number,
+  docText: string,
 ): Range<Decoration>[] => {
   const decorations: Range<Decoration>[] = [];
 
@@ -152,7 +168,32 @@ const getEditorHighlightDecorations = (
       continue;
     }
 
-    continue;
+    const validMarkerRange = getValidTextRange({
+      from: range.from,
+      to: range.to,
+      docLength,
+      allowEmpty: true,
+    });
+    if (!validMarkerRange || validMarkerRange.from !== validMarkerRange.to) {
+      continue;
+    }
+
+    const markerRange = getMarkerRange({
+      text: docText,
+      position: validMarkerRange.from,
+    });
+    if (!markerRange) {
+      continue;
+    }
+
+    decorations.push(
+      Decoration.mark({
+        class:
+          markerRange.side === 'left'
+            ? 'byline-deleted-marker-left'
+            : 'byline-deleted-marker-right',
+      }).range(markerRange.from, markerRange.to),
+    );
   }
 
   return decorations;
@@ -161,10 +202,41 @@ const getEditorHighlightDecorations = (
 const getDraftHighlightDecorations = (
   draftHighlightRanges: DraftHighlightRange[],
   docLength: number,
+  docText: string,
 ): Range<Decoration>[] => {
   const decorations: Range<Decoration>[] = [];
 
   for (const range of draftHighlightRanges) {
+    if (range.type === 'added' && range.from === range.to) {
+      const validMarkerRange = getValidTextRange({
+        from: range.from,
+        to: range.to,
+        docLength,
+        allowEmpty: true,
+      });
+      if (!validMarkerRange) {
+        continue;
+      }
+
+      const markerRange = getMarkerRange({
+        text: docText,
+        position: validMarkerRange.from,
+      });
+      if (!markerRange) {
+        continue;
+      }
+
+      decorations.push(
+        Decoration.mark({
+          class:
+            markerRange.side === 'left'
+              ? 'byline-added-marker-left'
+              : 'byline-added-marker-right',
+        }).range(markerRange.from, markerRange.to),
+      );
+      continue;
+    }
+
     if (range.type === 'added') {
       continue;
     }
@@ -214,6 +286,7 @@ const getEditorLineDecorations = (
 const getDraftLineDecorations = (
   editorView: EditorView,
   draftLineDecorations: DraftLineDecoration[],
+  docText: string,
 ): Range<Decoration>[] => {
   const decorations: Range<Decoration>[] = [];
 
@@ -234,15 +307,21 @@ const getDraftLineDecorations = (
       continue;
     }
 
-    const position = decoration.placement === 'after' ? line.to : line.from;
-    const side = decoration.placement === 'after' ? 1 : -1;
+    const anchor = getMissingLineWidgetAnchor({
+      docText,
+      lineNumber: decoration.lineNumber,
+      placement: decoration.placement,
+    });
+    if (!anchor) {
+      continue;
+    }
 
     decorations.push(
       Decoration.widget({
         block: true,
-        side,
+        side: anchor.side,
         widget: new MissingLineWidget(decoration.lineCount),
-      }).range(position),
+      }).range(anchor.position),
     );
   }
 

@@ -287,6 +287,10 @@ export const getEditorHighlightRanges = (
       continue;
     }
 
+    if (shouldRenderEditorDeletedMarker(displayChange.draftValue)) {
+      ranges.push({ type: 'deleted', from: editorPosition, to: editorPosition });
+    }
+
     continue;
   }
 
@@ -439,6 +443,9 @@ export const getDraftHighlightRanges = (
     }
 
     if (displayChange.type === 'inserted') {
+      if (shouldRenderDraftAddedMarker(displayChange.editorValue)) {
+        ranges.push({ type: 'added', from: draftPosition, to: draftPosition });
+      }
       continue;
     }
 
@@ -524,6 +531,8 @@ export const getDraftHighlightRanges = (
 
       if (to > from) {
         ranges.push({ type: 'deleted', from, to });
+      } else if (shouldRenderDraftAddedMarker(displayChange.editorValue)) {
+        ranges.push({ type: 'added', from: draftPosition, to: draftPosition });
       }
     } else if (to > from) {
       ranges.push({ type: 'deleted', from, to });
@@ -636,6 +645,10 @@ const getReplacementEditorRanges = ({
       return [{ type: 'added', from, to }];
     }
 
+    if (shouldRenderEditorDeletedMarker(displayChange.draftValue)) {
+      return [{ type: 'deleted', from: editorPosition, to: editorPosition }];
+    }
+
     return [];
   }
 
@@ -643,6 +656,9 @@ const getReplacementEditorRanges = ({
     hasEmptyEditorReplacementSpan(offsets) &&
     offsets.draftToOffset > offsets.draftFromOffset
   ) {
+    if (shouldRenderEditorDeletedMarker(displayChange.draftValue)) {
+      return [{ type: 'deleted', from: editorPosition, to: editorPosition }];
+    }
     return [];
   }
 
@@ -969,6 +985,12 @@ const getTokenReplacementEditorRanges = ({
 
         if (to > from) {
           ranges.push({ type: 'added', from, to });
+        } else if (shouldRenderEditorDeletedMarker(draftToken.value)) {
+          ranges.push({
+            type: 'deleted',
+            from: editorPosition + editorToken.from,
+            to: editorPosition + editorToken.from,
+          });
         }
         continue;
       }
@@ -978,6 +1000,13 @@ const getTokenReplacementEditorRanges = ({
         hasEmptyEditorReplacementSpan(offsets) &&
         offsets.draftToOffset > offsets.draftFromOffset
       ) {
+        if (shouldRenderEditorDeletedMarker(draftToken.value)) {
+          ranges.push({
+            type: 'deleted',
+            from: editorPosition + editorToken.from,
+            to: editorPosition + editorToken.from,
+          });
+        }
         continue;
       }
 
@@ -999,6 +1028,13 @@ const getTokenReplacementEditorRanges = ({
     }
 
     if (draftToken && !editorToken) {
+      if (shouldRenderEditorDeletedMarker(draftToken.value)) {
+        ranges.push({
+          type: 'deleted',
+          from: editorPosition,
+          to: editorPosition,
+        });
+      }
       continue;
     }
   }
@@ -1056,6 +1092,12 @@ const getTokenReplacementDraftRanges = ({
 
         if (to > from) {
           ranges.push({ type: 'deleted', from, to });
+        } else if (shouldRenderDraftAddedMarker(editorToken.value)) {
+          ranges.push({
+            type: 'added',
+            from: draftPosition + draftToken.from,
+            to: draftPosition + draftToken.from,
+          });
         }
         continue;
       }
@@ -1065,6 +1107,13 @@ const getTokenReplacementDraftRanges = ({
         hasEmptyDraftReplacementSpan(offsets) &&
         offsets.editorToOffset > offsets.editorFromOffset
       ) {
+        if (shouldRenderDraftAddedMarker(editorToken.value)) {
+          ranges.push({
+            type: 'added',
+            from: draftPosition + draftToken.from,
+            to: draftPosition + draftToken.from,
+          });
+        }
         continue;
       }
 
@@ -1086,6 +1135,13 @@ const getTokenReplacementDraftRanges = ({
     }
 
     if (editorToken && !draftToken) {
+      if (shouldRenderDraftAddedMarker(editorToken.value)) {
+        ranges.push({
+          type: 'added',
+          from: draftPosition,
+          to: draftPosition,
+        });
+      }
       continue;
     }
   }
@@ -1816,6 +1872,11 @@ const getVisibleEditorRanges = (
   const visibleRanges: EditorHighlightRange[] = [];
 
   for (const range of ranges) {
+    if (range.type !== 'added') {
+      visibleRanges.push(range);
+      continue;
+    }
+
     const text = editorText.slice(range.from, range.to);
     visibleRanges.push(
       ...getVisibleEditorRangeSegments({
@@ -1931,8 +1992,8 @@ const filterVisibleDraftDeletedRanges = (
   draftText: string,
 ): DraftHighlightRange[] => {
   return ranges.filter((range) => {
-    if (range.type !== 'deleted') {
-      return false;
+    if (range.type === 'added') {
+      return true;
     }
     return draftText.slice(range.from, range.to).trim().length > 0;
   });
@@ -2003,6 +2064,18 @@ const isWhitespaceOnlyReplacement = (
   editorValue: string,
 ): boolean => {
   return draftValue.trim() === '' && editorValue.trim() === '';
+};
+
+const isFullLineMarkerChange = (value: string): boolean => {
+  return value.includes('\n') && /\S/.test(value);
+};
+
+const shouldRenderEditorDeletedMarker = (value: string): boolean => {
+  return value.length > 0 && !isFullLineMarkerChange(value);
+};
+
+const shouldRenderDraftAddedMarker = (value: string): boolean => {
+  return value.length > 0 && !isFullLineMarkerChange(value);
 };
 
 const mergeRawChanges = (changes: RawChange[]): RawChange[] => {
@@ -2559,6 +2632,25 @@ const getCharacterReplacementEditorRanges = ({
     }));
   }
 
+  if (ranges.draftRanges.length > 0) {
+    const deletedText = ranges.draftRanges
+      .map((range) => draftValue.slice(range.from, range.to))
+      .join('');
+    if (
+      deletedText.trim().length === 0 ||
+      shouldRenderEditorDeletedMarker(draftValue)
+    ) {
+    const markerOffset = ranges.draftRanges[0].from;
+    return [
+      {
+        type: 'deleted',
+        from: editorPosition + markerOffset,
+        to: editorPosition + markerOffset,
+      },
+    ];
+    }
+  }
+
   return [];
 };
 
@@ -2582,6 +2674,17 @@ const getCharacterReplacementDraftRanges = ({
       from: draftPosition + range.from,
       to: draftPosition + range.to,
     }));
+  }
+
+  if (ranges.editorRanges.length > 0 && shouldRenderDraftAddedMarker(editorValue)) {
+    const markerOffset = ranges.editorRanges[0].from;
+    return [
+      {
+        type: 'added',
+        from: draftPosition + markerOffset,
+        to: draftPosition + markerOffset,
+      },
+    ];
   }
 
   return [];

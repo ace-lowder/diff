@@ -14,6 +14,8 @@ import { getTopVisibleLineNumber } from './codeMirrorScroll';
 import {
   CODE_MIRROR_FONT_SIZE,
   CODE_MIRROR_LINE_HEIGHT,
+  DIFF_INLINE_FILL_OFFSET,
+  DIFF_MARKER_WIDTH,
 } from './codeMirrorThemeConstants';
 import type { CodeMirrorTheme, ScrollOffset } from '../appTypes';
 import type { FontStyleType, TextChange } from '../fontStyles';
@@ -123,14 +125,11 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       border: 'none',
     },
     '.cm-lineNumbers .cm-gutterElement': {
-      boxSizing: 'border-box',
       width: '6ch',
       minWidth: '6ch',
       paddingLeft: '0',
       paddingRight: '2ch',
       textAlign: 'right',
-      lineHeight: CODE_MIRROR_LINE_HEIGHT,
-      minHeight: CODE_MIRROR_LINE_HEIGHT,
     },
     '.cm-activeLine': {
       backgroundColor: '#242526',
@@ -153,11 +152,33 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       boxDecorationBreak: 'clone',
       WebkitBoxDecorationBreak: 'clone',
       lineHeight: CODE_MIRROR_LINE_HEIGHT,
+      boxShadow: `0 ${DIFF_INLINE_FILL_OFFSET} 0 #2A4C2C, 0 -${DIFF_INLINE_FILL_OFFSET} 0 #2A4C2C`,
     },
     '.byline-deleted-text': {
       backgroundColor: '#693330',
       boxDecorationBreak: 'clone',
       WebkitBoxDecorationBreak: 'clone',
+      lineHeight: CODE_MIRROR_LINE_HEIGHT,
+      boxShadow: `0 ${DIFF_INLINE_FILL_OFFSET} 0 #693330, 0 -${DIFF_INLINE_FILL_OFFSET} 0 #693330`,
+    },
+    '.byline-deleted-marker-left': {
+      backgroundImage: `linear-gradient(to right, #693330 0, #693330 ${DIFF_MARKER_WIDTH}, transparent ${DIFF_MARKER_WIDTH})`,
+      backgroundRepeat: 'no-repeat',
+      lineHeight: CODE_MIRROR_LINE_HEIGHT,
+    },
+    '.byline-deleted-marker-right': {
+      backgroundImage: `linear-gradient(to left, #693330 0, #693330 ${DIFF_MARKER_WIDTH}, transparent ${DIFF_MARKER_WIDTH})`,
+      backgroundRepeat: 'no-repeat',
+      lineHeight: CODE_MIRROR_LINE_HEIGHT,
+    },
+    '.byline-added-marker-left': {
+      backgroundImage: `linear-gradient(to right, #2A4C2C 0, #2A4C2C ${DIFF_MARKER_WIDTH}, transparent ${DIFF_MARKER_WIDTH})`,
+      backgroundRepeat: 'no-repeat',
+      lineHeight: CODE_MIRROR_LINE_HEIGHT,
+    },
+    '.byline-added-marker-right': {
+      backgroundImage: `linear-gradient(to left, #2A4C2C 0, #2A4C2C ${DIFF_MARKER_WIDTH}, transparent ${DIFF_MARKER_WIDTH})`,
+      backgroundRepeat: 'no-repeat',
       lineHeight: CODE_MIRROR_LINE_HEIGHT,
     },
     '.cm-line.byline-added-line': {

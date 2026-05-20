@@ -216,13 +216,18 @@ describe('getEditorHighlightRanges', () => {
     );
   });
 
-  it('does not emit zero-width deleted editor marker ranges', () => {
+  it('maps deleted draft text to a zero-width deletion marker range', () => {
     const changes = getDisplayChanges('one two three', 'one three');
     const ranges = getEditorHighlightRanges(changes);
 
     expect(
-      ranges.some((range) => range.type === 'deleted' || range.from === range.to),
-    ).toBe(false);
+      ranges.some(
+        (range) =>
+          range.type === 'deleted' &&
+          range.from === range.to &&
+          range.from >= 0,
+      ),
+    ).toBe(true);
   });
 
   it('maps replacement text to one added editor range without deleted marker', () => {
@@ -369,7 +374,11 @@ describe('getEditorHighlightRanges', () => {
         .filter((range) => range.type === 'added')
         .map((range) => editorText.slice(range.from, range.to)),
     ).toEqual([' new']);
-    expect(getDraftHighlightRanges(changes)).toEqual([]);
+    expect(getDraftHighlightRanges(changes)).toContainEqual({
+      type: 'added',
+      from: 4,
+      to: 4,
+    });
   });
 
   it('deletes only the prefix character before a word', () => {
@@ -382,11 +391,12 @@ describe('getEditorHighlightRanges', () => {
     const editorAddedSlices = getEditorHighlightRanges(changes).map((range) =>
       editorText.slice(range.from, range.to),
     );
+    const visibleEditorAddedSlices = editorAddedSlices.filter((slice) => slice.length > 0);
 
     expect(draftDeletedSlices).toContain('t');
-    expect(editorAddedSlices).not.toContain('T');
+    expect(visibleEditorAddedSlices).not.toContain('T');
     expect(getEditorHighlightRanges(changes).some((range) => range.from === range.to)).toBe(
-      false,
+      true,
     );
   });
 
@@ -395,19 +405,20 @@ describe('getEditorHighlightRanges', () => {
     const editorText = '1. two';
     const changes = getDisplayChanges(draftText, editorText);
 
-    const draftDeletedSlices = getDraftHighlightRanges(changes).map((range) =>
-      draftText.slice(range.from, range.to),
-    );
+    const draftDeletedSlices = getDraftHighlightRanges(changes)
+      .filter((range) => range.type === 'deleted')
+      .map((range) => draftText.slice(range.from, range.to));
     const editorAddedSlices = getEditorHighlightRanges(changes).map((range) =>
       editorText.slice(range.from, range.to),
     );
+    const visibleEditorAddedSlices = editorAddedSlices.filter((slice) => slice.length > 0);
 
-    expect(draftDeletedSlices).toEqual(['t']);
+    expect(draftDeletedSlices).toContain('t');
     expect(draftDeletedSlices).not.toContain('1');
-    expect(editorAddedSlices).toEqual([' two']);
-    expect(editorAddedSlices).not.toContain('1');
+    expect(visibleEditorAddedSlices).toEqual([' two']);
+    expect(visibleEditorAddedSlices).not.toContain('1');
     expect(getEditorHighlightRanges(changes).some((range) => range.from === range.to)).toBe(
-      false,
+      true,
     );
   });
 
@@ -429,7 +440,7 @@ describe('getEditorHighlightRanges', () => {
     expect(draftDeletedSlices.some((slice) => slice.includes('1'))).toBe(false);
     expect(editorAddedSlices).not.toContain('1');
     expect(getEditorHighlightRanges(changes).some((range) => range.from === range.to)).toBe(
-      false,
+      true,
     );
   });
 
@@ -462,7 +473,11 @@ describe('getEditorHighlightRanges', () => {
 
     expect(editorSlices).toEqual([' new']);
     expect(editorSlices).not.toContain('new ');
-    expect(getDraftHighlightRanges(changes)).toEqual([]);
+    expect(getDraftHighlightRanges(changes)).toContainEqual({
+      type: 'added',
+      from: 3,
+      to: 3,
+    });
   });
 
   it('keeps repeated words matched instead of highlighting survivors', () => {
@@ -483,48 +498,39 @@ describe('getEditorHighlightRanges', () => {
     expect(editorAdded.join('')).not.toContain('three');
   });
 
-  it('does not create visible noise for deleted separators/newlines', () => {
-    const draftText = 'one\ntwo\nt';
+  it('deleted newline creates a red editor marker', () => {
+    const draftText = 'one\ntwo';
     const editorText = 'onetwo';
     const changes = getDisplayChanges(draftText, editorText);
-    const draftDeleted = getDraftHighlightRanges(changes).map((range) =>
-      draftText.slice(range.from, range.to),
+    const editorRanges = getEditorHighlightRanges(changes);
+    const editorAdded = getEditorSlices(
+      editorText,
+      editorRanges.filter((range) => range.type === 'added'),
     );
-    const editorAdded = getEditorHighlightRanges(changes).map((range) =>
-      editorText.slice(range.from, range.to),
-    );
-    const decorations = getLineDecorations(draftText, editorText);
 
-    expect(editorAdded).toEqual([]);
-    expect(draftDeleted.join('')).not.toContain('one');
-    expect(draftDeleted.join('')).not.toContain('two');
-    expect(draftDeleted.join('')).toContain('t');
-    expect(
-      decorations.draftLineDecorations.some(
-        (decoration) =>
-          decoration.type === 'deletedDraftLine' &&
-          (decoration.lineNumber === 1 || decoration.lineNumber === 2),
-      ),
-    ).toBe(false);
+    expect(editorRanges).toContainEqual({ type: 'deleted', from: 3, to: 3 });
+    expect(editorAdded.join('')).not.toContain('one');
+    expect(editorAdded.join('')).not.toContain('two');
   });
 
-  it('does not treat deleted spaces as visible content edits', () => {
+  it('deleted space creates a red editor marker', () => {
     const draftText = 'one two';
     const editorText = 'onetwo';
     const changes = getDisplayChanges(draftText, editorText);
     const draftDeleted = getDraftHighlightRanges(changes).map((range) =>
       draftText.slice(range.from, range.to),
     );
-    const editorAdded = getEditorHighlightRanges(changes).map((range) =>
-      editorText.slice(range.from, range.to),
+    const editorRanges = getEditorHighlightRanges(changes);
+    const editorAdded = getEditorSlices(
+      editorText,
+      editorRanges.filter((range) => range.type === 'added'),
     );
 
+    expect(editorRanges).toContainEqual({ type: 'deleted', from: 3, to: 3 });
     expect(editorAdded).toEqual([]);
     expect(draftDeleted.join('')).not.toContain('one');
     expect(draftDeleted.join('')).not.toContain('two');
-    expect(getEditorHighlightRanges(changes).some((range) => range.from === range.to)).toBe(
-      false,
-    );
+    expect(editorRanges.some((range) => range.type === 'deleted')).toBe(true);
   });
 
   it('deletes repeated suffix character at the end', () => {
@@ -538,7 +544,7 @@ describe('getEditorHighlightRanges', () => {
     ]);
     expect(draftDeleted).toContainEqual({ type: 'deleted', from: 4, to: 5 });
     expect(getEditorHighlightRanges(changes).some((range) => range.from === range.to)).toBe(
-      false,
+      true,
     );
   });
 
@@ -554,7 +560,7 @@ describe('getEditorHighlightRanges', () => {
     const draftSlices = getDraftSlices(draftText, draftRanges);
 
     expect(editorSlices).toEqual(['abc']);
-    expect(draftSlices).toEqual([]);
+    expect(draftSlices.filter((slice) => slice.length > 0)).toEqual([]);
     expect(editorSlices).not.toContain('two');
     expect(editorSlices).not.toContain('two ');
     expect(editorSlices).not.toContain('three');
@@ -607,6 +613,49 @@ describe('getEditorHighlightRanges', () => {
         (decoration) => decoration.type === 'deletedDraftLine',
       ),
     ).toBe(false);
+  });
+
+  it('inserted space creates a green draft marker', () => {
+    const draftText = 'onetwo';
+    const editorText = 'one two';
+    const changes = getDisplayChanges(draftText, editorText);
+    const draftRanges = getDraftHighlightRanges(changes);
+    const draftDeletedSlices = getDraftSlices(
+      draftText,
+      draftRanges.filter((range) => range.type === 'deleted'),
+    );
+    const editorAddedSlices = getEditorSlices(
+      editorText,
+      getEditorHighlightRanges(changes).filter((range) => range.type === 'added'),
+    );
+
+    expect(draftRanges).toContainEqual({ type: 'added', from: 3, to: 3 });
+    expect(draftDeletedSlices).toEqual([]);
+    expect(editorAddedSlices.join('')).not.toContain('one');
+    expect(editorAddedSlices.join('')).not.toContain('two');
+  });
+
+  it('inserted full editor line does not create draft marker tick', () => {
+    const draftText = 'one\ntwo\nthree';
+    const editorText = 'one\nabc\ntwo three';
+    const changes = getDisplayChanges(draftText, editorText);
+    const draftRanges = getDraftHighlightRanges(changes);
+    const lineDecorations = getLineDecorations(draftText, editorText);
+
+    expect(
+      draftRanges.some(
+        (range) => range.type === 'added' && range.from === 4 && range.to === 4,
+      ),
+    ).toBe(false);
+    expect(lineDecorations.editorLineDecorations).toEqual([{ lineNumber: 2 }]);
+    expect(lineDecorations.draftLineDecorations).toEqual([
+      {
+        type: 'missingEditorLine',
+        lineNumber: 2,
+        placement: 'before',
+        lineCount: 1,
+      },
+    ]);
   });
 });
 
@@ -1131,10 +1180,13 @@ describe('getDraftHighlightRanges', () => {
     expect(editorText.slice(editorRanges[0].from, editorRanges[0].to)).toBe(
       'Three hundred',
     );
-    expect(draftRanges.filter((range) => range.type === 'deleted')).toEqual([
+    const deletedDraftRanges = draftRanges.filter((range) => range.type === 'deleted');
+    expect(deletedDraftRanges).toEqual([
       { type: 'deleted', from: 0, to: 3 },
     ]);
-    expect(draftText.slice(draftRanges[0].from, draftRanges[0].to)).toBe('300');
+    expect(
+      draftText.slice(deletedDraftRanges[0].from, deletedDraftRanges[0].to),
+    ).toBe('300');
   });
 
   it('keeps draft highlight ranges in draft document order', () => {
@@ -1189,9 +1241,9 @@ describe('getDraftHighlightRanges', () => {
     expect(slices.some((slice) => slice.includes('\n'))).toBe(false);
   });
 
-  it('does not emit draft added marker ranges for editor-only insertions', () => {
+  it('emits draft added marker ranges for inline editor-only insertions', () => {
     const ranges = getDraftHighlightRanges(getDisplayChanges('one three', 'one two three'));
-    expect(ranges.some((range) => range.type === 'added')).toBe(false);
+    expect(ranges.some((range) => range.type === 'added')).toBe(true);
   });
 });
 
