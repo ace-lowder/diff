@@ -39,6 +39,7 @@ export type DiffPaintTarget =
       from: number;
       to: number;
       side: MarkerSide;
+      position: number;
       geometryRole: DiffPaintGeometryRole;
     }
   | {
@@ -259,6 +260,9 @@ export type PositionRowLookup = (
   side: PositionSide,
 ) => number | null;
 
+type InlineRangeTarget = Extract<DiffPaintTarget, { type: 'range' }>;
+type MarkerTarget = Extract<DiffPaintTarget, { type: 'marker' }>;
+
 export const getLineBoundedRangeSegments = ({
   text,
   from,
@@ -376,6 +380,30 @@ export const getVisualRowRangeSegments = ({
   }
 
   return segments;
+};
+
+export const isMarkerInsideInlineRange = ({
+  marker,
+  range,
+}: {
+  marker: MarkerTarget;
+  range: InlineRangeTarget;
+}): boolean => {
+  return marker.position > range.from && marker.position < range.to;
+};
+
+export const getMarkerTargetsOutsideInlineRangeInteriors = ({
+  markers,
+  ranges,
+}: {
+  markers: MarkerTarget[];
+  ranges: InlineRangeTarget[];
+}): MarkerTarget[] => {
+  return markers.filter((marker) => {
+    return !ranges.some((range) => {
+      return isMarkerInsideInlineRange({ marker, range });
+    });
+  });
 };
 
 // === Helpers ===
@@ -550,7 +578,8 @@ const getEditorRangeTargets = (
   docLength: number,
   docText: string,
 ): DiffPaintTarget[] => {
-  const targets: DiffPaintTarget[] = [];
+  const rangeTargets: InlineRangeTarget[] = [];
+  const markerTargets: MarkerTarget[] = [];
 
   for (const range of ranges) {
     const validRange = getValidRange(range.from, range.to, docLength, true);
@@ -563,7 +592,7 @@ const getEditorRangeTargets = (
         continue;
       }
 
-      targets.push({
+      rangeTargets.push({
         type: 'range',
         className: 'byline-diff-added',
         from: validRange.from,
@@ -585,17 +614,23 @@ const getEditorRangeTargets = (
       continue;
     }
 
-    targets.push({
+    markerTargets.push({
       type: 'marker',
       className: 'byline-diff-deleted',
       from: markerRange.from,
       to: markerRange.to,
       side: markerRange.side,
+      position: validRange.from,
       geometryRole: 'tick',
     });
   }
 
-  return targets;
+  const visibleMarkerTargets = getMarkerTargetsOutsideInlineRangeInteriors({
+    markers: markerTargets,
+    ranges: rangeTargets,
+  });
+
+  return [...rangeTargets, ...visibleMarkerTargets];
 };
 
 const getDraftRangeTargets = (
@@ -603,7 +638,8 @@ const getDraftRangeTargets = (
   docLength: number,
   docText: string,
 ): DiffPaintTarget[] => {
-  const targets: DiffPaintTarget[] = [];
+  const rangeTargets: InlineRangeTarget[] = [];
+  const markerTargets: MarkerTarget[] = [];
 
   for (const range of ranges) {
     const validRange = getValidRange(range.from, range.to, docLength, true);
@@ -616,7 +652,7 @@ const getDraftRangeTargets = (
         continue;
       }
 
-      targets.push({
+      rangeTargets.push({
         type: 'range',
         className: 'byline-diff-deleted',
         from: validRange.from,
@@ -638,17 +674,23 @@ const getDraftRangeTargets = (
       continue;
     }
 
-    targets.push({
+    markerTargets.push({
       type: 'marker',
       className: 'byline-diff-added',
       from: markerRange.from,
       to: markerRange.to,
       side: markerRange.side,
+      position: validRange.from,
       geometryRole: 'tick',
     });
   }
 
-  return targets;
+  const visibleMarkerTargets = getMarkerTargetsOutsideInlineRangeInteriors({
+    markers: markerTargets,
+    ranges: rangeTargets,
+  });
+
+  return [...rangeTargets, ...visibleMarkerTargets];
 };
 
 const getEditorLineTargets = (

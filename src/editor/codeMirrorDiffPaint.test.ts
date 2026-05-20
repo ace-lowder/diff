@@ -5,7 +5,9 @@ import {
   getDiffPaintEffectValue,
   getDiffPaintTargets,
   getLineBoundedRangeSegments,
+  getMarkerTargetsOutsideInlineRangeInteriors,
   getNonWidgetTextBlocks,
+  isMarkerInsideInlineRange,
   getVisualRowRangeSegments,
   getVisualLineBox,
   type DiffPaintState,
@@ -86,6 +88,7 @@ describe('getDiffPaintTargets', () => {
       from: 3,
       to: 4,
       side: 'left',
+      position: 3,
       geometryRole: 'tick',
     });
   });
@@ -140,6 +143,7 @@ describe('getDiffPaintTargets', () => {
       from: 3,
       to: 4,
       side: 'left',
+      position: 3,
       geometryRole: 'tick',
     });
   });
@@ -213,6 +217,156 @@ describe('getDiffPaintTargets', () => {
       lineNumber: 2,
       geometryRole: 'activeLine',
     });
+  });
+
+  it('editor skips interior deleted marker inside added range', () => {
+    const targets = getDiffPaintTargets({
+      theme: 'editor',
+      text: 'abcdef',
+      docLineCount: 1,
+      activeLineNumber: 1,
+      diffPaint: {
+        editorHighlightRanges: [
+          { type: 'added', from: 1, to: 5 },
+          { type: 'deleted', from: 3, to: 3 },
+        ],
+        draftHighlightRanges: [],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+      },
+    });
+
+    expect(
+      targets.some((target) => {
+        return target.type === 'marker' && target.position === 3;
+      }),
+    ).toBe(false);
+  });
+
+  it('editor keeps deleted marker at added range start', () => {
+    const targets = getDiffPaintTargets({
+      theme: 'editor',
+      text: 'abcdef',
+      docLineCount: 1,
+      activeLineNumber: 1,
+      diffPaint: {
+        editorHighlightRanges: [
+          { type: 'added', from: 1, to: 5 },
+          { type: 'deleted', from: 1, to: 1 },
+        ],
+        draftHighlightRanges: [],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+      },
+    });
+
+    expect(
+      targets.some((target) => {
+        return target.type === 'marker' && target.position === 1;
+      }),
+    ).toBe(true);
+  });
+
+  it('editor keeps deleted marker at added range end', () => {
+    const targets = getDiffPaintTargets({
+      theme: 'editor',
+      text: 'abcdef',
+      docLineCount: 1,
+      activeLineNumber: 1,
+      diffPaint: {
+        editorHighlightRanges: [
+          { type: 'added', from: 1, to: 5 },
+          { type: 'deleted', from: 5, to: 5 },
+        ],
+        draftHighlightRanges: [],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+      },
+    });
+
+    expect(
+      targets.some((target) => {
+        return target.type === 'marker' && target.position === 5;
+      }),
+    ).toBe(true);
+  });
+
+  it('draft skips interior added marker inside deleted range', () => {
+    const targets = getDiffPaintTargets({
+      theme: 'draft',
+      text: 'abcdef',
+      docLineCount: 1,
+      activeLineNumber: 1,
+      diffPaint: {
+        editorHighlightRanges: [],
+        draftHighlightRanges: [
+          { type: 'deleted', from: 1, to: 5 },
+          { type: 'added', from: 3, to: 3 },
+        ],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+      },
+    });
+
+    expect(
+      targets.some((target) => {
+        return target.type === 'marker' && target.position === 3;
+      }),
+    ).toBe(false);
+  });
+
+  it('draft keeps added marker at deleted range start', () => {
+    const targets = getDiffPaintTargets({
+      theme: 'draft',
+      text: 'abcdef',
+      docLineCount: 1,
+      activeLineNumber: 1,
+      diffPaint: {
+        editorHighlightRanges: [],
+        draftHighlightRanges: [
+          { type: 'deleted', from: 1, to: 5 },
+          { type: 'added', from: 1, to: 1 },
+        ],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+      },
+    });
+
+    expect(
+      targets.some((target) => {
+        return target.type === 'marker' && target.position === 1;
+      }),
+    ).toBe(true);
+  });
+
+  it('draft keeps added marker at deleted range end', () => {
+    const targets = getDiffPaintTargets({
+      theme: 'draft',
+      text: 'abcdef',
+      docLineCount: 1,
+      activeLineNumber: 1,
+      diffPaint: {
+        editorHighlightRanges: [],
+        draftHighlightRanges: [
+          { type: 'deleted', from: 1, to: 5 },
+          { type: 'added', from: 5, to: 5 },
+        ],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+      },
+    });
+
+    expect(
+      targets.some((target) => {
+        return target.type === 'marker' && target.position === 5;
+      }),
+    ).toBe(true);
   });
 });
 
@@ -527,6 +681,50 @@ describe('getVisualRowRangeSegments', () => {
         },
       }),
     ).toEqual([{ from: 0, to: 8 }]);
+  });
+});
+
+describe('marker interior filtering helpers', () => {
+  const range = {
+    type: 'range' as const,
+    className: 'byline-diff-added' as const,
+    from: 1,
+    to: 5,
+    geometryRole: 'inlineText' as const,
+  };
+
+  const makeMarker = (position: number) => {
+    return {
+      type: 'marker' as const,
+      className: 'byline-diff-deleted' as const,
+      from: position,
+      to: position + 1,
+      side: 'left' as const,
+      position,
+      geometryRole: 'tick' as const,
+    };
+  };
+
+  it('detects strict interior marker positions', () => {
+    expect(isMarkerInsideInlineRange({ marker: makeMarker(3), range })).toBe(true);
+  });
+
+  it('does not treat start boundary as interior', () => {
+    expect(isMarkerInsideInlineRange({ marker: makeMarker(1), range })).toBe(false);
+  });
+
+  it('does not treat end boundary as interior', () => {
+    expect(isMarkerInsideInlineRange({ marker: makeMarker(5), range })).toBe(false);
+  });
+
+  it('filters only interior markers', () => {
+    const markers = [makeMarker(0), makeMarker(1), makeMarker(3), makeMarker(5), makeMarker(6)];
+    expect(
+      getMarkerTargetsOutsideInlineRangeInteriors({
+        markers,
+        ranges: [range],
+      }).map((marker) => marker.position),
+    ).toEqual([0, 1, 5, 6]);
   });
 });
 
