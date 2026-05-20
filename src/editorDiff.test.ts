@@ -277,6 +277,42 @@ describe('getEditorHighlightRanges', () => {
       '!',
     ]);
   });
+
+  it('refines same-token character substitutions', () => {
+    const draftText = 'drafts';
+    const editorText = 'drufts';
+    const changes = getDisplayChanges(draftText, editorText);
+
+    expect(
+      getEditorHighlightRanges(changes).map((range) =>
+        editorText.slice(range.from, range.to),
+      ),
+    ).toEqual(['u']);
+
+    expect(
+      getDraftHighlightRanges(changes)
+        .filter((range) => range.type === 'deleted')
+        .map((range) => draftText.slice(range.from, range.to)),
+    ).toEqual(['a']);
+  });
+
+  it('does not refine unrelated semantic replacements', () => {
+    const draftText = 'messy';
+    const editorText = 'polished';
+    const changes = getDisplayChanges(draftText, editorText);
+
+    expect(
+      getEditorHighlightRanges(changes).map((range) =>
+        editorText.slice(range.from, range.to),
+      ),
+    ).toEqual(['polished']);
+
+    expect(
+      getDraftHighlightRanges(changes)
+        .filter((range) => range.type === 'deleted')
+        .map((range) => draftText.slice(range.from, range.to)),
+    ).toEqual(['messy']);
+  });
 });
 
 describe('getLineDecorations', () => {
@@ -623,6 +659,42 @@ describe('getLineDecorations', () => {
       placement: 'before',
     });
   });
+
+  it('keeps bottom exact line paired after multiple inserted editor lines', () => {
+    const draftText = [
+      'Welcome to Byline',
+      '',
+      'A text editor for messy first drafts.',
+      '',
+      'This is the draft view. Write freely here.',
+      '',
+      'Check out the bottom bar to track your word count, copy your drafts, and more',
+    ].join('\n');
+    const editorText = [
+      'Welcome to Byline!',
+      '',
+      'A text editor for cleaner revisions.',
+      '',
+      'This is the editor view. Rewrite your draft here and track what changed.',
+      '',
+      '',
+      'New lines are tracked too.',
+      '',
+      'Check out the bottom bar to track your word count, copy your drafts, and more',
+    ].join('\n');
+    const decorations = getLineDecorations(draftText, editorText);
+
+    expect(decorations.draftLineDecorations).not.toContainEqual({
+      type: 'deletedDraftLine',
+      lineNumber: 7,
+      placement: 'before',
+    });
+    expect(
+      decorations.draftLineDecorations.some(
+        (range) => range.type === 'missingEditorLine' && range.lineCount >= 1,
+      ),
+    ).toBe(true);
+  });
 });
 
 describe('getDraftHighlightRanges', () => {
@@ -736,6 +808,19 @@ describe('getDraftHighlightRanges', () => {
     const slices = ranges.map((range) => draftText.slice(range.from, range.to));
 
     expect(slices.some((slice) => slice.includes('\n'))).toBe(false);
+  });
+
+  it('adds draft markers for editor-only insertions', () => {
+    const draftText = 'one three';
+    const editorText = 'one two three';
+    const changes = getDisplayChanges(draftText, editorText);
+    const ranges = getDraftHighlightRanges(changes);
+
+    expect(ranges).toContainEqual({
+      type: 'added',
+      from: 4,
+      to: 4,
+    });
   });
 });
 

@@ -93,13 +93,28 @@ export const getCodeMirrorDecorations = (
 };
 
 class DeletedMarkerWidget extends WidgetType {
+  private readonly wrapperClassName: string;
+  private readonly stripClassName: string;
+
+  constructor({
+    wrapperClassName,
+    stripClassName,
+  }: {
+    wrapperClassName: string;
+    stripClassName: string;
+  }) {
+    super();
+    this.wrapperClassName = wrapperClassName;
+    this.stripClassName = stripClassName;
+  }
+
   toDOM() {
     const wrapper = document.createElement('span');
     const marker = document.createElement('span');
 
-    wrapper.className = 'byline-deleted-marker';
+    wrapper.className = this.wrapperClassName;
     wrapper.setAttribute('aria-hidden', 'true');
-    marker.className = 'byline-deleted-marker-strip';
+    marker.className = this.stripClassName;
     wrapper.append(marker);
 
     return wrapper;
@@ -182,7 +197,10 @@ const getEditorHighlightDecorations = (
 
     decorations.push(
       Decoration.widget({
-        widget: new DeletedMarkerWidget(),
+        widget: new DeletedMarkerWidget({
+          wrapperClassName: 'byline-deleted-marker',
+          stripClassName: 'byline-deleted-marker-strip',
+        }),
         side: -1,
       }).range(validRange.from),
     );
@@ -198,6 +216,30 @@ const getDraftHighlightDecorations = (
   const decorations: Range<Decoration>[] = [];
 
   for (const range of draftHighlightRanges) {
+    if (range.type === 'added') {
+      const validRange = getValidTextRange({
+        from: range.from,
+        to: range.from,
+        docLength,
+        allowEmpty: true,
+      });
+
+      if (!validRange) {
+        continue;
+      }
+
+      decorations.push(
+        Decoration.widget({
+          widget: new DeletedMarkerWidget({
+            wrapperClassName: 'byline-added-marker',
+            stripClassName: 'byline-added-marker-strip',
+          }),
+          side: -1,
+        }).range(validRange.from),
+      );
+      continue;
+    }
+
     const validRange = getValidTextRange({
       from: range.from,
       to: range.to,

@@ -214,11 +214,13 @@ const App = () => {
       mode === 'draft'
         ? getDraftClipboardHighlightRanges({
             text: draftText,
-            highlightRanges: draftHighlightRanges.map((range) => ({
-              type: 'deleted',
-              from: range.from,
-              to: range.to,
-            })),
+            highlightRanges: draftHighlightRanges
+              .filter((range) => range.type === 'deleted')
+              .map((range) => ({
+                type: 'deleted',
+                from: range.from,
+                to: range.to,
+              })),
           })
         : editorHighlightRanges;
     const fontStyleRanges: ClipboardFontStyleRange[] =

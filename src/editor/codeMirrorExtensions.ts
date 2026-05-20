@@ -140,13 +140,13 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       backgroundColor: '#2A4C2C',
       boxDecorationBreak: 'clone',
       WebkitBoxDecorationBreak: 'clone',
-      boxShadow: '0 -0.3em 0 #2A4C2C, 0 0.2em 0 #2A4C2C',
+      boxShadow: '0 -0.25em 0 #2A4C2C, 0 0.25em 0 #2A4C2C',
     },
     '.byline-deleted-text': {
       backgroundColor: '#693330',
       boxDecorationBreak: 'clone',
       WebkitBoxDecorationBreak: 'clone',
-      boxShadow: '0 -0.3em 0 #693330, 0 0.2em 0 #693330',
+      boxShadow: '0 -0.25em 0 #693330, 0 0.25em 0 #693330',
     },
     '.cm-line.byline-added-line': {
       backgroundColor: '#2A4C2C',
@@ -156,7 +156,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       display: 'inline-block',
       width: '0',
       height: '1.5em',
-      verticalAlign: '-0.3em',
+      verticalAlign: '-0.25em',
     },
     '.byline-deleted-marker-strip': {
       position: 'absolute',
@@ -165,6 +165,21 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       width: '0.35ch',
       height: '1.5em',
       backgroundColor: '#693330',
+    },
+    '.byline-added-marker': {
+      position: 'relative',
+      display: 'inline-block',
+      width: '0',
+      height: '1.5em',
+      verticalAlign: '-0.25em',
+    },
+    '.byline-added-marker-strip': {
+      position: 'absolute',
+      left: '0',
+      top: '0',
+      width: '0.35ch',
+      height: '1.5em',
+      backgroundColor: '#2A4C2C',
     },
     '.byline-missing-line': {
       display: 'block',
