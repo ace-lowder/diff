@@ -1,13 +1,15 @@
 import type { CSSProperties } from 'react';
 
-import { getWordCount, type EditorStats, type StatsMode } from '../editorDiff';
+import type { EditorStats, StatsMode } from '../editorDiff';
 import type { AppMode, CoffeeStatus, CopyStatus } from '../appTypes';
 import type { FontStyleType } from '../fontStyles';
+import { getFooterStatsLabels } from './footerStatsLabels';
 
 type FooterProps = {
   mode: AppMode;
   statsMode: StatsMode;
   draftText: string;
+  editorText: string;
   editorStats: EditorStats;
   copyStatus: CopyStatus;
   coffeeStatus: CoffeeStatus;
@@ -23,6 +25,7 @@ export const Footer = ({
   mode,
   statsMode,
   draftText,
+  editorText,
   editorStats,
   copyStatus,
   coffeeStatus,
@@ -59,6 +62,7 @@ export const Footer = ({
         mode={mode}
         statsMode={statsMode}
         draftText={draftText}
+        editorText={editorText}
         editorStats={editorStats}
         onToggle={onStatsModeToggle}
       />
@@ -85,6 +89,7 @@ type FooterStatsProps = {
   mode: AppMode;
   statsMode: StatsMode;
   draftText: string;
+  editorText: string;
   editorStats: EditorStats;
   onToggle: () => void;
 };
@@ -93,15 +98,21 @@ const FooterStats = ({
   mode,
   statsMode,
   draftText,
+  editorText,
   editorStats,
   onToggle,
 }: FooterStatsProps) => {
   const buttonClassName =
     'absolute left-1/2 inline-flex -translate-x-1/2 items-center text-center leading-none text-[#8C8C8C] focus:outline-none';
+  const labels = getFooterStatsLabels({
+    mode,
+    statsMode,
+    draftText,
+    editorText,
+    editorStats,
+  });
 
-  if (mode === 'draft') {
-    const draftBaseLabel =
-      statsMode === 'words' ? `${getWordCount(draftText)}w` : `${draftText.length}c`;
+  if (labels.kind === 'draft') {
 
     return (
       <button
@@ -110,21 +121,10 @@ const FooterStats = ({
         aria-label="Toggle footer stats between words and characters"
         className={buttonClassName}
       >
-        {draftBaseLabel}
+        {labels.baseLabel}
       </button>
     );
   }
-
-  const baseLabel =
-    statsMode === 'words' ? `${editorStats.wordCount}w` : `${editorStats.characterCount}c`;
-  const addedLabel =
-    statsMode === 'words'
-      ? `+${editorStats.addedWordCount}`
-      : `+${editorStats.addedCharacterCount}`;
-  const deletedLabel =
-    statsMode === 'words'
-      ? `-${editorStats.deletedWordCount}`
-      : `-${editorStats.deletedCharacterCount}`;
 
   return (
     <button
@@ -133,9 +133,9 @@ const FooterStats = ({
       aria-label="Toggle footer stats between words and characters"
       className={buttonClassName}
     >
-      <span>{baseLabel}</span>
-      <span className="ml-1 text-xs leading-none text-[#2A4C2C]">{addedLabel}</span>
-      <span className="ml-1 text-xs leading-none text-[#693330]">{deletedLabel}</span>
+      <span>{labels.baseLabel}</span>
+      <span className="ml-1 text-xs leading-none text-[#2A4C2C]">{labels.addedLabel}</span>
+      <span className="ml-1 text-xs leading-none text-[#693330]">{labels.deletedLabel}</span>
     </button>
   );
 };

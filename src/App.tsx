@@ -769,6 +769,7 @@ const App = () => {
         mode={mode}
         statsMode={statsMode}
         draftText={draftText}
+        editorText={editorText}
         editorStats={editorStats}
         copyStatus={copyStatus}
         coffeeStatus={coffeeStatus}
