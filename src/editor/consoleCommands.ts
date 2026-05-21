@@ -46,6 +46,7 @@ export type ConsoleCommandMenu = {
 };
 
 const UNKNOWN_COMMAND_SUFFIX = ' - unknown command';
+const NO_LINE_ABOVE_SUFFIX = ' - no line above to copy';
 
 const ROOT_OPTIONS = ['view', 'copy', 'count'] as const;
 const VIEW_OPTIONS = ['draft', 'editor', 'split'] as const;
@@ -146,6 +147,10 @@ export const parseConsoleCommandLine = (
 
 export const getUnknownCommandLineText = (lineText: string): string => {
   return `${lineText.trimEnd()}${UNKNOWN_COMMAND_SUFFIX}`;
+};
+
+export const getNoLineAboveCommandLineText = (lineText: string): string => {
+  return `${lineText.trimEnd()}${NO_LINE_ABOVE_SUFFIX}`;
 };
 
 export const getConsoleCommandMenu = ({

@@ -4,6 +4,7 @@ import {
   getCompletedConsoleCommandLine,
   getConsoleCommandMenu,
   getConsoleCommandPrediction,
+  getNoLineAboveCommandLineText,
   getUnknownCommandLineText,
   parseConsoleCommandLine,
 } from './consoleCommands';
@@ -62,6 +63,14 @@ describe('getUnknownCommandLineText', () => {
   it('trims trailing spaces before appending unknown suffix', () => {
     expect(getUnknownCommandLineText('/view draf   ')).toBe(
       '/view draf - unknown command',
+    );
+  });
+});
+
+describe('getNoLineAboveCommandLineText', () => {
+  it('trims trailing spaces before appending no-line-above suffix', () => {
+    expect(getNoLineAboveCommandLineText('/copy line   ')).toBe(
+      '/copy line - no line above to copy',
     );
   });
 });

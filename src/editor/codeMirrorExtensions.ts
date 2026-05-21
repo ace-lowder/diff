@@ -111,6 +111,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     '.cm-editor': {
       height: '100%',
       backgroundColor,
+      position: 'relative',
     },
     '.cm-scroller': {
       height: '100%',

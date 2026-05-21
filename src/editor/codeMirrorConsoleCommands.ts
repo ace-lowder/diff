@@ -1,4 +1,4 @@
-import { type Extension } from '@codemirror/state';
+import { Prec, type Extension } from '@codemirror/state';
 import {
   Decoration,
   type DecorationSet,
@@ -15,6 +15,7 @@ import {
   getCompletedConsoleCommandLine,
   getConsoleCommandMenu,
   getConsoleCommandPrediction,
+  getNoLineAboveCommandLineText,
   getUnknownCommandLineText,
   parseConsoleCommandLine,
 } from './consoleCommands';
@@ -55,7 +56,7 @@ export const getCodeMirrorConsoleCommandExtension = ({
         this.pane = pane;
         this.onRunConsoleCommand = onRunConsoleCommand;
         this.panelElement = createCommandPanel();
-        document.body.append(this.panelElement);
+        this.view.dom.append(this.panelElement);
         this.updateState();
       }
 
@@ -117,6 +118,25 @@ export const getCodeMirrorConsoleCommandExtension = ({
         const parseResult = parseConsoleCommandLine(commandLine.text);
 
         if (parseResult.kind === 'valid') {
+          if (
+            parseResult.command.type === 'copy' &&
+            parseResult.command.target === 'line' &&
+            commandLine.number <= 1
+          ) {
+            const errorText = getNoLineAboveCommandLineText(commandLine.text);
+            const insertText = `${errorText}\n`;
+            const nextCursorPosition = commandLine.from + insertText.length;
+            this.view.dispatch({
+              changes: {
+                from: commandLine.from,
+                to: commandLine.to,
+                insert: insertText,
+              },
+              selection: { anchor: nextCursorPosition },
+            });
+            return true;
+          }
+
           const previousLineText = getPreviousLineText(this.view, commandLine.number);
           this.view.dispatch({
             changes: {
@@ -289,14 +309,20 @@ export const getCodeMirrorConsoleCommandExtension = ({
         this.panelElement.style.left = '0';
         this.panelElement.style.top = '0';
 
+        const editorRect = this.view.dom.getBoundingClientRect();
         const panelRect = this.panelElement.getBoundingClientRect();
         const verticalGap = 4;
-        const placeAbove = cursorCoordinates.bottom + panelRect.height + verticalGap > window.innerHeight;
-        const top = placeAbove
-          ? cursorCoordinates.top - panelRect.height - verticalGap
-          : cursorCoordinates.bottom + verticalGap;
+        const left = cursorCoordinates.left - editorRect.left;
+        const belowTop = cursorCoordinates.bottom - editorRect.top + verticalGap;
+        const aboveTop =
+          cursorCoordinates.top - editorRect.top - panelRect.height - verticalGap;
+        const editorBottomSpace = window.innerHeight - editorRect.bottom;
+        const placeAbove =
+          cursorCoordinates.bottom + panelRect.height + verticalGap >
+          window.innerHeight - editorBottomSpace;
+        const top = placeAbove ? aboveTop : belowTop;
 
-        this.panelElement.style.left = `${cursorCoordinates.left}px`;
+        this.panelElement.style.left = `${left}px`;
         this.panelElement.style.top = `${Math.max(0, top)}px`;
         this.panelElement.style.visibility = 'visible';
       }
@@ -308,48 +334,50 @@ export const getCodeMirrorConsoleCommandExtension = ({
 
   return [
     commandPlugin,
-    keymap.of([
-      {
-        key: 'ArrowDown',
-        run: (view) => {
-          const pluginValue = view.plugin(commandPlugin);
-          return pluginValue ? pluginValue.moveSelection(1) : false;
+    Prec.highest(
+      keymap.of([
+        {
+          key: 'ArrowDown',
+          run: (view) => {
+            const pluginValue = view.plugin(commandPlugin);
+            return pluginValue ? pluginValue.moveSelection(1) : false;
+          },
         },
-      },
-      {
-        key: 'ArrowUp',
-        run: (view) => {
-          const pluginValue = view.plugin(commandPlugin);
-          return pluginValue ? pluginValue.moveSelection(-1) : false;
+        {
+          key: 'ArrowUp',
+          run: (view) => {
+            const pluginValue = view.plugin(commandPlugin);
+            return pluginValue ? pluginValue.moveSelection(-1) : false;
+          },
         },
-      },
-      {
-        key: 'Tab',
-        run: (view) => {
-          const pluginValue = view.plugin(commandPlugin);
-          if (!pluginValue) {
-            return false;
-          }
+        {
+          key: 'Tab',
+          run: (view) => {
+            const pluginValue = view.plugin(commandPlugin);
+            if (!pluginValue) {
+              return false;
+            }
 
-          return pluginValue.completeSelection();
-        },
-      },
-      {
-        key: 'Enter',
-        run: (view) => {
-          const pluginValue = view.plugin(commandPlugin);
-          if (!pluginValue) {
-            return false;
-          }
-
-          if (pluginValue.isCompletionPending()) {
             return pluginValue.completeSelection();
-          }
-
-          return pluginValue.executeOrHandleEnter();
+          },
         },
-      },
-    ]),
+        {
+          key: 'Enter',
+          run: (view) => {
+            const pluginValue = view.plugin(commandPlugin);
+            if (!pluginValue) {
+              return false;
+            }
+
+            if (pluginValue.isCompletionPending()) {
+              return pluginValue.completeSelection();
+            }
+
+            return pluginValue.executeOrHandleEnter();
+          },
+        },
+      ]),
+    ),
   ];
 };
 
@@ -394,7 +422,7 @@ const getPreviousLineText = (view: EditorView, lineNumber: number): string => {
 const createCommandPanel = (): HTMLDivElement => {
   const element = document.createElement('div');
   element.className = 'byline-command-panel';
-  element.style.position = 'fixed';
+  element.style.position = 'absolute';
   element.style.zIndex = '1000';
   element.style.display = 'none';
   return element;
