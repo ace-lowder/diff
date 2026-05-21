@@ -30,6 +30,56 @@ export type RunConsoleCommand = (
   context: ConsoleCommandContext,
 ) => void;
 
+export type CommandPanelPlacementInput = {
+  cursorLeft: number;
+  cursorTop: number;
+  cursorBottom: number;
+  editorLeft: number;
+  editorTop: number;
+  viewportHeight: number;
+  optionCount: number;
+};
+
+export type CommandPanelPlacement = {
+  left: number;
+  top: number;
+};
+
+type CommandPanelMeasurement = {
+  cursorCoordinates: { left: number; top: number; bottom: number };
+  editorRect: { left: number; top: number };
+} | null;
+
+const COMMAND_PANEL_VERTICAL_GAP_PX = 4;
+const COMMAND_PANEL_OPTION_HEIGHT_PX = 24;
+const COMMAND_PANEL_VERTICAL_PADDING_PX = 8;
+
+export const getCommandPanelPlacement = ({
+  cursorLeft,
+  cursorTop,
+  cursorBottom,
+  editorLeft,
+  editorTop,
+  viewportHeight,
+  optionCount,
+}: CommandPanelPlacementInput): CommandPanelPlacement => {
+  const estimatedPanelHeight =
+    optionCount * COMMAND_PANEL_OPTION_HEIGHT_PX + COMMAND_PANEL_VERTICAL_PADDING_PX;
+
+  const belowTop = cursorBottom - editorTop + COMMAND_PANEL_VERTICAL_GAP_PX;
+  const aboveTop =
+    cursorTop - editorTop - estimatedPanelHeight - COMMAND_PANEL_VERTICAL_GAP_PX;
+
+  const shouldPlaceAbove =
+    cursorBottom + estimatedPanelHeight + COMMAND_PANEL_VERTICAL_GAP_PX >
+    viewportHeight;
+
+  return {
+    left: Math.max(0, cursorLeft - editorLeft),
+    top: Math.max(0, shouldPlaceAbove ? aboveTop : belowTop),
+  };
+};
+
 export const getCodeMirrorConsoleCommandExtension = ({
   pane,
   onRunConsoleCommand,
@@ -49,6 +99,7 @@ export const getCodeMirrorConsoleCommandExtension = ({
       commandLineFrom = 0;
       commandLineTo = 0;
       commandLineText = '';
+      panelRenderQueued = false;
       decorations: DecorationSet = Decoration.none;
 
       constructor(view: EditorView) {
@@ -178,7 +229,7 @@ export const getCodeMirrorConsoleCommandExtension = ({
         if (!commandLine) {
           this.menu = null;
           this.decorations = Decoration.none;
-          this.renderPanel();
+          this.schedulePanelRender();
           return;
         }
 
@@ -198,7 +249,7 @@ export const getCodeMirrorConsoleCommandExtension = ({
         if (!nextMenu || nextMenu.options.length === 0) {
           this.selectedIndex = 0;
           this.decorations = Decoration.none;
-          this.renderPanel();
+          this.schedulePanelRender();
           return;
         }
 
@@ -212,7 +263,7 @@ export const getCodeMirrorConsoleCommandExtension = ({
             : Math.max(0, Math.min(this.selectedIndex, nextMenu.options.length - 1));
 
         this.decorations = this.getPredictionDecoration();
-        this.renderPanel();
+        this.schedulePanelRender();
       }
 
       moveSelection(delta: number): boolean {
@@ -223,7 +274,7 @@ export const getCodeMirrorConsoleCommandExtension = ({
         const optionCount = this.menu.options.length;
         this.selectedIndex = (this.selectedIndex + delta + optionCount) % optionCount;
         this.decorations = this.getPredictionDecoration();
-        this.renderPanel();
+        this.schedulePanelRender();
         return true;
       }
 
@@ -274,57 +325,84 @@ export const getCodeMirrorConsoleCommandExtension = ({
         return Decoration.set([widget.range(this.cursorPosition)]);
       }
 
-      renderPanel() {
+      schedulePanelRender() {
         if (!this.panelElement) {
           return;
         }
 
-        if (!this.menu || this.menu.options.length === 0) {
-          this.panelElement.style.display = 'none';
-          this.panelElement.innerHTML = '';
+        if (this.panelRenderQueued) {
           return;
         }
 
-        const cursorCoordinates = this.view.coordsAtPos(this.cursorPosition);
-        if (!cursorCoordinates) {
-          this.panelElement.style.display = 'none';
-          this.panelElement.innerHTML = '';
-          return;
-        }
+        this.panelRenderQueued = true;
+        const optionCount = this.menu?.options.length ?? 0;
 
-        this.panelElement.innerHTML = '';
-        for (let index = 0; index < this.menu.options.length; index += 1) {
-          const option = this.menu.options[index];
-          const optionElement = document.createElement('div');
-          optionElement.className =
-            index === this.selectedIndex
-              ? 'byline-command-option byline-command-option-active'
-              : 'byline-command-option';
-          optionElement.textContent = option.label;
-          this.panelElement.append(optionElement);
-        }
+        this.view.requestMeasure({
+          read: (view): CommandPanelMeasurement => {
+            if (!optionCount) {
+              return null;
+            }
+            const cursorCoordinates = view.coordsAtPos(this.cursorPosition);
+            const editorRect = view.dom.getBoundingClientRect();
+            if (!cursorCoordinates) {
+              return null;
+            }
+            return {
+              cursorCoordinates: {
+                left: cursorCoordinates.left,
+                top: cursorCoordinates.top,
+                bottom: cursorCoordinates.bottom,
+              },
+              editorRect: {
+                left: editorRect.left,
+                top: editorRect.top,
+              },
+            };
+          },
+          write: (measurement: CommandPanelMeasurement) => {
+            this.panelRenderQueued = false;
+            const panelElement = this.panelElement;
+            const menu = this.menu;
 
-        this.panelElement.style.display = 'block';
-        this.panelElement.style.visibility = 'hidden';
-        this.panelElement.style.left = '0';
-        this.panelElement.style.top = '0';
+            if (!panelElement) {
+              return;
+            }
 
-        const editorRect = this.view.dom.getBoundingClientRect();
-        const panelRect = this.panelElement.getBoundingClientRect();
-        const verticalGap = 4;
-        const left = cursorCoordinates.left - editorRect.left;
-        const belowTop = cursorCoordinates.bottom - editorRect.top + verticalGap;
-        const aboveTop =
-          cursorCoordinates.top - editorRect.top - panelRect.height - verticalGap;
-        const editorBottomSpace = window.innerHeight - editorRect.bottom;
-        const placeAbove =
-          cursorCoordinates.bottom + panelRect.height + verticalGap >
-          window.innerHeight - editorBottomSpace;
-        const top = placeAbove ? aboveTop : belowTop;
+            if (!menu || menu.options.length === 0 || !measurement) {
+              panelElement.style.display = 'none';
+              panelElement.innerHTML = '';
+              return;
+            }
 
-        this.panelElement.style.left = `${left}px`;
-        this.panelElement.style.top = `${Math.max(0, top)}px`;
-        this.panelElement.style.visibility = 'visible';
+            const { cursorCoordinates, editorRect } = measurement;
+            const placement = getCommandPanelPlacement({
+              cursorLeft: cursorCoordinates.left,
+              cursorTop: cursorCoordinates.top,
+              cursorBottom: cursorCoordinates.bottom,
+              editorLeft: editorRect.left,
+              editorTop: editorRect.top,
+              viewportHeight: window.innerHeight,
+              optionCount: menu.options.length,
+            });
+
+            panelElement.innerHTML = '';
+            for (let index = 0; index < menu.options.length; index += 1) {
+              const option = menu.options[index];
+              const optionElement = document.createElement('div');
+              optionElement.className =
+                index === this.selectedIndex
+                  ? 'byline-command-option byline-command-option-active'
+                  : 'byline-command-option';
+              optionElement.textContent = option.label;
+              panelElement.append(optionElement);
+            }
+
+            panelElement.style.display = 'block';
+            panelElement.style.left = `${placement.left}px`;
+            panelElement.style.top = `${placement.top}px`;
+            panelElement.style.visibility = 'visible';
+          },
+        });
       }
     },
     {
