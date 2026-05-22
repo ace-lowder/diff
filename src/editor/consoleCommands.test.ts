@@ -35,6 +35,10 @@ describe('parseConsoleCommandLine', () => {
       kind: 'valid',
       command: { type: 'copy', target: 'line' },
     });
+    expect(parseConsoleCommandLine('/count')).toEqual({
+      kind: 'valid',
+      command: { type: 'count', statsMode: 'toggle' },
+    });
     expect(parseConsoleCommandLine('/count word')).toEqual({
       kind: 'valid',
       command: { type: 'count', statsMode: 'words' },
@@ -51,9 +55,9 @@ describe('parseConsoleCommandLine', () => {
       kind: 'unknown-command',
       message: '/view draf - unknown command',
     });
-    expect(parseConsoleCommandLine('/count')).toEqual({
+    expect(parseConsoleCommandLine('/count nope')).toEqual({
       kind: 'unknown-command',
-      message: '/count - unknown command',
+      message: '/count nope - unknown command',
     });
     expect(parseConsoleCommandLine('text /view')).toEqual({ kind: 'not-command' });
   });
@@ -115,6 +119,12 @@ describe('getConsoleCommandMenu', () => {
       options: [{ label: 'line' }],
       tokenFrom: 6,
       tokenTo: 6,
+    });
+
+    expect(getConsoleCommandMenu({ lineText: '/count ', cursorOffset: 7 })).toEqual({
+      options: [{ label: 'word' }, { label: 'char' }],
+      tokenFrom: 7,
+      tokenTo: 7,
     });
 
     expect(getConsoleCommandMenu({ lineText: '/count c', cursorOffset: 8 })).toEqual({

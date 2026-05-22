@@ -12,11 +12,14 @@ import {
   type StatsMode,
 } from './editorDiff';
 import type {
+  ConsoleCommandLineContext,
   RunConsoleCommand,
 } from './editor/codeMirrorConsoleCommands';
 import { Footer } from './components/Footer';
 import { CodeMirrorPane } from './components/CodeMirrorPane';
 import {
+  getClipboardFontStyleRangesForLine,
+  getClipboardHighlightRangesForLine,
   getClipboardHtml,
   getDraftClipboardHighlightRanges,
   type ClipboardFontStyleRange,
@@ -222,6 +225,22 @@ const App = () => {
     });
   };
 
+  const copyEditorLineText = async (line: ConsoleCommandLineContext) => {
+    await copyDocumentText({
+      copyText: line.text,
+      clipboardHighlightRanges: getClipboardHighlightRangesForLine({
+        lineFrom: line.from,
+        lineTo: line.to,
+        highlightRanges: editorHighlightRanges,
+      }),
+      fontStyleRanges: getClipboardFontStyleRangesForLine({
+        lineFrom: line.from,
+        lineTo: line.to,
+        fontStyleRanges: editorFontStyleRanges,
+      }),
+    });
+  };
+
   const copyDocumentText = async ({
     copyText,
     clipboardHighlightRanges,
@@ -283,12 +302,22 @@ const App = () => {
         return;
       }
 
+      if (context.pane === 'editor' && context.previousLine) {
+        await copyEditorLineText(context.previousLine);
+        return;
+      }
+
       try {
         await navigator.clipboard.writeText(context.previousLineText);
         setTemporaryCopyStatus('copied');
       } catch {
         setTemporaryCopyStatus('failed');
       }
+      return;
+    }
+
+    if (command.statsMode === 'toggle') {
+      handleStatsModeToggle();
       return;
     }
 

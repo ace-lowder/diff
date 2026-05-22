@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  getClipboardFontStyleRangesForLine,
+  getClipboardHighlightRangesForLine,
   getClipboardHtml,
   getDraftClipboardHighlightRanges,
 } from './clipboardExport';
@@ -267,5 +269,76 @@ describe('getDraftClipboardHighlightRanges', () => {
     const html = getClipboardHtml({ text, highlightRanges: ranges });
 
     expect(getHtmlTextContent(html)).toBe(text);
+  });
+});
+
+describe('getClipboardHighlightRangesForLine', () => {
+  it('clips and shifts a non-zero added range', () => {
+    const text = 'one\ntwo three\nfour';
+    const lineFrom = 4;
+    const lineTo = 13;
+
+    expect(
+      getClipboardHighlightRangesForLine({
+        lineFrom,
+        lineTo,
+        highlightRanges: [{ type: 'added', from: 6, to: 15 }],
+      }),
+    ).toEqual([{ type: 'added', from: 2, to: 9 }]);
+    expect(text.slice(lineFrom, lineTo)).toBe('two three');
+  });
+
+  it('skips non-overlapping highlight ranges', () => {
+    expect(
+      getClipboardHighlightRangesForLine({
+        lineFrom: 4,
+        lineTo: 13,
+        highlightRanges: [{ type: 'deleted', from: 0, to: 3 }],
+      }),
+    ).toEqual([]);
+  });
+
+  it('includes and shifts a zero-width deleted range at the line end', () => {
+    expect(
+      getClipboardHighlightRangesForLine({
+        lineFrom: 4,
+        lineTo: 13,
+        highlightRanges: [{ type: 'deleted', from: 13, to: 13 }],
+      }),
+    ).toEqual([{ type: 'deleted', from: 9, to: 9 }]);
+  });
+
+  it('highlights the previous character for shifted end-of-line deleted range', () => {
+    const lineText = 'two three';
+    const html = getClipboardHtml({
+      text: lineText,
+      highlightRanges: [{ type: 'deleted', from: lineText.length, to: lineText.length }],
+    });
+
+    expect(html).toContain(
+      'two thre<span style="background-color: #f4cccc; color: #000000">e</span>',
+    );
+  });
+});
+
+describe('getClipboardFontStyleRangesForLine', () => {
+  it('clips and shifts a font style range', () => {
+    expect(
+      getClipboardFontStyleRangesForLine({
+        lineFrom: 4,
+        lineTo: 13,
+        fontStyleRanges: [{ type: 'bold', from: 6, to: 15 }],
+      }),
+    ).toEqual([{ type: 'bold', from: 2, to: 9 }]);
+  });
+
+  it('skips non-overlapping font style ranges', () => {
+    expect(
+      getClipboardFontStyleRangesForLine({
+        lineFrom: 4,
+        lineTo: 13,
+        fontStyleRanges: [{ type: 'italic', from: 0, to: 3 }],
+      }),
+    ).toEqual([]);
   });
 });

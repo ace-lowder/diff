@@ -13,7 +13,7 @@ export type ConsoleCommand =
     }
   | {
       type: 'count';
-      statsMode: StatsMode;
+      statsMode: StatsMode | 'toggle';
     };
 
 export type ConsoleCommandParseResult =
@@ -122,6 +122,13 @@ export const parseConsoleCommandLine = (
     return {
       kind: 'unknown-command',
       message: `${trimmedLineText}${UNKNOWN_COMMAND_SUFFIX}`,
+    };
+  }
+
+  if (parts.length === 1) {
+    return {
+      kind: 'valid',
+      command: { type: 'count', statsMode: 'toggle' },
     };
   }
 

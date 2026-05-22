@@ -20,9 +20,17 @@ import {
   parseConsoleCommandLine,
 } from './consoleCommands';
 
+export type ConsoleCommandLineContext = {
+  text: string;
+  from: number;
+  to: number;
+  number: number;
+};
+
 export type ConsoleCommandContext = {
   pane: PaneId;
   previousLineText: string;
+  previousLine: ConsoleCommandLineContext | null;
 };
 
 export type RunConsoleCommand = (
@@ -188,7 +196,7 @@ export const getCodeMirrorConsoleCommandExtension = ({
             return true;
           }
 
-          const previousLineText = getPreviousLineText(this.view, commandLine.number);
+          const previousLine = getPreviousLine(this.view, commandLine.number);
           this.view.dispatch({
             changes: {
               from: commandLine.from,
@@ -200,7 +208,8 @@ export const getCodeMirrorConsoleCommandExtension = ({
 
           this.onRunConsoleCommand(parseResult.command, {
             pane: this.pane,
-            previousLineText,
+            previousLine,
+            previousLineText: previousLine?.text ?? '',
           });
           return true;
         }
@@ -489,12 +498,21 @@ const getCurrentCommandLine = (view: EditorView): {
   };
 };
 
-const getPreviousLineText = (view: EditorView, lineNumber: number): string => {
-  if (lineNumber <= 1) {
-    return '';
+const getPreviousLine = (
+  view: EditorView,
+  commandLineNumber: number,
+): ConsoleCommandLineContext | null => {
+  if (commandLineNumber <= 1) {
+    return null;
   }
 
-  return view.state.doc.line(lineNumber - 1).text;
+  const line = view.state.doc.line(commandLineNumber - 1);
+  return {
+    text: line.text,
+    from: line.from,
+    to: line.to,
+    number: line.number,
+  };
 };
 
 const createCommandPanel = (): HTMLDivElement => {

@@ -97,6 +97,84 @@ export const getClipboardHtml = ({
   return html;
 };
 
+export const getClipboardHighlightRangesForLine = ({
+  lineFrom,
+  lineTo,
+  highlightRanges,
+}: {
+  lineFrom: number;
+  lineTo: number;
+  highlightRanges: ClipboardHighlightRange[];
+}): ClipboardHighlightRange[] => {
+  if (lineFrom < 0 || lineTo < lineFrom) {
+    return [];
+  }
+
+  const clippedRanges: ClipboardHighlightRange[] = [];
+
+  for (const range of highlightRanges) {
+    if (range.from === range.to) {
+      if (range.from < lineFrom || range.from > lineTo) {
+        continue;
+      }
+
+      const shiftedPoint = range.from - lineFrom;
+      clippedRanges.push({
+        type: range.type,
+        from: shiftedPoint,
+        to: shiftedPoint,
+      });
+      continue;
+    }
+
+    const clippedFrom = Math.max(range.from, lineFrom);
+    const clippedTo = Math.min(range.to, lineTo);
+    if (clippedTo <= clippedFrom) {
+      continue;
+    }
+
+    clippedRanges.push({
+      type: range.type,
+      from: clippedFrom - lineFrom,
+      to: clippedTo - lineFrom,
+    });
+  }
+
+  return clippedRanges;
+};
+
+export const getClipboardFontStyleRangesForLine = ({
+  lineFrom,
+  lineTo,
+  fontStyleRanges,
+}: {
+  lineFrom: number;
+  lineTo: number;
+  fontStyleRanges: ClipboardFontStyleRange[];
+}): ClipboardFontStyleRange[] => {
+  if (lineFrom < 0 || lineTo < lineFrom) {
+    return [];
+  }
+
+  const clippedRanges: ClipboardFontStyleRange[] = [];
+
+  for (const range of fontStyleRanges) {
+    const clippedFrom = Math.max(range.from, lineFrom);
+    const clippedTo = Math.min(range.to, lineTo);
+    if (clippedTo <= clippedFrom) {
+      continue;
+    }
+
+    clippedRanges.push({
+      type: range.type,
+      from: clippedFrom - lineFrom,
+      to: clippedTo - lineFrom,
+    });
+  }
+
+  return clippedRanges;
+};
+
 export const getDraftClipboardHighlightRanges = ({
   text,
   highlightRanges,
