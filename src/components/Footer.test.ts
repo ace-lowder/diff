@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { getMenuVisibilityClassName } from './menuVisibility';
+import {
+  getMenuLayoutClassName,
+  getMenuVisibilityClassName,
+} from './menuVisibility';
 import { getFooterStatsLabels } from './footerStatsLabels';
 
 const editorStats = {
@@ -139,5 +142,19 @@ describe('getMenuVisibilityClassName', () => {
         isVisible: false,
       }),
     ).toBe('-translate-y-full sm:translate-y-full');
+  });
+});
+
+describe('getMenuLayoutClassName', () => {
+  it('returns normal flow classes for visible mode', () => {
+    expect(
+      getMenuLayoutClassName({ visibilityMode: 'visible' }),
+    ).toBe('relative order-first sm:order-last');
+  });
+
+  it('returns fixed overlay classes for autoHide mode', () => {
+    expect(
+      getMenuLayoutClassName({ visibilityMode: 'autoHide' }),
+    ).toBe('fixed left-0 right-0 top-0 sm:bottom-0 sm:top-auto');
   });
 });

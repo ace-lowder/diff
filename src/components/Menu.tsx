@@ -5,6 +5,7 @@ import type { AppMode, CoffeeStatus, CopyStatus } from '../appTypes';
 import type { FontStyleType } from '../fontStyles';
 import { getFooterStatsLabels } from './footerStatsLabels';
 import {
+  getMenuLayoutClassName,
   getMenuVisibilityClassName,
   type MenuVisibilityMode,
 } from './menuVisibility';
@@ -48,6 +49,7 @@ export const Menu = ({
   onPointerEnter,
   onPointerLeave,
 }: MenuProps) => {
+  const layoutClassName = getMenuLayoutClassName({ visibilityMode });
   const visibilityClassName = getMenuVisibilityClassName({
     visibilityMode,
     isVisible,
@@ -57,7 +59,7 @@ export const Menu = ({
     <nav
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
-      className={`relative z-50 order-first flex h-10 shrink-0 items-center border-b border-[#2A2B2C] bg-[#191A1B] text-base transition-transform duration-200 ease-out sm:order-last sm:border-b-0 sm:border-t ${visibilityClassName}`}
+      className={`${layoutClassName} z-50 flex h-10 shrink-0 items-center border-b border-[#2A2B2C] bg-[#191A1B] text-base transition-transform duration-200 ease-out sm:border-b-0 sm:border-t ${visibilityClassName}`}
     >
       <button
         type="button"
@@ -181,7 +183,7 @@ const FontStyleControls = ({
       <FontStyleControlButton
         label="I"
         ariaLabel="Toggle italic"
-        labelClassName="italic translate-y-px"
+        labelClassName="italic"
         labelStyle={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
         isActive={activeFontStyleTypes.includes('italic')}
         onClick={() => onToggleFontStyle('italic')}
@@ -189,7 +191,6 @@ const FontStyleControls = ({
       <FontStyleControlButton
         label="U"
         ariaLabel="Toggle underline"
-        labelClassName="text-[11px]"
         showUnderline
         isActive={activeFontStyleTypes.includes('underline')}
         onClick={() => onToggleFontStyle('underline')}
@@ -237,7 +238,7 @@ const FontStyleControlButton = ({
         {label}
         {showUnderline && (
           <span
-            className="absolute bottom-[1px] h-px w-[7px] bg-current"
+            className="absolute bottom-0 h-px w-[8px] bg-current"
             aria-hidden="true"
           />
         )}
