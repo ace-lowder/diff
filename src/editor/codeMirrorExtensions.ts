@@ -1,4 +1,9 @@
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  indentWithTab,
+} from '@codemirror/commands';
 import type { Extension } from '@codemirror/state';
 import {
   EditorView,
@@ -59,6 +64,7 @@ export const getCodeMirrorExtensions = ({
     }),
     keymap.of([
       ...getFontStyleKeyBindings(onToggleFontStyle),
+      indentWithTab,
       ...defaultKeymap,
       ...historyKeymap,
     ]),

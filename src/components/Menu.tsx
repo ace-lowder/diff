@@ -76,7 +76,7 @@ export const Menu = ({
         onClick={onCoffeeClick}
         aria-label="Support on Ko-fi"
         title="Support on Ko-fi"
-        className="flex h-full w-10 items-center justify-center border-r border-[#2A2B2C] text-[#8C8C8C] hover:bg-[#242526] focus:outline-none focus-visible:bg-[#242526]"
+        className="hidden h-full w-10 items-center justify-center border-r border-[#2A2B2C] text-[#8C8C8C] hover:bg-[#242526] focus:outline-none focus-visible:bg-[#242526] sm:flex"
       >
         {coffeeStatus === 'clicked' ? <CheckIcon /> : <CoffeeIcon />}
       </a>
@@ -173,7 +173,7 @@ const FontStyleControls = ({
   onToggleFontStyle,
 }: FontStyleControlsProps) => {
   return (
-    <div className="absolute right-10 flex h-full items-center gap-2 pr-2">
+    <div className="absolute right-10 flex h-full items-center gap-0.5 pr-1 sm:gap-2 sm:pr-2">
       <FontStyleControlButton
         label="B"
         ariaLabel="Toggle bold"
@@ -229,7 +229,7 @@ const FontStyleControlButton = ({
       aria-pressed={isActive}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className={`inline-flex h-7 w-7 items-center justify-center text-sm font-normal ${stateClassName} hover:bg-[#242526] hover:text-[#D4D4D4] focus:outline-none focus-visible:bg-[#242526] focus-visible:text-[#D4D4D4]`}
+      className={`inline-flex h-7 w-6 items-center justify-center text-sm font-normal sm:w-7 ${stateClassName} hover:bg-[#242526] hover:text-[#D4D4D4] focus:outline-none focus-visible:bg-[#242526] focus-visible:text-[#D4D4D4]`}
     >
       <span
         className={`relative inline-flex h-5 w-5 items-center justify-center leading-none ${labelClassName ?? ''}`}
