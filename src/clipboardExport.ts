@@ -48,7 +48,7 @@ export const getClipboardHtml = ({
     normalizedFontStyleRanges,
   );
 
-  let html = `<div style="white-space: pre-wrap; color: ${CLIPBOARD_TEXT_COLOR}; font-family: Arial, sans-serif;">`;
+  let html = `<div style="white-space: pre-wrap; tab-size: 4; color: ${CLIPBOARD_TEXT_COLOR}; font-family: Arial, sans-serif;">`;
 
   for (let index = 0; index < boundaries.length - 1; index += 1) {
     const from = boundaries[index];

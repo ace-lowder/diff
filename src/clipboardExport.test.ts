@@ -191,6 +191,16 @@ describe('getClipboardHtml', () => {
     expect(html).not.toContain('<span style="font-style: italic">one\ntwo</span>');
     expect(getHtmlTextContent(html)).toBe(text);
   });
+
+  it('preserves tab characters and sets clipboard tab size', () => {
+    const html = getClipboardHtml({
+      text: 'one\ttwo',
+      highlightRanges: [],
+    });
+
+    expect(html).toContain('tab-size: 4');
+    expect(getHtmlTextContent(html)).toBe('one\ttwo');
+  });
 });
 
 describe('getDraftClipboardHighlightRanges', () => {

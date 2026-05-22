@@ -2,9 +2,8 @@ import {
   defaultKeymap,
   history,
   historyKeymap,
-  indentWithTab,
 } from '@codemirror/commands';
-import type { Extension } from '@codemirror/state';
+import { EditorState, type Extension } from '@codemirror/state';
 import {
   EditorView,
   highlightActiveLineGutter,
@@ -20,6 +19,7 @@ import {
 } from './codeMirrorConsoleCommands';
 import { getCodeMirrorDiffPaintExtension } from './codeMirrorDiffPaint';
 import { getTopVisibleLineNumber } from './codeMirrorScroll';
+import { CODE_MIRROR_TAB_SIZE, insertTabCharacter } from './codeMirrorTab';
 import {
   CODE_MIRROR_FONT_SIZE,
   CODE_MIRROR_LINE_HEIGHT,
@@ -64,7 +64,7 @@ export const getCodeMirrorExtensions = ({
     }),
     keymap.of([
       ...getFontStyleKeyBindings(onToggleFontStyle),
-      indentWithTab,
+      insertTabCharacter,
       ...defaultKeymap,
       ...historyKeymap,
     ]),
@@ -99,6 +99,7 @@ export const getCodeMirrorExtensions = ({
     }),
     editorDecorationsField,
     ...getCodeMirrorDiffPaintExtension(theme),
+    EditorState.tabSize.of(CODE_MIRROR_TAB_SIZE),
     getCodeMirrorTheme(theme),
   ];
 };
@@ -129,6 +130,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     '.cm-content': {
       padding: '8px 12px',
       caretColor: '#D4D4D4',
+      tabSize: String(CODE_MIRROR_TAB_SIZE),
     },
     '.cm-line': {
       padding: '0',
