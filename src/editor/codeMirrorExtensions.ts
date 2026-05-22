@@ -170,10 +170,9 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     '.byline-line-copy-icon': {
       position: 'absolute',
       left: 'calc(100% - 1.65ch)',
-      top: '0',
-      height: CODE_MIRROR_LINE_HEIGHT,
+      top: '50%',
       display: 'inline-flex',
-      alignItems: 'center',
+      transform: 'translateY(-50%)',
       color: '#BBBEBF',
       opacity: '1',
       pointerEvents: 'none',

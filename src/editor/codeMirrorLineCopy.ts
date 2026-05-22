@@ -49,13 +49,20 @@ const getTextLineContext = (
   };
 };
 
-const getLineNumberElement = (event: Event): HTMLElement | null => {
-  if (event.currentTarget instanceof HTMLElement) {
-    return event.currentTarget;
+export const getLineNumberElement = (event: Event): HTMLElement | null => {
+  if (event.target instanceof HTMLElement) {
+    const lineNumberElement = event.target.closest('.cm-gutterElement');
+
+    if (lineNumberElement instanceof HTMLElement) {
+      return lineNumberElement;
+    }
   }
 
-  if (event.target instanceof HTMLElement) {
-    return event.target.closest('.cm-gutterElement');
+  if (
+    event.currentTarget instanceof HTMLElement &&
+    event.currentTarget.classList.contains('cm-gutterElement')
+  ) {
+    return event.currentTarget;
   }
 
   return null;
