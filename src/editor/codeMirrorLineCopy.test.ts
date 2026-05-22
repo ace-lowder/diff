@@ -4,12 +4,22 @@ import {
   LINE_COPY_ICON_CLASS_NAME,
   LINE_COPY_ICON_FADE_MS,
   LINE_COPY_ICON_FADING_CLASS_NAME,
+  LINE_COPY_ICON_REMOVE_MS,
+  LINE_COPY_ICON_VISIBLE_MS,
   getLineCopyIconMarkup,
 } from './codeMirrorLineCopy';
 
 describe('line copy icon constants', () => {
-  it('uses a 300ms icon fade duration', () => {
-    expect(LINE_COPY_ICON_FADE_MS).toBe(300);
+  it('uses a 500ms icon visible duration', () => {
+    expect(LINE_COPY_ICON_VISIBLE_MS).toBe(500);
+  });
+
+  it('uses a 500ms icon fade duration', () => {
+    expect(LINE_COPY_ICON_FADE_MS).toBe(500);
+  });
+
+  it('uses a 1000ms icon remove duration', () => {
+    expect(LINE_COPY_ICON_REMOVE_MS).toBe(1000);
   });
 
   it('uses expected icon class names', () => {

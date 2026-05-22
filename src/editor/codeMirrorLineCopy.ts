@@ -8,7 +8,10 @@ import {
 
 import type { CopyLineHandler, PaneId, TextLineContext } from '../appTypes';
 
-export const LINE_COPY_ICON_FADE_MS = 300;
+export const LINE_COPY_ICON_VISIBLE_MS = 500;
+export const LINE_COPY_ICON_FADE_MS = 500;
+export const LINE_COPY_ICON_REMOVE_MS =
+  LINE_COPY_ICON_VISIBLE_MS + LINE_COPY_ICON_FADE_MS;
 export const LINE_COPY_ICON_CLASS_NAME = 'byline-line-copy-icon';
 export const LINE_COPY_ICON_FADING_CLASS_NAME = 'byline-line-copy-icon-fading';
 
@@ -71,7 +74,6 @@ export const getCodeMirrorLineCopyExtension = ({
       readonly pane: PaneId;
       readonly onCopyLine: CopyLineHandler;
       copyFlashTimeouts: number[] = [];
-      copyFlashFrameIds: number[] = [];
 
       constructor(view: EditorView) {
         this.view = view;
@@ -84,11 +86,6 @@ export const getCodeMirrorLineCopyExtension = ({
           window.clearTimeout(timeoutId);
         }
         this.copyFlashTimeouts = [];
-
-        for (const frameId of this.copyFlashFrameIds) {
-          window.cancelAnimationFrame(frameId);
-        }
-        this.copyFlashFrameIds = [];
       }
 
       showCopyIconFlash(lineNumberElement: HTMLElement): void {
@@ -103,17 +100,21 @@ export const getCodeMirrorLineCopyExtension = ({
         iconElement.innerHTML = getLineCopyIconMarkup();
         lineNumberElement.append(iconElement);
 
-        const frameId = window.requestAnimationFrame(() => {
+        const fadeTimeoutId = window.setTimeout(() => {
           iconElement.classList.add(LINE_COPY_ICON_FADING_CLASS_NAME);
-          this.copyFlashFrameIds = this.copyFlashFrameIds.filter((id) => id !== frameId);
-        });
-        this.copyFlashFrameIds.push(frameId);
+          this.copyFlashTimeouts = this.copyFlashTimeouts.filter(
+            (id) => id !== fadeTimeoutId,
+          );
+        }, LINE_COPY_ICON_VISIBLE_MS);
+        this.copyFlashTimeouts.push(fadeTimeoutId);
 
-        const timeoutId = window.setTimeout(() => {
+        const removeTimeoutId = window.setTimeout(() => {
           iconElement.remove();
-          this.copyFlashTimeouts = this.copyFlashTimeouts.filter((id) => id !== timeoutId);
-        }, LINE_COPY_ICON_FADE_MS);
-        this.copyFlashTimeouts.push(timeoutId);
+          this.copyFlashTimeouts = this.copyFlashTimeouts.filter(
+            (id) => id !== removeTimeoutId,
+          );
+        }, LINE_COPY_ICON_REMOVE_MS);
+        this.copyFlashTimeouts.push(removeTimeoutId);
       }
 
       async copyLine({
