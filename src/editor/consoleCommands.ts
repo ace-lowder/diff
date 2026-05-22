@@ -14,6 +14,10 @@ export type ConsoleCommand =
   | {
       type: 'count';
       statsMode: StatsMode | 'toggle';
+    }
+  | {
+      type: 'menu';
+      visibilityMode: 'autoHide' | 'visible';
     };
 
 export type ConsoleCommandParseResult =
@@ -48,10 +52,11 @@ export type ConsoleCommandMenu = {
 const UNKNOWN_COMMAND_SUFFIX = ' - unknown command';
 const NO_LINE_ABOVE_SUFFIX = ' - no line above to copy';
 
-const ROOT_OPTIONS = ['view', 'copy', 'count'] as const;
+const ROOT_OPTIONS = ['view', 'copy', 'count', 'menu'] as const;
 const VIEW_OPTIONS = ['draft', 'editor', 'split'] as const;
 const COPY_OPTIONS = ['line'] as const;
 const COUNT_OPTIONS = ['word', 'char'] as const;
+const MENU_OPTIONS = ['hide', 'show'] as const;
 
 export const parseConsoleCommandLine = (
   lineText: string,
@@ -125,24 +130,45 @@ export const parseConsoleCommandLine = (
     };
   }
 
-  if (parts.length === 1) {
+  if (root === 'count') {
+    if (parts.length === 1) {
+      return {
+        kind: 'valid',
+        command: { type: 'count', statsMode: 'toggle' },
+      };
+    }
+
+    if (parts.length === 2 && option === 'word') {
+      return {
+        kind: 'valid',
+        command: { type: 'count', statsMode: 'words' },
+      };
+    }
+
+    if (parts.length === 2 && option === 'char') {
+      return {
+        kind: 'valid',
+        command: { type: 'count', statsMode: 'characters' },
+      };
+    }
+
     return {
-      kind: 'valid',
-      command: { type: 'count', statsMode: 'toggle' },
+      kind: 'unknown-command',
+      message: `${trimmedLineText}${UNKNOWN_COMMAND_SUFFIX}`,
     };
   }
 
-  if (parts.length === 2 && option === 'word') {
+  if (parts.length === 2 && option === 'hide') {
     return {
       kind: 'valid',
-      command: { type: 'count', statsMode: 'words' },
+      command: { type: 'menu', visibilityMode: 'autoHide' },
     };
   }
 
-  if (parts.length === 2 && option === 'char') {
+  if (parts.length === 2 && option === 'show') {
     return {
       kind: 'valid',
-      command: { type: 'count', statsMode: 'characters' },
+      command: { type: 'menu', visibilityMode: 'visible' },
     };
   }
 
@@ -211,7 +237,8 @@ export const getConsoleCommandMenu = ({
     if (
       currentTokenText === '/view' ||
       currentTokenText === '/copy' ||
-      currentTokenText === '/count'
+      currentTokenText === '/count' ||
+      currentTokenText === '/menu'
     ) {
       return null;
     }
@@ -321,6 +348,10 @@ const getOptionsForRoot = (
 
   if (root === 'count') {
     return COUNT_OPTIONS;
+  }
+
+  if (root === 'menu') {
+    return MENU_OPTIONS;
   }
 
   return null;

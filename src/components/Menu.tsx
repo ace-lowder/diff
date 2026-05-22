@@ -4,8 +4,12 @@ import type { EditorStats, StatsMode } from '../editorDiff';
 import type { AppMode, CoffeeStatus, CopyStatus } from '../appTypes';
 import type { FontStyleType } from '../fontStyles';
 import { getFooterStatsLabels } from './footerStatsLabels';
+import {
+  getMenuVisibilityClassName,
+  type MenuVisibilityMode,
+} from './menuVisibility';
 
-type FooterProps = {
+type MenuProps = {
   mode: AppMode;
   statsMode: StatsMode;
   draftText: string;
@@ -19,9 +23,13 @@ type FooterProps = {
   onToggleFontStyle: (fontStyleType: FontStyleType) => void;
   onCopyText: () => void;
   onCoffeeClick: () => void;
+  visibilityMode: MenuVisibilityMode;
+  isVisible: boolean;
+  onPointerEnter: () => void;
+  onPointerLeave: () => void;
 };
 
-export const Footer = ({
+export const Menu = ({
   mode,
   statsMode,
   draftText,
@@ -35,13 +43,26 @@ export const Footer = ({
   onToggleFontStyle,
   onCopyText,
   onCoffeeClick,
-}: FooterProps) => {
+  visibilityMode,
+  isVisible,
+  onPointerEnter,
+  onPointerLeave,
+}: MenuProps) => {
+  const visibilityClassName = getMenuVisibilityClassName({
+    visibilityMode,
+    isVisible,
+  });
+
   return (
-    <footer className="relative flex h-8 shrink-0 items-center border-t border-[#2A2B2C] bg-[#191A1B] text-sm">
+    <nav
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
+      className={`relative z-50 order-first flex h-10 shrink-0 items-center border-b border-[#2A2B2C] bg-[#191A1B] text-base transition-transform duration-200 ease-out sm:order-last sm:border-b-0 sm:border-t ${visibilityClassName}`}
+    >
       <button
         type="button"
         onClick={onModeToggle}
-        className="flex h-full w-14 items-center justify-center border-r border-[#2A2B2C] text-center text-xs font-medium text-[#8C8C8C] hover:bg-[#242526] focus:outline-none focus-visible:bg-[#242526]"
+        className="flex h-full w-16 items-center justify-center border-r border-[#2A2B2C] text-center text-sm font-medium text-[#8C8C8C] hover:bg-[#242526] focus:outline-none focus-visible:bg-[#242526]"
       >
         {getModeLabel(mode)}
       </button>
@@ -53,12 +74,12 @@ export const Footer = ({
         onClick={onCoffeeClick}
         aria-label="Support on Ko-fi"
         title="Support on Ko-fi"
-        className="flex h-full w-8 items-center justify-center border-r border-[#2A2B2C] text-[#8C8C8C] hover:bg-[#242526] focus:outline-none focus-visible:bg-[#242526]"
+        className="flex h-full w-10 items-center justify-center border-r border-[#2A2B2C] text-[#8C8C8C] hover:bg-[#242526] focus:outline-none focus-visible:bg-[#242526]"
       >
         {coffeeStatus === 'clicked' ? <CheckIcon /> : <CoffeeIcon />}
       </a>
 
-      <FooterStats
+      <MenuStats
         mode={mode}
         statsMode={statsMode}
         draftText={draftText}
@@ -77,15 +98,15 @@ export const Footer = ({
         onClick={onCopyText}
         aria-label={getCopyAriaLabel(copyStatus)}
         title={getCopyAriaLabel(copyStatus)}
-        className="absolute right-0 flex h-full w-8 items-center justify-center border-l border-[#2A2B2C] text-[#8C8C8C] hover:bg-[#242526] focus:outline-none focus-visible:bg-[#242526]"
+        className="absolute right-0 flex h-full w-10 items-center justify-center border-l border-[#2A2B2C] text-[#8C8C8C] hover:bg-[#242526] focus:outline-none focus-visible:bg-[#242526]"
       >
         {copyStatus === 'copied' ? <CheckIcon /> : <CopyIcon />}
       </button>
-    </footer>
+    </nav>
   );
 };
 
-type FooterStatsProps = {
+type MenuStatsProps = {
   mode: AppMode;
   statsMode: StatsMode;
   draftText: string;
@@ -94,14 +115,14 @@ type FooterStatsProps = {
   onToggle: () => void;
 };
 
-const FooterStats = ({
+const MenuStats = ({
   mode,
   statsMode,
   draftText,
   editorText,
   editorStats,
   onToggle,
-}: FooterStatsProps) => {
+}: MenuStatsProps) => {
   const buttonClassName =
     'absolute left-1/2 inline-flex -translate-x-1/2 items-center text-center leading-none text-[#8C8C8C] focus:outline-none';
   const labels = getFooterStatsLabels({
@@ -134,8 +155,8 @@ const FooterStats = ({
       className={buttonClassName}
     >
       <span>{labels.baseLabel}</span>
-      <span className="ml-1 text-xs leading-none text-[#2A4C2C]">{labels.addedLabel}</span>
-      <span className="ml-1 text-xs leading-none text-[#693330]">{labels.deletedLabel}</span>
+      <span className="ml-1 text-sm leading-none text-[#2A4C2C]">{labels.addedLabel}</span>
+      <span className="ml-1 text-sm leading-none text-[#693330]">{labels.deletedLabel}</span>
     </button>
   );
 };
@@ -150,7 +171,7 @@ const FontStyleControls = ({
   onToggleFontStyle,
 }: FontStyleControlsProps) => {
   return (
-    <div className="absolute right-8 flex h-full items-center gap-2 pr-2">
+    <div className="absolute right-10 flex h-full items-center gap-2 pr-2">
       <FontStyleControlButton
         label="B"
         ariaLabel="Toggle bold"
@@ -207,10 +228,10 @@ const FontStyleControlButton = ({
       aria-pressed={isActive}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className={`inline-flex h-5 w-5 items-center justify-center text-xs font-normal ${stateClassName} hover:bg-[#242526] hover:text-[#D4D4D4] focus:outline-none focus-visible:bg-[#242526] focus-visible:text-[#D4D4D4]`}
+      className={`inline-flex h-7 w-7 items-center justify-center text-sm font-normal ${stateClassName} hover:bg-[#242526] hover:text-[#D4D4D4] focus:outline-none focus-visible:bg-[#242526] focus-visible:text-[#D4D4D4]`}
     >
       <span
-        className={`relative inline-flex h-4 w-4 items-center justify-center leading-none ${labelClassName ?? ''}`}
+        className={`relative inline-flex h-5 w-5 items-center justify-center leading-none ${labelClassName ?? ''}`}
         style={labelStyle}
       >
         {label}

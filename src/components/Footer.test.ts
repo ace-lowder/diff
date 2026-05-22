@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { getMenuVisibilityClassName } from './menuVisibility';
 import { getFooterStatsLabels } from './footerStatsLabels';
 
 const editorStats = {
@@ -109,5 +110,34 @@ describe('getFooterStatsLabels', () => {
       addedLabel: '+1',
       deletedLabel: '-2',
     });
+  });
+});
+
+describe('getMenuVisibilityClassName', () => {
+  it('returns visible class when mode is visible', () => {
+    expect(
+      getMenuVisibilityClassName({
+        visibilityMode: 'visible',
+        isVisible: false,
+      }),
+    ).toBe('translate-y-0');
+  });
+
+  it('returns visible class when autoHide mode is currently visible', () => {
+    expect(
+      getMenuVisibilityClassName({
+        visibilityMode: 'autoHide',
+        isVisible: true,
+      }),
+    ).toBe('translate-y-0');
+  });
+
+  it('returns hidden class when autoHide mode is currently hidden', () => {
+    expect(
+      getMenuVisibilityClassName({
+        visibilityMode: 'autoHide',
+        isVisible: false,
+      }),
+    ).toBe('-translate-y-full sm:translate-y-full');
   });
 });

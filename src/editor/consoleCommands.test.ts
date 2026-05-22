@@ -47,6 +47,14 @@ describe('parseConsoleCommandLine', () => {
       kind: 'valid',
       command: { type: 'count', statsMode: 'characters' },
     });
+    expect(parseConsoleCommandLine('/menu hide')).toEqual({
+      kind: 'valid',
+      command: { type: 'menu', visibilityMode: 'autoHide' },
+    });
+    expect(parseConsoleCommandLine('/menu show')).toEqual({
+      kind: 'valid',
+      command: { type: 'menu', visibilityMode: 'visible' },
+    });
   });
 
   it('parses invalid and non-command lines', () => {
@@ -58,6 +66,14 @@ describe('parseConsoleCommandLine', () => {
     expect(parseConsoleCommandLine('/count nope')).toEqual({
       kind: 'unknown-command',
       message: '/count nope - unknown command',
+    });
+    expect(parseConsoleCommandLine('/menu')).toEqual({
+      kind: 'unknown-command',
+      message: '/menu - unknown command',
+    });
+    expect(parseConsoleCommandLine('/menu test')).toEqual({
+      kind: 'unknown-command',
+      message: '/menu test - unknown command',
     });
     expect(parseConsoleCommandLine('text /view')).toEqual({ kind: 'not-command' });
   });
@@ -82,7 +98,7 @@ describe('getNoLineAboveCommandLineText', () => {
 describe('getConsoleCommandMenu', () => {
   it('returns root options', () => {
     expect(getConsoleCommandMenu({ lineText: '/', cursorOffset: 1 })).toEqual({
-      options: [{ label: 'view' }, { label: 'copy' }, { label: 'count' }],
+      options: [{ label: 'view' }, { label: 'copy' }, { label: 'count' }, { label: 'menu' }],
       tokenFrom: 1,
       tokenTo: 1,
     });
@@ -97,6 +113,12 @@ describe('getConsoleCommandMenu', () => {
 
     expect(getConsoleCommandMenu({ lineText: '/c', cursorOffset: 2 })).toEqual({
       options: [{ label: 'copy' }, { label: 'count' }],
+      tokenFrom: 1,
+      tokenTo: 2,
+    });
+
+    expect(getConsoleCommandMenu({ lineText: '/m', cursorOffset: 2 })).toEqual({
+      options: [{ label: 'menu' }],
       tokenFrom: 1,
       tokenTo: 2,
     });
@@ -132,11 +154,25 @@ describe('getConsoleCommandMenu', () => {
       tokenFrom: 7,
       tokenTo: 8,
     });
+
+    expect(getConsoleCommandMenu({ lineText: '/menu ', cursorOffset: 6 })).toEqual({
+      options: [{ label: 'hide' }, { label: 'show' }],
+      tokenFrom: 6,
+      tokenTo: 6,
+    });
+
+    expect(getConsoleCommandMenu({ lineText: '/menu h', cursorOffset: 7 })).toEqual({
+      options: [{ label: 'hide' }],
+      tokenFrom: 6,
+      tokenTo: 7,
+    });
   });
 
   it('does not show menu for complete subcommands', () => {
     expect(getConsoleCommandMenu({ lineText: '/view draft', cursorOffset: 11 })).toBeNull();
     expect(getConsoleCommandMenu({ lineText: '/count', cursorOffset: 6 })).toBeNull();
+    expect(getConsoleCommandMenu({ lineText: '/menu hide', cursorOffset: 10 })).toBeNull();
+    expect(getConsoleCommandMenu({ lineText: '/menu show', cursorOffset: 10 })).toBeNull();
   });
 });
 
@@ -165,6 +201,14 @@ describe('getCompletedConsoleCommandLine', () => {
         selectedLabel: 'char',
       }),
     ).toBe('/count char');
+
+    expect(
+      getCompletedConsoleCommandLine({
+        lineText: '/menu h',
+        cursorOffset: 7,
+        selectedLabel: 'hide',
+      }),
+    ).toBe('/menu hide');
   });
 });
 
@@ -193,5 +237,21 @@ describe('getConsoleCommandPrediction', () => {
         selectedLabel: 'char',
       }),
     ).toBe('');
+
+    expect(
+      getConsoleCommandPrediction({
+        lineText: '/m',
+        cursorOffset: 2,
+        selectedLabel: 'menu',
+      }),
+    ).toBe('enu');
+
+    expect(
+      getConsoleCommandPrediction({
+        lineText: '/menu h',
+        cursorOffset: 7,
+        selectedLabel: 'hide',
+      }),
+    ).toBe('ide');
   });
 });

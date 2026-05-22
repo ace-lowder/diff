@@ -15,7 +15,8 @@ import type {
   ConsoleCommandLineContext,
   RunConsoleCommand,
 } from './editor/codeMirrorConsoleCommands';
-import { Footer } from './components/Footer';
+import { Menu } from './components/Menu';
+import type { MenuVisibilityMode } from './components/menuVisibility';
 import { CodeMirrorPane } from './components/CodeMirrorPane';
 import {
   getClipboardFontStyleRangesForLine,
@@ -54,6 +55,8 @@ import type {
   ScrollOffset,
 } from './appTypes';
 
+const MENU_AUTO_HIDE_DELAY_MS = 2000;
+
 const App = () => {
   const initialDocumentText = useMemo(() => getStoredDocumentText(), []);
 
@@ -91,6 +94,9 @@ const App = () => {
   const [initialLineNumber, setInitialLineNumber] = useState(1);
   const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle');
   const [coffeeStatus, setCoffeeStatus] = useState<CoffeeStatus>('idle');
+  const [menuVisibilityMode, setMenuVisibilityMode] =
+    useState<MenuVisibilityMode>('visible');
+  const [isMenuVisible, setIsMenuVisible] = useState(true);
 
   const draftEditorViewRef = useRef<EditorView | null>(null);
   const editorEditorViewRef = useRef<EditorView | null>(null);
@@ -105,6 +111,7 @@ const App = () => {
   const editorMeasureFrameRef = useRef<number | null>(null);
   const copyStatusTimeoutRef = useRef<number | null>(null);
   const coffeeStatusTimeoutRef = useRef<number | null>(null);
+  const menuHideTimeoutRef = useRef<number | null>(null);
   const draftActiveFontStyleTypesRef = useRef<FontStyleType[]>([]);
   const editorActiveFontStyleTypesRef = useRef<FontStyleType[]>([]);
 
@@ -168,6 +175,9 @@ const App = () => {
       if (coffeeStatusTimeoutRef.current !== null) {
         window.clearTimeout(coffeeStatusTimeoutRef.current);
       }
+      if (menuHideTimeoutRef.current !== null) {
+        window.clearTimeout(menuHideTimeoutRef.current);
+      }
       if (editorMeasureFrameRef.current !== null) {
         window.cancelAnimationFrame(editorMeasureFrameRef.current);
       }
@@ -202,6 +212,46 @@ const App = () => {
 
   const handleStatsModeToggle = () => {
     setStatsMode((currentStatsMode) => getNextStatsMode(currentStatsMode));
+  };
+
+  const clearMenuHideTimeout = () => {
+    if (menuHideTimeoutRef.current !== null) {
+      window.clearTimeout(menuHideTimeoutRef.current);
+      menuHideTimeoutRef.current = null;
+    }
+  };
+
+  const showMenu = () => {
+    clearMenuHideTimeout();
+    setIsMenuVisible(true);
+  };
+
+  const scheduleMenuHide = () => {
+    clearMenuHideTimeout();
+    if (menuVisibilityMode !== 'autoHide') {
+      return;
+    }
+
+    menuHideTimeoutRef.current = window.setTimeout(() => {
+      setIsMenuVisible(false);
+      menuHideTimeoutRef.current = null;
+    }, MENU_AUTO_HIDE_DELAY_MS);
+  };
+
+  const enableMenuAutoHide = () => {
+    setMenuVisibilityMode('autoHide');
+    setIsMenuVisible(true);
+    clearMenuHideTimeout();
+    menuHideTimeoutRef.current = window.setTimeout(() => {
+      setIsMenuVisible(false);
+      menuHideTimeoutRef.current = null;
+    }, MENU_AUTO_HIDE_DELAY_MS);
+  };
+
+  const showMenuAlways = () => {
+    setMenuVisibilityMode('visible');
+    setIsMenuVisible(true);
+    clearMenuHideTimeout();
   };
 
   const handleCopyText = async () => {
@@ -256,14 +306,10 @@ const App = () => {
         highlightRanges: clipboardHighlightRanges,
         fontStyleRanges,
       });
-
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          'text/plain': new Blob([copyText], { type: 'text/plain' }),
-          'text/html': new Blob([htmlText], { type: 'text/html' }),
-        }),
-      ]);
-
+      await writeClipboardText({
+        plainText: copyText,
+        htmlText,
+      });
       setTemporaryCopyStatus('copied');
     } catch {
       setTemporaryCopyStatus('failed');
@@ -313,6 +359,16 @@ const App = () => {
       } catch {
         setTemporaryCopyStatus('failed');
       }
+      return;
+    }
+
+    if (command.type === 'menu') {
+      if (command.visibilityMode === 'autoHide') {
+        enableMenuAutoHide();
+        return;
+      }
+
+      showMenuAlways();
       return;
     }
 
@@ -618,6 +674,13 @@ const App = () => {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#121314] text-[#D4D4D4]">
+      {menuVisibilityMode === 'autoHide' && (
+        <div
+          aria-hidden="true"
+          onPointerEnter={showMenu}
+          className="fixed left-0 top-0 z-40 h-3 w-full sm:bottom-0 sm:top-auto"
+        />
+      )}
       <main className="min-h-0 flex-1">
         <div className="relative flex h-full min-h-0 justify-center">
           <div
@@ -838,7 +901,7 @@ const App = () => {
         </div>
       </main>
 
-      <Footer
+      <Menu
         mode={mode}
         statsMode={statsMode}
         draftText={draftText}
@@ -852,6 +915,10 @@ const App = () => {
         onToggleFontStyle={handleToggleFontStyle}
         onCopyText={handleCopyText}
         onCoffeeClick={handleCoffeeClick}
+        visibilityMode={menuVisibilityMode}
+        isVisible={isMenuVisible}
+        onPointerEnter={showMenu}
+        onPointerLeave={scheduleMenuHide}
       />
     </div>
   );
@@ -905,3 +972,30 @@ const MIN_EDITOR_WIDTH_PERCENT = 55;
 const MAX_EDITOR_WIDTH_PERCENT = 100;
 const EDITOR_WIDTH_RESIZE_MIN_SCREEN_WIDTH = 640;
 const EDITOR_WIDTH_HANDLE_LEFT = 'calc(6ch + 12px)';
+
+const writeClipboardText = async ({
+  plainText,
+  htmlText,
+}: {
+  plainText: string;
+  htmlText: string;
+}) => {
+  if (
+    navigator.clipboard.write &&
+    typeof window.ClipboardItem !== 'undefined'
+  ) {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/plain': new Blob([plainText], { type: 'text/plain' }),
+          'text/html': new Blob([htmlText], { type: 'text/html' }),
+        }),
+      ]);
+      return;
+    } catch {
+      // Fall back to plain-text copy.
+    }
+  }
+
+  await navigator.clipboard.writeText(plainText);
+};
