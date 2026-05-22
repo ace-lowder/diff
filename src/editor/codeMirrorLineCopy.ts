@@ -1,4 +1,4 @@
-import { StateEffect, StateField, type Extension } from '@codemirror/state';
+import type { Extension } from '@codemirror/state';
 import {
   EditorView,
   ViewPlugin,
@@ -8,38 +8,28 @@ import {
 
 import type { CopyLineHandler, PaneId, TextLineContext } from '../appTypes';
 
-const LINE_NUMBER_COPY_STATUS_MS = 1500;
-export const LINE_NUMBER_COPY_CHECK_MARK = '✓';
+export const LINE_COPY_ICON_FADE_MS = 300;
+export const LINE_COPY_ICON_CLASS_NAME = 'byline-line-copy-icon';
+export const LINE_COPY_ICON_FADING_CLASS_NAME = 'byline-line-copy-icon-fading';
 
-const setCopiedLineNumberEffect = StateEffect.define<number | null>();
-
-const copiedLineNumberField = StateField.define<number | null>({
-  create() {
-    return null;
-  },
-  update(value, transaction) {
-    let nextValue = transaction.docChanged ? null : value;
-
-    for (const effect of transaction.effects) {
-      if (effect.is(setCopiedLineNumberEffect)) {
-        nextValue = effect.value;
-      }
-    }
-
-    return nextValue;
-  },
-});
-
-export const getLineNumberLabel = ({
-  lineNumber,
-  copiedLineNumber,
-}: {
-  lineNumber: number;
-  copiedLineNumber: number | null;
-}): string => {
-  return copiedLineNumber === lineNumber
-    ? LINE_NUMBER_COPY_CHECK_MARK
-    : String(lineNumber);
+export const getLineCopyIconMarkup = (): string => {
+  return `
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </svg>
+  `;
 };
 
 const getTextLineContext = (
@@ -56,6 +46,18 @@ const getTextLineContext = (
   };
 };
 
+const getLineNumberElement = (event: Event): HTMLElement | null => {
+  if (event.currentTarget instanceof HTMLElement) {
+    return event.currentTarget;
+  }
+
+  if (event.target instanceof HTMLElement) {
+    return event.target.closest('.cm-gutterElement');
+  }
+
+  return null;
+};
+
 export const getCodeMirrorLineCopyExtension = ({
   pane,
   onCopyLine,
@@ -68,7 +70,8 @@ export const getCodeMirrorLineCopyExtension = ({
       readonly view: EditorView;
       readonly pane: PaneId;
       readonly onCopyLine: CopyLineHandler;
-      copyStatusTimeout: number | null = null;
+      copyFlashTimeouts: number[] = [];
+      copyFlashFrameIds: number[] = [];
 
       constructor(view: EditorView) {
         this.view = view;
@@ -77,13 +80,49 @@ export const getCodeMirrorLineCopyExtension = ({
       }
 
       destroy() {
-        if (this.copyStatusTimeout !== null) {
-          window.clearTimeout(this.copyStatusTimeout);
-          this.copyStatusTimeout = null;
+        for (const timeoutId of this.copyFlashTimeouts) {
+          window.clearTimeout(timeoutId);
         }
+        this.copyFlashTimeouts = [];
+
+        for (const frameId of this.copyFlashFrameIds) {
+          window.cancelAnimationFrame(frameId);
+        }
+        this.copyFlashFrameIds = [];
       }
 
-      async copyLine(block: BlockInfo) {
+      showCopyIconFlash(lineNumberElement: HTMLElement): void {
+        const existingIcon = lineNumberElement.querySelector(
+          `.${LINE_COPY_ICON_CLASS_NAME}`,
+        );
+        existingIcon?.remove();
+
+        const iconElement = document.createElement('span');
+        iconElement.className = LINE_COPY_ICON_CLASS_NAME;
+        iconElement.setAttribute('aria-hidden', 'true');
+        iconElement.innerHTML = getLineCopyIconMarkup();
+        lineNumberElement.append(iconElement);
+
+        const frameId = window.requestAnimationFrame(() => {
+          iconElement.classList.add(LINE_COPY_ICON_FADING_CLASS_NAME);
+          this.copyFlashFrameIds = this.copyFlashFrameIds.filter((id) => id !== frameId);
+        });
+        this.copyFlashFrameIds.push(frameId);
+
+        const timeoutId = window.setTimeout(() => {
+          iconElement.remove();
+          this.copyFlashTimeouts = this.copyFlashTimeouts.filter((id) => id !== timeoutId);
+        }, LINE_COPY_ICON_FADE_MS);
+        this.copyFlashTimeouts.push(timeoutId);
+      }
+
+      async copyLine({
+        block,
+        lineNumberElement,
+      }: {
+        block: BlockInfo;
+        lineNumberElement: HTMLElement | null;
+      }): Promise<void> {
         try {
           const line = getTextLineContext(this.view, block);
           const didCopy = await this.onCopyLine({
@@ -95,43 +134,31 @@ export const getCodeMirrorLineCopyExtension = ({
             return;
           }
 
-          this.view.dispatch({
-            effects: setCopiedLineNumberEffect.of(line.number),
-          });
-
-          if (this.copyStatusTimeout !== null) {
-            window.clearTimeout(this.copyStatusTimeout);
+          if (!lineNumberElement || !lineNumberElement.isConnected) {
+            return;
           }
 
-          this.copyStatusTimeout = window.setTimeout(() => {
-            this.view.dispatch({
-              effects: setCopiedLineNumberEffect.of(null),
-            });
-            this.copyStatusTimeout = null;
-          }, LINE_NUMBER_COPY_STATUS_MS);
+          this.showCopyIconFlash(lineNumberElement);
         } catch {
-          // Ignore copy errors and keep existing line number label.
+          // Ignore copy errors and show no icon.
         }
       }
     },
   );
 
   return [
-    copiedLineNumberField,
     lineCopyPlugin,
     lineNumbers({
-      formatNumber(lineNumber, state) {
-        return getLineNumberLabel({
-          lineNumber,
-          copiedLineNumber: state.field(copiedLineNumberField),
-        });
-      },
       domEventHandlers: {
         click(view, block, event) {
           event.preventDefault();
           event.stopPropagation();
+          const lineNumberElement = getLineNumberElement(event);
           const plugin = view.plugin(lineCopyPlugin);
-          void plugin?.copyLine(block);
+          void plugin?.copyLine({
+            block,
+            lineNumberElement,
+          });
           return true;
         },
       },

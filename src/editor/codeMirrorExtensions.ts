@@ -161,9 +161,25 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       textAlign: 'right',
       cursor: 'pointer',
       userSelect: 'none',
+      position: 'relative',
+      overflow: 'visible',
     },
     '.cm-lineNumbers .cm-gutterElement:hover': {
       color: '#BBBEBF',
+    },
+    '.byline-line-copy-icon': {
+      position: 'absolute',
+      right: '0.35ch',
+      top: '50%',
+      display: 'inline-flex',
+      transform: 'translateY(-50%)',
+      color: '#BBBEBF',
+      opacity: '1',
+      pointerEvents: 'none',
+      transition: 'opacity 300ms ease-out',
+    },
+    '.byline-line-copy-icon-fading': {
+      opacity: '0',
     },
     '.cm-activeLineGutter': {
       backgroundColor: 'transparent',

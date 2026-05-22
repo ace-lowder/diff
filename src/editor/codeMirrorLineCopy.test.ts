@@ -1,26 +1,29 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  LINE_NUMBER_COPY_CHECK_MARK,
-  getLineNumberLabel,
+  LINE_COPY_ICON_CLASS_NAME,
+  LINE_COPY_ICON_FADE_MS,
+  LINE_COPY_ICON_FADING_CLASS_NAME,
+  getLineCopyIconMarkup,
 } from './codeMirrorLineCopy';
 
-describe('getLineNumberLabel', () => {
-  it('returns the line number when there is no copied line', () => {
-    expect(getLineNumberLabel({ lineNumber: 3, copiedLineNumber: null })).toBe('3');
+describe('line copy icon constants', () => {
+  it('uses a 300ms icon fade duration', () => {
+    expect(LINE_COPY_ICON_FADE_MS).toBe(300);
   });
 
-  it('returns the line number when a different line was copied', () => {
-    expect(getLineNumberLabel({ lineNumber: 3, copiedLineNumber: 2 })).toBe('3');
-  });
-
-  it('returns checkmark when the line was copied', () => {
-    expect(getLineNumberLabel({ lineNumber: 3, copiedLineNumber: 3 })).toBe('✓');
+  it('uses expected icon class names', () => {
+    expect(LINE_COPY_ICON_CLASS_NAME).toBe('byline-line-copy-icon');
+    expect(LINE_COPY_ICON_FADING_CLASS_NAME).toBe('byline-line-copy-icon-fading');
   });
 });
 
-describe('LINE_NUMBER_COPY_CHECK_MARK', () => {
-  it('is a checkmark', () => {
-    expect(LINE_NUMBER_COPY_CHECK_MARK).toBe('✓');
+describe('getLineCopyIconMarkup', () => {
+  it('contains the copy icon rectangle and path', () => {
+    const markup = getLineCopyIconMarkup();
+
+    expect(markup).toContain('<rect x="9" y="9" width="13" height="13"');
+    expect(markup).toContain('<path d="M5 15H4');
+    expect(markup).not.toContain('m5 13 4 4L19 7');
   });
 });
