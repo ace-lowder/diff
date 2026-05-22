@@ -8,7 +8,6 @@ import {
   EditorView,
   highlightActiveLineGutter,
   keymap,
-  lineNumbers,
   type KeyBinding,
 } from '@codemirror/view';
 
@@ -18,13 +17,19 @@ import {
   type RunConsoleCommand,
 } from './codeMirrorConsoleCommands';
 import { getCodeMirrorDiffPaintExtension } from './codeMirrorDiffPaint';
+import { getCodeMirrorLineCopyExtension } from './codeMirrorLineCopy';
 import { getTopVisibleLineNumber } from './codeMirrorScroll';
 import { CODE_MIRROR_TAB_SIZE, insertTabCharacter } from './codeMirrorTab';
 import {
   CODE_MIRROR_FONT_SIZE,
   CODE_MIRROR_LINE_HEIGHT,
 } from './codeMirrorThemeConstants';
-import type { CodeMirrorTheme, PaneId, ScrollOffset } from '../appTypes';
+import type {
+  CodeMirrorTheme,
+  CopyLineHandler,
+  PaneId,
+  ScrollOffset,
+} from '../appTypes';
 import type { FontStyleType, TextChange } from '../fontStyles';
 
 type CodeMirrorExtensionOptions = {
@@ -42,6 +47,7 @@ type CodeMirrorExtensionOptions = {
   onFocusPane: () => void;
   onToggleFontStyle: (fontStyleType: FontStyleType) => void;
   onScroll: (scrollOffset: ScrollOffset, topVisibleLineNumber: number) => void;
+  onCopyLine: CopyLineHandler;
 };
 
 export const getCodeMirrorExtensions = ({
@@ -53,9 +59,13 @@ export const getCodeMirrorExtensions = ({
   onFocusPane,
   onToggleFontStyle,
   onScroll,
+  onCopyLine,
 }: CodeMirrorExtensionOptions): Extension[] => {
   return [
-    lineNumbers(),
+    ...getCodeMirrorLineCopyExtension({
+      pane,
+      onCopyLine,
+    }),
     highlightActiveLineGutter(),
     history(),
     ...getCodeMirrorConsoleCommandExtension({
@@ -149,6 +159,11 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       paddingLeft: '0',
       paddingRight: '2ch',
       textAlign: 'right',
+      cursor: 'pointer',
+      userSelect: 'none',
+    },
+    '.cm-lineNumbers .cm-gutterElement:hover': {
+      color: '#BBBEBF',
     },
     '.cm-activeLineGutter': {
       backgroundColor: 'transparent',

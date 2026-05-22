@@ -15,7 +15,11 @@ import {
 } from '../editor/codeMirrorDiffPaint';
 import { getCodeMirrorExtensions } from '../editor/codeMirrorExtensions';
 import { scrollToLineNumber } from '../editor/codeMirrorScroll';
-import type { CodeMirrorTheme, ScrollOffset } from '../appTypes';
+import type {
+  CodeMirrorTheme,
+  CopyLineHandler,
+  ScrollOffset,
+} from '../appTypes';
 import type {
   DraftHighlightRange,
   DraftLineDecoration,
@@ -37,6 +41,7 @@ type CodeMirrorPaneProps = {
   onFocusPane?: () => void;
   onToggleFontStyle: (fontStyleType: FontStyleType) => void;
   onRunConsoleCommand: RunConsoleCommand;
+  onCopyLine: CopyLineHandler;
   ariaLabel: string;
   theme: CodeMirrorTheme;
   initialLineNumber: number;
@@ -60,6 +65,7 @@ export const CodeMirrorPane = ({
   onFocusPane,
   onToggleFontStyle,
   onRunConsoleCommand,
+  onCopyLine,
   ariaLabel,
   theme,
   initialLineNumber,
@@ -81,6 +87,7 @@ export const CodeMirrorPane = ({
   const onFocusPaneRef = useRef(onFocusPane);
   const onToggleFontStyleRef = useRef(onToggleFontStyle);
   const onRunConsoleCommandRef = useRef(onRunConsoleCommand);
+  const onCopyLineRef = useRef(onCopyLine);
   const initialValueRef = useRef(value);
   const lastPropValueRef = useRef(value);
   const lastLocalValueRef = useRef(value);
@@ -121,6 +128,10 @@ export const CodeMirrorPane = ({
   useEffect(() => {
     onRunConsoleCommandRef.current = onRunConsoleCommand;
   }, [onRunConsoleCommand]);
+
+  useEffect(() => {
+    onCopyLineRef.current = onCopyLine;
+  }, [onCopyLine]);
 
   useEffect(() => {
     decorationsRef.current = getCodeMirrorDecorationsInput({
@@ -184,6 +195,7 @@ export const CodeMirrorPane = ({
             onToggleFontStyleRef.current(fontStyleType),
           onScroll: (nextScrollOffset, topVisibleLineNumber) =>
             onScrollOffsetChangeRef.current(nextScrollOffset, topVisibleLineNumber),
+          onCopyLine: (context) => onCopyLineRef.current(context),
         }),
       }),
     });

@@ -49,7 +49,9 @@ import {
 } from './editor/codeMirrorScroll';
 import type {
   AppMode,
+  CopyLineHandler,
   CoffeeStatus,
+  TextLineContext,
   CopyStatus,
   PaneId,
   ScrollOffset,
@@ -276,9 +278,18 @@ const App = () => {
   };
 
   const copyEditorLineText = async (line: ConsoleCommandLineContext) => {
-    await copyDocumentText({
-      copyText: line.text,
-      clipboardHighlightRanges: getClipboardHighlightRangesForLine({
+    try {
+      await writeEditorLineText(line);
+      setTemporaryCopyStatus('copied');
+    } catch {
+      setTemporaryCopyStatus('failed');
+    }
+  };
+
+  const writeEditorLineText = async (line: TextLineContext) => {
+    const htmlText = getClipboardHtml({
+      text: line.text,
+      highlightRanges: getClipboardHighlightRangesForLine({
         lineFrom: line.from,
         lineTo: line.to,
         highlightRanges: editorHighlightRanges,
@@ -289,6 +300,25 @@ const App = () => {
         fontStyleRanges: editorFontStyleRanges,
       }),
     });
+
+    await writeClipboardText({
+      plainText: line.text,
+      htmlText,
+    });
+  };
+
+  const handleCopyLine: CopyLineHandler = async ({ pane, line }) => {
+    try {
+      if (pane === 'editor') {
+        await writeEditorLineText(line);
+        return true;
+      }
+
+      await navigator.clipboard.writeText(line.text);
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const copyDocumentText = async ({
@@ -711,6 +741,7 @@ const App = () => {
                   handleToggleFontStyleForPane('draft', fontStyleType)
                 }
                 onRunConsoleCommand={handleRunConsoleCommand}
+                onCopyLine={handleCopyLine}
                 ariaLabel="Draft text"
                 theme="draft"
                 initialLineNumber={initialLineNumber}
@@ -754,6 +785,7 @@ const App = () => {
                   handleToggleFontStyleForPane('editor', fontStyleType)
                 }
                 onRunConsoleCommand={handleRunConsoleCommand}
+                onCopyLine={handleCopyLine}
                 ariaLabel="Editor text"
                 theme="editor"
                 initialLineNumber={initialLineNumber}
@@ -801,6 +833,7 @@ const App = () => {
                       handleToggleFontStyleForPane('draft', fontStyleType)
                     }
                     onRunConsoleCommand={handleRunConsoleCommand}
+                    onCopyLine={handleCopyLine}
                     ariaLabel="Draft text"
                     theme="draft"
                     initialLineNumber={initialLineNumber}
@@ -860,6 +893,7 @@ const App = () => {
                       handleToggleFontStyleForPane('editor', fontStyleType)
                     }
                     onRunConsoleCommand={handleRunConsoleCommand}
+                    onCopyLine={handleCopyLine}
                     ariaLabel="Editor text"
                     theme="editor"
                     initialLineNumber={initialLineNumber}
