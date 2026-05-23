@@ -973,13 +973,13 @@ const App = () => {
               onPointerUp={handleEditorWidthPointerUp}
               onPointerCancel={handleEditorWidthPointerUp}
               onDoubleClick={handleEditorWidthDoubleClick}
-              className={`group absolute bottom-0 top-0 z-40 hidden w-3 cursor-col-resize touch-none select-none sm:block ${getEditorWidthHandleTransformClassName(editorWidthHandlePlacement)}`}
+              className={`group absolute bottom-0 top-0 z-[60] hidden w-3 cursor-col-resize touch-none select-none sm:block ${getEditorWidthHandleTransformClassName(editorWidthHandlePlacement)}`}
               style={{
                 left: getEditorWidthHandleLeft(editorWidthHandlePlacement),
               }}
             >
               <div
-                className={`absolute h-full w-px bg-transparent group-hover:bg-[#3A3B3C] ${getEditorWidthHandleLineClassName(editorWidthHandlePlacement)}`}
+                className={`absolute h-full w-px ${getEditorWidthHandleLineColorClassName(editorWidthHandlePlacement)} ${getEditorWidthHandleLineClassName(editorWidthHandlePlacement)}`}
               />
             </div>
           </div>
@@ -1092,6 +1092,14 @@ const getEditorWidthHandleLineClassName = (
   placement: EditorWidthHandlePlacement,
 ): string => {
   return placement === 'leftEdge' ? 'left-0' : 'right-0';
+};
+
+const getEditorWidthHandleLineColorClassName = (
+  placement: EditorWidthHandlePlacement,
+): string => {
+  return placement === 'leftEdge'
+    ? 'bg-[#2A2B2C] group-hover:bg-[#3A3B3C]'
+    : 'bg-transparent group-hover:bg-[#3A3B3C]';
 };
 
 const writeClipboardText = async ({

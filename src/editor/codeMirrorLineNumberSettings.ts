@@ -4,6 +4,7 @@ import type {
 } from '../appTypes';
 
 export const LINE_NUMBER_AUTO_HIDE_DELAY_MS = 2000;
+export const LINE_NUMBER_EDGE_TRIGGER_WIDTH_CLASS_NAME = 'w-[calc(6ch+12px)]';
 
 export const getCodeMirrorPaneLineNumberClassName = ({
   position,
@@ -37,6 +38,6 @@ export const getLineNumberEdgeTriggerClassName = ({
   position: LineNumberPosition;
 }): string => {
   return position === 'right'
-    ? 'absolute inset-y-0 right-0 z-30 w-3'
-    : 'absolute inset-y-0 left-0 z-30 w-3';
+    ? `absolute inset-y-0 right-0 z-50 ${LINE_NUMBER_EDGE_TRIGGER_WIDTH_CLASS_NAME}`
+    : `absolute inset-y-0 left-0 z-50 ${LINE_NUMBER_EDGE_TRIGGER_WIDTH_CLASS_NAME}`;
 };

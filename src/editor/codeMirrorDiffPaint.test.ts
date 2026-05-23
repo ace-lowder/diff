@@ -13,6 +13,7 @@ import {
   type DiffPaintState,
 } from './codeMirrorDiffPaint';
 import {
+  DIFF_CONTENT_HORIZONTAL_PADDING_PX,
   DIFF_PAINT_GEOMETRY,
   DIFF_FULL_LINE_LEFT_OFFSET_PX,
   DIFF_FULL_LINE_RIGHT_OFFSET_PX,
@@ -405,7 +406,7 @@ describe('getLinePaintGeometryAdjustment', () => {
     expect(adjustment.rightOffsetPx).toBe(DIFF_FULL_LINE_RIGHT_OFFSET_PX);
   });
 
-  it('zeros full-line horizontal offsets when no left gutter is reserved', () => {
+  it('uses content padding offsets for line-wide paint when no left gutter is reserved', () => {
     const fullLine = getLinePaintGeometryAdjustment({
       geometryRole: 'fullLine',
       lineNumberLayout: 'noReservedLeftGutter',
@@ -419,12 +420,12 @@ describe('getLinePaintGeometryAdjustment', () => {
       lineNumberLayout: 'noReservedLeftGutter',
     });
 
-    expect(fullLine.leftOffsetPx).toBe(0);
-    expect(fullLine.rightOffsetPx).toBe(0);
-    expect(activeLine.leftOffsetPx).toBe(0);
-    expect(activeLine.rightOffsetPx).toBe(0);
-    expect(lowestEditedLine.leftOffsetPx).toBe(0);
-    expect(lowestEditedLine.rightOffsetPx).toBe(0);
+    expect(fullLine.leftOffsetPx).toBe(DIFF_CONTENT_HORIZONTAL_PADDING_PX);
+    expect(fullLine.rightOffsetPx).toBe(-DIFF_CONTENT_HORIZONTAL_PADDING_PX);
+    expect(activeLine.leftOffsetPx).toBe(DIFF_CONTENT_HORIZONTAL_PADDING_PX);
+    expect(activeLine.rightOffsetPx).toBe(-DIFF_CONTENT_HORIZONTAL_PADDING_PX);
+    expect(lowestEditedLine.leftOffsetPx).toBe(DIFF_CONTENT_HORIZONTAL_PADDING_PX);
+    expect(lowestEditedLine.rightOffsetPx).toBe(-DIFF_CONTENT_HORIZONTAL_PADDING_PX);
   });
 
   it('does not change inlineText horizontal offsets', () => {
@@ -435,6 +436,10 @@ describe('getLinePaintGeometryAdjustment', () => {
 
     expect(adjustment.leftOffsetPx).toBe(DIFF_PAINT_GEOMETRY.inlineText.leftOffsetPx);
     expect(adjustment.rightOffsetPx).toBe(DIFF_PAINT_GEOMETRY.inlineText.rightOffsetPx);
+  });
+
+  it('uses 12px as the content horizontal padding constant', () => {
+    expect(DIFF_CONTENT_HORIZONTAL_PADDING_PX).toBe(12);
   });
 });
 

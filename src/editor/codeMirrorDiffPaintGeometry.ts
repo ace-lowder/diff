@@ -23,6 +23,7 @@ export type PaintRectBox = {
 };
 
 export const DIFF_PAINT_VERTICAL_OFFSET_PX = 8;
+export const DIFF_CONTENT_HORIZONTAL_PADDING_PX = 12;
 export const DIFF_TICK_WIDTH_PX = 3;
 export const DIFF_FULL_LINE_LEFT_OFFSET_PX = 64;
 export const DIFF_FULL_LINE_RIGHT_OFFSET_PX = 40;
@@ -93,8 +94,8 @@ export const getLinePaintGeometryAdjustment = ({
 
   return {
     ...adjustment,
-    leftOffsetPx: 0,
-    rightOffsetPx: 0,
+    leftOffsetPx: DIFF_CONTENT_HORIZONTAL_PADDING_PX,
+    rightOffsetPx: -DIFF_CONTENT_HORIZONTAL_PADDING_PX,
   };
 };
 
