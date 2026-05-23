@@ -177,7 +177,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     },
     '.byline-line-numbers-right .cm-lineNumbers .cm-gutterElement': {
       paddingLeft: '1ch',
-      paddingRight: '2ch',
+      paddingRight: '3ch',
     },
     '.cm-lineNumbers .cm-gutterElement:hover': {
       color: '#BBBEBF',
@@ -194,7 +194,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       transition: 'opacity 500ms ease-out',
     },
     '.byline-line-numbers-right .byline-line-copy-icon': {
-      left: 'calc(100% - 1.1ch)',
+      left: 'calc(100% - 1.85ch)',
     },
     '.byline-line-copy-icon-fading': {
       opacity: '0',

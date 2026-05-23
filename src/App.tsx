@@ -984,7 +984,7 @@ const App = () => {
               style={getEditorWidthHandleStyle(editorWidthHandlePlacement)}
             >
               <div
-                className={`absolute h-full w-px ${getEditorWidthHandleLineColorClassName()} ${getEditorWidthHandleLineClassName(editorWidthHandlePlacement)}`}
+                className={`absolute h-full w-px ${getEditorWidthHandleLineColorClassName()} ${getEditorWidthHandleLineClassName()}`}
               />
             </div>
           </div>
@@ -1059,7 +1059,7 @@ type EditorWidthDragState = {
 type EditorWidthHandlePlacement =
   | 'afterLeftGutter'
   | 'beforeRightGutter'
-  | 'leftEdge';
+  | 'hiddenLineNumberBoundary';
 
 const DEFAULT_SPLIT_DRAFT_PERCENT = 50;
 const MIN_SPLIT_DRAFT_PERCENT = 15;
@@ -1079,7 +1079,7 @@ const getEditorWidthHandlePlacement = ({
   lineNumberVisibilityMode: LineNumberVisibilityMode;
 }): EditorWidthHandlePlacement => {
   if (lineNumberVisibilityMode === 'autoHide') {
-    return 'leftEdge';
+    return 'hiddenLineNumberBoundary';
   }
 
   if (lineNumberPosition === 'right') {
@@ -1096,37 +1096,27 @@ const getEditorWidthHandleStyle = (
     return { right: EDITOR_WIDTH_HANDLE_RIGHT };
   }
 
-  if (placement === 'leftEdge') {
-    return { left: '0' };
-  }
-
   return { left: EDITOR_WIDTH_HANDLE_LEFT };
 };
 
 const getEditorWidthHandleTransformClassName = (
   placement: EditorWidthHandlePlacement,
 ): string => {
-  if (placement === 'afterLeftGutter') {
-    return '-translate-x-full';
+  if (placement === 'beforeRightGutter') {
+    return 'translate-x-0';
   }
 
-  return 'translate-x-0';
+  return '-translate-x-full';
 };
 
 const getEditorWidthHandleWidthClassName = (
   placement: EditorWidthHandlePlacement,
 ): string => {
-  return placement === 'leftEdge' ? 'w-6' : 'w-3';
+  return placement === 'hiddenLineNumberBoundary' ? 'w-6' : 'w-3';
 };
 
-const getEditorWidthHandleLineClassName = (
-  placement: EditorWidthHandlePlacement,
-): string => {
-  if (placement === 'beforeRightGutter') {
-    return 'right-0';
-  }
-
-  return 'left-0';
+const getEditorWidthHandleLineClassName = (): string => {
+  return 'right-0';
 };
 
 const getEditorWidthHandleLineColorClassName = (): string => {
