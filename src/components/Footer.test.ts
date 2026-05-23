@@ -212,18 +212,20 @@ describe('getMenuEdgeTriggerClassName', () => {
   it('returns responsive trigger classes', () => {
     expect(
       getMenuEdgeTriggerClassName({ placement: 'responsive' }),
-    ).toBe('fixed left-0 top-0 z-40 h-3 w-full sm:bottom-0 sm:top-auto');
+    ).toBe(
+      'fixed left-0 top-0 z-40 h-3 w-full sm:bottom-0 sm:top-auto byline-mouse-reveal-edge-trigger',
+    );
   });
 
   it('returns top trigger classes', () => {
     expect(getMenuEdgeTriggerClassName({ placement: 'top' })).toBe(
-      'fixed left-0 top-0 z-40 h-3 w-full',
+      'fixed left-0 top-0 z-40 h-3 w-full byline-mouse-reveal-edge-trigger',
     );
   });
 
   it('returns bottom trigger classes', () => {
     expect(getMenuEdgeTriggerClassName({ placement: 'bottom' })).toBe(
-      'fixed bottom-0 left-0 z-40 h-3 w-full',
+      'fixed bottom-0 left-0 z-40 h-3 w-full byline-mouse-reveal-edge-trigger',
     );
   });
 });

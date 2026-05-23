@@ -1,4 +1,5 @@
 import type { MenuPlacement, MenuVisibilityMode } from '../appTypes';
+import { MOUSE_REVEAL_EDGE_TRIGGER_CLASS_NAME } from '../pointerEvents';
 
 export const getMenuLayoutClassName = ({
   visibilityMode,
@@ -60,14 +61,14 @@ export const getMenuEdgeTriggerClassName = ({
   placement: MenuPlacement;
 }): string => {
   if (placement === 'top') {
-    return 'fixed left-0 top-0 z-40 h-3 w-full';
+    return `fixed left-0 top-0 z-40 h-3 w-full ${MOUSE_REVEAL_EDGE_TRIGGER_CLASS_NAME}`;
   }
 
   if (placement === 'bottom') {
-    return 'fixed bottom-0 left-0 z-40 h-3 w-full';
+    return `fixed bottom-0 left-0 z-40 h-3 w-full ${MOUSE_REVEAL_EDGE_TRIGGER_CLASS_NAME}`;
   }
 
-  return 'fixed left-0 top-0 z-40 h-3 w-full sm:bottom-0 sm:top-auto';
+  return `fixed left-0 top-0 z-40 h-3 w-full sm:bottom-0 sm:top-auto ${MOUSE_REVEAL_EDGE_TRIGGER_CLASS_NAME}`;
 };
 
 export const getMenuBorderClassName = ({

@@ -56,13 +56,13 @@ describe('getLineNumberEdgeTriggerClassName', () => {
 
   it('returns left edge trigger class', () => {
     expect(getLineNumberEdgeTriggerClassName({ position: 'left' })).toBe(
-      'absolute inset-y-0 left-0 z-50 w-[calc(6ch+12px)]',
+      'absolute inset-y-0 left-0 z-50 w-[calc(6ch+12px)] byline-mouse-reveal-edge-trigger',
     );
   });
 
   it('returns right edge trigger class', () => {
     expect(getLineNumberEdgeTriggerClassName({ position: 'right' })).toBe(
-      'absolute inset-y-0 right-0 z-50 w-[calc(6ch+12px)]',
+      'absolute inset-y-0 right-0 z-50 w-[calc(6ch+12px)] byline-mouse-reveal-edge-trigger',
     );
   });
 });
