@@ -33,7 +33,8 @@ import type { FontStyleType, TextChange } from "../fontStyles";
 const RIGHT_LINE_NUMBER_TEXT_OFFSET = "0.75ch";
 const RIGHT_LINE_NUMBER_PADDING_LEFT = "1ch";
 const RIGHT_LINE_NUMBER_PADDING_RIGHT = "3ch";
-const RIGHT_LINE_COPY_ICON_OFFSET = "calc(100% - 2.6ch)";
+const LEFT_LINE_COPY_ICON_OFFSET = "calc(100% - 1.45ch)";
+const RIGHT_LINE_COPY_ICON_OFFSET = "calc(100% - 3.2ch)";
 
 type CodeMirrorExtensionOptions = {
   ariaLabel: string;
@@ -192,7 +193,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     },
     ".byline-line-copy-icon": {
       position: "absolute",
-      left: "calc(100% - 1.65ch)",
+      left: LEFT_LINE_COPY_ICON_OFFSET,
       top: "50%",
       display: "inline-flex",
       transform: "translateY(-50%)",
