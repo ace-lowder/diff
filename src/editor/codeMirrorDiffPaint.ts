@@ -11,6 +11,7 @@ import type {
 } from '../editorDiff';
 import type { CodeMirrorDecorations } from './codeMirrorDecorations';
 import {
+  DIFF_CONTENT_HORIZONTAL_PADDING_PX,
   DIFF_PAINT_GEOMETRY,
   DIFF_TICK_WIDTH_PX,
   getAdjustedPaintRectBox,
@@ -21,6 +22,7 @@ import {
   type PaintRectBox,
 } from './codeMirrorDiffPaintGeometry';
 import {
+  getVisibleLineNumberGutterWidthPx,
   lineNumberSettingsField,
   shouldShowLineNumberGutter,
 } from './codeMirrorLineCopy';
@@ -808,6 +810,20 @@ const getLineHeight = (view: EditorView): number => {
   return Math.max(1, view.defaultLineHeight);
 };
 
+const getReservedLeftGutterWidthPx = (view: EditorView): number => {
+  const settings = view.state.field(lineNumberSettingsField, false);
+
+  if (
+    !settings ||
+    settings.position !== 'left' ||
+    !shouldShowLineNumberGutter(settings)
+  ) {
+    return DIFF_CONTENT_HORIZONTAL_PADDING_PX;
+  }
+
+  return getVisibleLineNumberGutterWidthPx(view);
+};
+
 const getLineBlockMarkers = ({
   view,
   className,
@@ -834,6 +850,7 @@ const getLineBlockMarkers = ({
   const adjustment = getLinePaintGeometryAdjustment({
     geometryRole,
     lineNumberLayout,
+    reservedLeftGutterWidthPx: getReservedLeftGutterWidthPx(view),
   });
   const markers: RectangleMarker[] = [];
 
@@ -903,6 +920,7 @@ const getLowestEditedLineRuleMarkers = ({
   }, getLinePaintGeometryAdjustment({
     geometryRole: 'lowestEditedLine',
     lineNumberLayout,
+    reservedLeftGutterWidthPx: getReservedLeftGutterWidthPx(view),
   }));
   if (!ruleBox) {
     return [];

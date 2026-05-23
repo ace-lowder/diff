@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  getVisibleLineNumberGutterWidthPx,
   LINE_COPY_ICON_CLASS_NAME,
   LINE_COPY_ICON_FADE_MS,
   LINE_COPY_ICON_FADING_CLASS_NAME,
@@ -112,6 +113,82 @@ describe('line number gutter visibility and side helpers', () => {
     expect(getLineNumberGutterClassName('right')).toBe(
       'cm-lineNumbers byline-line-number-gutter byline-line-number-gutter-right',
     );
+  });
+});
+
+describe('getVisibleLineNumberGutterWidthPx', () => {
+  const getView = ({
+    settings,
+    width,
+    hasGutter = true,
+  }: {
+    settings: { visibilityMode: 'visible' | 'autoHide'; isVisible: boolean } | null;
+    width?: number;
+    hasGutter?: boolean;
+  }) => {
+    return {
+      state: {
+        field: () => settings,
+      },
+      dom: {
+        querySelector: () => {
+          if (!hasGutter) {
+            return null;
+          }
+
+          return {
+            getBoundingClientRect: () => ({ width }),
+          };
+        },
+      },
+    };
+  };
+
+  it('returns 0 when settings are missing', () => {
+    const view = getView({ settings: null, width: 40 });
+
+    expect(getVisibleLineNumberGutterWidthPx(view as never)).toBe(0);
+  });
+
+  it('returns 0 when line numbers are hidden', () => {
+    const view = getView({
+      settings: { visibilityMode: 'autoHide', isVisible: false },
+      width: 40,
+    });
+
+    expect(getVisibleLineNumberGutterWidthPx(view as never)).toBe(0);
+  });
+
+  it('returns 0 when line number gutter element is missing', () => {
+    const view = getView({
+      settings: { visibilityMode: 'visible', isVisible: true },
+      hasGutter: false,
+    });
+
+    expect(getVisibleLineNumberGutterWidthPx(view as never)).toBe(0);
+  });
+
+  it('returns measured width when line numbers are visible', () => {
+    const view = getView({
+      settings: { visibilityMode: 'visible', isVisible: true },
+      width: 47.5,
+    });
+
+    expect(getVisibleLineNumberGutterWidthPx(view as never)).toBe(47.5);
+  });
+
+  it('returns 0 for non-finite or non-positive widths', () => {
+    const notFiniteView = getView({
+      settings: { visibilityMode: 'visible', isVisible: true },
+      width: Number.NaN,
+    });
+    const negativeView = getView({
+      settings: { visibilityMode: 'visible', isVisible: true },
+      width: -4,
+    });
+
+    expect(getVisibleLineNumberGutterWidthPx(notFiniteView as never)).toBe(0);
+    expect(getVisibleLineNumberGutterWidthPx(negativeView as never)).toBe(0);
   });
 });
 

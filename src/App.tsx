@@ -73,6 +73,7 @@ import {
   scrollToLineNumber,
 } from './editor/codeMirrorScroll';
 import { LINE_NUMBER_AUTO_HIDE_DELAY_MS } from './editor/codeMirrorLineNumberSettings';
+import { getVisibleLineNumberGutterWidthPx } from './editor/codeMirrorLineCopy';
 import type {
   AppMode,
   CopyLineHandler,
@@ -156,6 +157,8 @@ const App = () => {
     initialLineNumberVisibilityMode === 'visible',
   );
   const [editorScrollbarWidthPx, setEditorScrollbarWidthPx] = useState(0);
+  const [editorLineNumberGutterWidthPx, setEditorLineNumberGutterWidthPx] =
+    useState(0);
 
   const draftEditorViewRef = useRef<EditorView | null>(null);
   const editorEditorViewRef = useRef<EditorView | null>(null);
@@ -635,6 +638,15 @@ const App = () => {
     return Math.max(...widths);
   };
 
+  const getEditorLineNumberGutterWidth = (): number => {
+    const widths = [draftEditorViewRef.current, editorEditorViewRef.current]
+      .map((view) => {
+        return view ? getVisibleLineNumberGutterWidthPx(view) : 0;
+      });
+
+    return Math.max(...widths);
+  };
+
   const requestEditorMeasure = useCallback(() => {
     if (editorMeasureFrameRef.current !== null) {
       return;
@@ -650,6 +662,13 @@ const App = () => {
         return currentWidth === nextScrollbarWidth
           ? currentWidth
           : nextScrollbarWidth;
+      });
+
+      const nextLineNumberGutterWidth = getEditorLineNumberGutterWidth();
+      setEditorLineNumberGutterWidthPx((currentWidth) => {
+        return currentWidth === nextLineNumberGutterWidth
+          ? currentWidth
+          : nextLineNumberGutterWidth;
       });
     });
   }, []);
@@ -1192,6 +1211,7 @@ const App = () => {
               className={`group absolute bottom-0 top-0 z-[60] hidden cursor-col-resize touch-none select-none sm:block ${getEditorWidthHandleWidthClassName()} ${getEditorWidthHandleTransformClassName(editorWidthHandlePlacement)}`}
               style={getEditorWidthHandleStyle({
                 placement: editorWidthHandlePlacement,
+                lineNumberGutterWidthPx: editorLineNumberGutterWidthPx,
                 scrollbarWidthPx: editorScrollbarWidthPx,
               })}
             >
@@ -1283,8 +1303,6 @@ const DEFAULT_EDITOR_WIDTH_PERCENT = 100;
 const MIN_EDITOR_WIDTH_PERCENT = 55;
 const MAX_EDITOR_WIDTH_PERCENT = 100;
 const EDITOR_WIDTH_RESIZE_MIN_SCREEN_WIDTH = 640;
-const EDITOR_WIDTH_HANDLE_LEFT_OFFSET = 'calc(6ch + 14px)';
-const EDITOR_WIDTH_HANDLE_RIGHT_GUTTER_OFFSET = 'calc(6ch + 12px)';
 
 const getEditorWidthHandlePlacement = ({
   lineNumberPosition,
@@ -1309,28 +1327,22 @@ const getEditorWidthHandlePlacement = ({
   return 'afterLeftGutter';
 };
 
-const getEditorWidthHandleRightOffset = (scrollbarWidthPx: number): string => {
-  if (scrollbarWidthPx <= 0) {
-    return EDITOR_WIDTH_HANDLE_RIGHT_GUTTER_OFFSET;
-  }
-
-  return `calc(${EDITOR_WIDTH_HANDLE_RIGHT_GUTTER_OFFSET} + ${scrollbarWidthPx}px)`;
-};
-
 const getEditorWidthHandleStyle = ({
   placement,
+  lineNumberGutterWidthPx,
   scrollbarWidthPx,
 }: {
   placement: Exclude<EditorWidthHandlePlacement, 'none'>;
+  lineNumberGutterWidthPx: number;
   scrollbarWidthPx: number;
 }): { left?: string; right?: string } => {
   if (placement === 'beforeRightGutter') {
     return {
-      right: getEditorWidthHandleRightOffset(scrollbarWidthPx),
+      right: `${lineNumberGutterWidthPx + scrollbarWidthPx}px`,
     };
   }
 
-  return { left: EDITOR_WIDTH_HANDLE_LEFT_OFFSET };
+  return { left: `${lineNumberGutterWidthPx}px` };
 };
 
 const getEditorWidthHandleTransformClassName = (

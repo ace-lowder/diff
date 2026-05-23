@@ -19,6 +19,8 @@ import { CODE_MIRROR_TAB_SIZE, insertTabCharacter } from "./codeMirrorTab";
 import {
   CODE_MIRROR_FONT_SIZE,
   CODE_MIRROR_LINE_HEIGHT,
+  CODE_MIRROR_LINE_NUMBER_GUTTER_PADDING_RIGHT,
+  CODE_MIRROR_LINE_NUMBER_GUTTER_WIDTH,
 } from "./codeMirrorThemeConstants";
 import type {
   CodeMirrorTheme,
@@ -174,10 +176,11 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       border: "none",
     },
     ".cm-lineNumbers .cm-gutterElement": {
-      width: "6ch",
-      minWidth: "6ch",
+      width: CODE_MIRROR_LINE_NUMBER_GUTTER_WIDTH,
+      minWidth: CODE_MIRROR_LINE_NUMBER_GUTTER_WIDTH,
       paddingLeft: "0",
-      paddingRight: "2ch",
+      paddingRight: CODE_MIRROR_LINE_NUMBER_GUTTER_PADDING_RIGHT,
+      boxSizing: "border-box",
       textAlign: "right",
       cursor: "pointer",
       userSelect: "none",

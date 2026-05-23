@@ -31,6 +31,10 @@ describe('site chrome base styles', () => {
     expect(indexCss).toContain('--byline-menu-height: 36px;');
   });
 
+  it('sets default line number gutter width css variable', () => {
+    expect(indexCss).toContain('--byline-line-number-gutter-width: calc(6ch + 12px);');
+  });
+
   it('defines html selector in css', () => {
     expect(indexCss).toContain('html,');
   });

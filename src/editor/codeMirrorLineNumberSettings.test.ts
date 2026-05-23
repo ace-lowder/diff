@@ -51,18 +51,20 @@ describe('getCodeMirrorPaneLineNumberClassName', () => {
 
 describe('getLineNumberEdgeTriggerClassName', () => {
   it('uses the expected edge trigger width class', () => {
-    expect(LINE_NUMBER_EDGE_TRIGGER_WIDTH_CLASS_NAME).toBe('w-[calc(6ch+12px)]');
+    expect(LINE_NUMBER_EDGE_TRIGGER_WIDTH_CLASS_NAME).toBe(
+      'w-[var(--byline-line-number-gutter-width)]',
+    );
   });
 
   it('returns left edge trigger class', () => {
     expect(getLineNumberEdgeTriggerClassName({ position: 'left' })).toBe(
-      'absolute inset-y-0 left-0 z-50 w-[calc(6ch+12px)] byline-mouse-reveal-edge-trigger',
+      'absolute inset-y-0 left-0 z-50 w-[var(--byline-line-number-gutter-width)] byline-mouse-reveal-edge-trigger',
     );
   });
 
   it('returns right edge trigger class', () => {
     expect(getLineNumberEdgeTriggerClassName({ position: 'right' })).toBe(
-      'absolute inset-y-0 right-0 z-50 w-[calc(6ch+12px)] byline-mouse-reveal-edge-trigger',
+      'absolute inset-y-0 right-0 z-50 w-[var(--byline-line-number-gutter-width)] byline-mouse-reveal-edge-trigger',
     );
   });
 });

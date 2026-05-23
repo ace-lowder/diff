@@ -91,6 +91,30 @@ export const shouldShowLineNumberGutter = ({
   return visibilityMode === 'visible' || isVisible;
 };
 
+export const getVisibleLineNumberGutterWidthPx = (
+  view: EditorView,
+): number => {
+  const settings = view.state.field(lineNumberSettingsField, false);
+
+  if (!settings || !shouldShowLineNumberGutter(settings)) {
+    return 0;
+  }
+
+  const gutterElement = view.dom.querySelector<HTMLElement>('.cm-lineNumbers');
+
+  if (!gutterElement) {
+    return 0;
+  }
+
+  const { width } = gutterElement.getBoundingClientRect();
+
+  if (!Number.isFinite(width) || width <= 0) {
+    return 0;
+  }
+
+  return width;
+};
+
 export const getLineNumberGutterSide = (
   position: LineNumberPosition,
 ): 'before' | 'after' => {

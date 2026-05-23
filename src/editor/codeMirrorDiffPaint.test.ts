@@ -15,7 +15,6 @@ import {
 import {
   DIFF_CONTENT_HORIZONTAL_PADDING_PX,
   DIFF_PAINT_GEOMETRY,
-  DIFF_FULL_LINE_LEFT_OFFSET_PX,
   DIFF_FULL_LINE_RIGHT_OFFSET_PX,
   getAdjustedPaintRectBox,
   getLinePaintGeometryAdjustment,
@@ -396,13 +395,14 @@ describe('getDiffPaintEffectValue', () => {
 });
 
 describe('getLinePaintGeometryAdjustment', () => {
-  it('keeps fullLine offsets with reserved left gutter', () => {
+  it('uses provided reserved left gutter width for line-wide paint', () => {
     const adjustment = getLinePaintGeometryAdjustment({
       geometryRole: 'fullLine',
       lineNumberLayout: 'reservedLeftGutter',
+      reservedLeftGutterWidthPx: 73,
     });
 
-    expect(adjustment.leftOffsetPx).toBe(DIFF_FULL_LINE_LEFT_OFFSET_PX);
+    expect(adjustment.leftOffsetPx).toBe(73);
     expect(adjustment.rightOffsetPx).toBe(DIFF_FULL_LINE_RIGHT_OFFSET_PX);
   });
 
@@ -429,13 +429,25 @@ describe('getLinePaintGeometryAdjustment', () => {
   });
 
   it('does not change inlineText horizontal offsets', () => {
-    const adjustment = getLinePaintGeometryAdjustment({
+    const inlineAdjustment = getLinePaintGeometryAdjustment({
       geometryRole: 'inlineText',
       lineNumberLayout: 'noReservedLeftGutter',
     });
+    const tickAdjustment = getLinePaintGeometryAdjustment({
+      geometryRole: 'tick',
+      lineNumberLayout: 'noReservedLeftGutter',
+    });
+    const missingLineAdjustment = getLinePaintGeometryAdjustment({
+      geometryRole: 'missingLine',
+      lineNumberLayout: 'noReservedLeftGutter',
+    });
 
-    expect(adjustment.leftOffsetPx).toBe(DIFF_PAINT_GEOMETRY.inlineText.leftOffsetPx);
-    expect(adjustment.rightOffsetPx).toBe(DIFF_PAINT_GEOMETRY.inlineText.rightOffsetPx);
+    expect(inlineAdjustment.leftOffsetPx).toBe(DIFF_PAINT_GEOMETRY.inlineText.leftOffsetPx);
+    expect(inlineAdjustment.rightOffsetPx).toBe(DIFF_PAINT_GEOMETRY.inlineText.rightOffsetPx);
+    expect(tickAdjustment.leftOffsetPx).toBe(DIFF_PAINT_GEOMETRY.tick.leftOffsetPx);
+    expect(tickAdjustment.rightOffsetPx).toBe(DIFF_PAINT_GEOMETRY.tick.rightOffsetPx);
+    expect(missingLineAdjustment.leftOffsetPx).toBe(DIFF_PAINT_GEOMETRY.missingLine.leftOffsetPx);
+    expect(missingLineAdjustment.rightOffsetPx).toBe(DIFF_PAINT_GEOMETRY.missingLine.rightOffsetPx);
   });
 
   it('uses 12px as the content horizontal padding constant', () => {

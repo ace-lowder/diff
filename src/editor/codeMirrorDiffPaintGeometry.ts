@@ -77,19 +77,27 @@ export const DIFF_PAINT_GEOMETRY: Record<
 export const getLinePaintGeometryAdjustment = ({
   geometryRole,
   lineNumberLayout,
+  reservedLeftGutterWidthPx = DIFF_CONTENT_HORIZONTAL_PADDING_PX,
 }: {
   geometryRole: DiffPaintGeometryRole;
   lineNumberLayout: DiffPaintLineNumberLayout;
+  reservedLeftGutterWidthPx?: number;
 }): PaintGeometryAdjustment => {
   const adjustment = DIFF_PAINT_GEOMETRY[geometryRole];
 
   if (
-    lineNumberLayout === 'reservedLeftGutter' ||
-    (geometryRole !== 'fullLine' &&
-      geometryRole !== 'activeLine' &&
-      geometryRole !== 'lowestEditedLine')
+    geometryRole !== 'fullLine' &&
+    geometryRole !== 'activeLine' &&
+    geometryRole !== 'lowestEditedLine'
   ) {
     return adjustment;
+  }
+
+  if (lineNumberLayout === 'reservedLeftGutter') {
+    return {
+      ...adjustment,
+      leftOffsetPx: reservedLeftGutterWidthPx,
+    };
   }
 
   return {

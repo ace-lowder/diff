@@ -5,7 +5,8 @@ import type {
 import { MOUSE_REVEAL_EDGE_TRIGGER_CLASS_NAME } from '../pointerEvents';
 
 export const LINE_NUMBER_AUTO_HIDE_DELAY_MS = 2000;
-export const LINE_NUMBER_EDGE_TRIGGER_WIDTH_CLASS_NAME = 'w-[calc(6ch+12px)]';
+export const LINE_NUMBER_EDGE_TRIGGER_WIDTH_CLASS_NAME =
+  'w-[var(--byline-line-number-gutter-width)]';
 
 export const getCodeMirrorPaneLineNumberClassName = ({
   position,
