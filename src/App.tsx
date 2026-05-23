@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+} from 'react';
 
 import { EditorView } from '@codemirror/view';
 
@@ -52,6 +59,7 @@ import {
   getTopVisibleLineNumber,
   scrollToLineNumber,
 } from './editor/codeMirrorScroll';
+import { LINE_NUMBER_AUTO_HIDE_DELAY_MS } from './editor/codeMirrorLineNumberSettings';
 import type {
   AppMode,
   CopyLineHandler,
@@ -114,6 +122,8 @@ const App = () => {
     useState<LineNumberPosition>('left');
   const [lineNumberVisibilityMode, setLineNumberVisibilityMode] =
     useState<LineNumberVisibilityMode>('visible');
+  const [areLineNumbersVisible, setAreLineNumbersVisible] = useState(true);
+  const [editorScrollbarWidthPx, setEditorScrollbarWidthPx] = useState(0);
 
   const draftEditorViewRef = useRef<EditorView | null>(null);
   const editorEditorViewRef = useRef<EditorView | null>(null);
@@ -129,6 +139,7 @@ const App = () => {
   const copyStatusTimeoutRef = useRef<number | null>(null);
   const coffeeStatusTimeoutRef = useRef<number | null>(null);
   const menuHideTimeoutRef = useRef<number | null>(null);
+  const lineNumberHideTimeoutRef = useRef<number | null>(null);
   const draftActiveFontStyleTypesRef = useRef<FontStyleType[]>([]);
   const editorActiveFontStyleTypesRef = useRef<FontStyleType[]>([]);
 
@@ -194,6 +205,9 @@ const App = () => {
       }
       if (menuHideTimeoutRef.current !== null) {
         window.clearTimeout(menuHideTimeoutRef.current);
+      }
+      if (lineNumberHideTimeoutRef.current !== null) {
+        window.clearTimeout(lineNumberHideTimeoutRef.current);
       }
       if (editorMeasureFrameRef.current !== null) {
         window.cancelAnimationFrame(editorMeasureFrameRef.current);
@@ -274,6 +288,31 @@ const App = () => {
   const setMenuPlacement = (placement: MenuPlacement) => {
     setMenuPlacementState(placement);
     setStoredMenuPlacement(placement);
+  };
+
+  const clearLineNumberHideTimeout = () => {
+    if (lineNumberHideTimeoutRef.current !== null) {
+      window.clearTimeout(lineNumberHideTimeoutRef.current);
+      lineNumberHideTimeoutRef.current = null;
+    }
+  };
+
+  const showLineNumbers = () => {
+    clearLineNumberHideTimeout();
+    setAreLineNumbersVisible(true);
+  };
+
+  const scheduleLineNumbersHide = () => {
+    clearLineNumberHideTimeout();
+
+    if (lineNumberVisibilityMode !== 'autoHide') {
+      return;
+    }
+
+    lineNumberHideTimeoutRef.current = window.setTimeout(() => {
+      setAreLineNumbersVisible(false);
+      lineNumberHideTimeoutRef.current = null;
+    }, LINE_NUMBER_AUTO_HIDE_DELAY_MS);
   };
 
   const handleCopyText = async () => {
@@ -433,7 +472,9 @@ const App = () => {
         return;
       }
 
+      clearLineNumberHideTimeout();
       setLineNumberVisibilityMode(command.visibilityMode);
+      setAreLineNumbersVisible(command.visibilityMode === 'visible');
       return;
     }
 
@@ -504,7 +545,23 @@ const App = () => {
     scrollSyncFrameRef.current = window.requestAnimationFrame(runSplitScrollSync);
   };
 
-  const requestEditorMeasure = () => {
+  const getEditorScrollbarWidth = (): number => {
+    const widths = [draftEditorViewRef.current, editorEditorViewRef.current]
+      .map((view) => {
+        if (!view) {
+          return 0;
+        }
+
+        return Math.max(
+          0,
+          view.scrollDOM.offsetWidth - view.scrollDOM.clientWidth,
+        );
+      });
+
+    return Math.max(...widths);
+  };
+
+  const requestEditorMeasure = useCallback(() => {
     if (editorMeasureFrameRef.current !== null) {
       return;
     }
@@ -513,8 +570,15 @@ const App = () => {
       editorMeasureFrameRef.current = null;
       draftEditorViewRef.current?.requestMeasure();
       editorEditorViewRef.current?.requestMeasure();
+
+      const nextScrollbarWidth = getEditorScrollbarWidth();
+      setEditorScrollbarWidthPx((currentWidth) => {
+        return currentWidth === nextScrollbarWidth
+          ? currentWidth
+          : nextScrollbarWidth;
+      });
     });
-  };
+  }, []);
 
   const getSplitDraftPercentFromClientY = (clientY: number): number | null => {
     const splitContainer = splitContainerRef.current;
@@ -594,7 +658,7 @@ const App = () => {
     startEditorWidthPercent: number;
     containerWidth: number;
     deltaX: number;
-    placement: EditorWidthHandlePlacement;
+    placement: Exclude<EditorWidthHandlePlacement, 'none'>;
   }): number => {
     const deltaPercent = ((deltaX * 2) / containerWidth) * 100;
     const nextPercent =
@@ -611,6 +675,10 @@ const App = () => {
   const handleEditorWidthPointerDown = (
     event: PointerEvent<HTMLDivElement>,
   ) => {
+    if (editorWidthHandlePlacement === 'none') {
+      return;
+    }
+
     if (window.innerWidth < EDITOR_WIDTH_RESIZE_MIN_SCREEN_WIDTH) {
       return;
     }
@@ -746,7 +814,18 @@ const App = () => {
   const editorWidthHandlePlacement = getEditorWidthHandlePlacement({
     lineNumberPosition,
     lineNumberVisibilityMode,
+    areLineNumbersVisible,
   });
+
+  useEffect(() => {
+    requestEditorMeasure();
+  }, [
+    lineNumberPosition,
+    lineNumberVisibilityMode,
+    areLineNumbersVisible,
+    mode,
+    requestEditorMeasure,
+  ]);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#121314] text-[#D4D4D4]">
@@ -790,6 +869,9 @@ const App = () => {
                 onCopyLine={handleCopyLine}
                 lineNumberPosition={lineNumberPosition}
                 lineNumberVisibilityMode={lineNumberVisibilityMode}
+                areLineNumbersVisible={areLineNumbersVisible}
+                onShowLineNumbers={showLineNumbers}
+                onScheduleLineNumbersHide={scheduleLineNumbersHide}
                 ariaLabel="Draft text"
                 theme="draft"
                 initialLineNumber={initialLineNumber}
@@ -836,6 +918,9 @@ const App = () => {
                 onCopyLine={handleCopyLine}
                 lineNumberPosition={lineNumberPosition}
                 lineNumberVisibilityMode={lineNumberVisibilityMode}
+                areLineNumbersVisible={areLineNumbersVisible}
+                onShowLineNumbers={showLineNumbers}
+                onScheduleLineNumbersHide={scheduleLineNumbersHide}
                 ariaLabel="Editor text"
                 theme="editor"
                 initialLineNumber={initialLineNumber}
@@ -886,6 +971,9 @@ const App = () => {
                     onCopyLine={handleCopyLine}
                     lineNumberPosition={lineNumberPosition}
                     lineNumberVisibilityMode={lineNumberVisibilityMode}
+                    areLineNumbersVisible={areLineNumbersVisible}
+                    onShowLineNumbers={showLineNumbers}
+                    onScheduleLineNumbersHide={scheduleLineNumbersHide}
                     ariaLabel="Draft text"
                     theme="draft"
                     initialLineNumber={initialLineNumber}
@@ -948,6 +1036,9 @@ const App = () => {
                     onCopyLine={handleCopyLine}
                     lineNumberPosition={lineNumberPosition}
                     lineNumberVisibilityMode={lineNumberVisibilityMode}
+                    areLineNumbersVisible={areLineNumbersVisible}
+                    onShowLineNumbers={showLineNumbers}
+                    onScheduleLineNumbersHide={scheduleLineNumbersHide}
                     ariaLabel="Editor text"
                     theme="editor"
                     initialLineNumber={initialLineNumber}
@@ -969,7 +1060,8 @@ const App = () => {
               </div>
             )}
 
-            <div
+            {editorWidthHandlePlacement !== 'none' && (
+              <div
               role="separator"
               aria-orientation="vertical"
               aria-valuemin={MIN_EDITOR_WIDTH_PERCENT}
@@ -980,13 +1072,17 @@ const App = () => {
               onPointerUp={handleEditorWidthPointerUp}
               onPointerCancel={handleEditorWidthPointerUp}
               onDoubleClick={handleEditorWidthDoubleClick}
-              className={`group absolute bottom-0 top-0 z-[60] hidden cursor-col-resize touch-none select-none sm:block ${getEditorWidthHandleWidthClassName(editorWidthHandlePlacement)} ${getEditorWidthHandleTransformClassName(editorWidthHandlePlacement)}`}
-              style={getEditorWidthHandleStyle(editorWidthHandlePlacement)}
+              className={`group absolute bottom-0 top-0 z-[60] hidden cursor-col-resize touch-none select-none sm:block ${getEditorWidthHandleWidthClassName()} ${getEditorWidthHandleTransformClassName(editorWidthHandlePlacement)}`}
+              style={getEditorWidthHandleStyle({
+                placement: editorWidthHandlePlacement,
+                scrollbarWidthPx: editorScrollbarWidthPx,
+              })}
             >
               <div
                 className={`absolute h-full w-px ${getEditorWidthHandleLineColorClassName()} ${getEditorWidthHandleLineClassName()}`}
               />
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -1053,13 +1149,13 @@ type EditorWidthDragState = {
   startClientX: number;
   startEditorWidthPercent: number;
   containerWidth: number;
-  placement: EditorWidthHandlePlacement;
+  placement: Exclude<EditorWidthHandlePlacement, 'none'>;
 };
 
 type EditorWidthHandlePlacement =
   | 'afterLeftGutter'
   | 'beforeRightGutter'
-  | 'hiddenLineNumberBoundary';
+  | 'none';
 
 const DEFAULT_SPLIT_DRAFT_PERCENT = 50;
 const MIN_SPLIT_DRAFT_PERCENT = 15;
@@ -1068,18 +1164,23 @@ const DEFAULT_EDITOR_WIDTH_PERCENT = 100;
 const MIN_EDITOR_WIDTH_PERCENT = 55;
 const MAX_EDITOR_WIDTH_PERCENT = 100;
 const EDITOR_WIDTH_RESIZE_MIN_SCREEN_WIDTH = 640;
-const EDITOR_WIDTH_HANDLE_LEFT = 'calc(6ch + 16px)';
-const EDITOR_WIDTH_HANDLE_RIGHT = 'calc(6ch + 12px)';
+const EDITOR_WIDTH_HANDLE_LEFT_OFFSET = 'calc(6ch + 14px)';
+const EDITOR_WIDTH_HANDLE_RIGHT_GUTTER_OFFSET = 'calc(6ch + 12px)';
 
 const getEditorWidthHandlePlacement = ({
   lineNumberPosition,
   lineNumberVisibilityMode,
+  areLineNumbersVisible,
 }: {
   lineNumberPosition: LineNumberPosition;
   lineNumberVisibilityMode: LineNumberVisibilityMode;
+  areLineNumbersVisible: boolean;
 }): EditorWidthHandlePlacement => {
-  if (lineNumberVisibilityMode === 'autoHide') {
-    return 'hiddenLineNumberBoundary';
+  const shouldShowLineNumbers =
+    lineNumberVisibilityMode === 'visible' || areLineNumbersVisible;
+
+  if (!shouldShowLineNumbers) {
+    return 'none';
   }
 
   if (lineNumberPosition === 'right') {
@@ -1089,18 +1190,32 @@ const getEditorWidthHandlePlacement = ({
   return 'afterLeftGutter';
 };
 
-const getEditorWidthHandleStyle = (
-  placement: EditorWidthHandlePlacement,
-): { left?: string; right?: string } => {
-  if (placement === 'beforeRightGutter') {
-    return { right: EDITOR_WIDTH_HANDLE_RIGHT };
+const getEditorWidthHandleRightOffset = (scrollbarWidthPx: number): string => {
+  if (scrollbarWidthPx <= 0) {
+    return EDITOR_WIDTH_HANDLE_RIGHT_GUTTER_OFFSET;
   }
 
-  return { left: EDITOR_WIDTH_HANDLE_LEFT };
+  return `calc(${EDITOR_WIDTH_HANDLE_RIGHT_GUTTER_OFFSET} + ${scrollbarWidthPx}px)`;
+};
+
+const getEditorWidthHandleStyle = ({
+  placement,
+  scrollbarWidthPx,
+}: {
+  placement: Exclude<EditorWidthHandlePlacement, 'none'>;
+  scrollbarWidthPx: number;
+}): { left?: string; right?: string } => {
+  if (placement === 'beforeRightGutter') {
+    return {
+      right: getEditorWidthHandleRightOffset(scrollbarWidthPx),
+    };
+  }
+
+  return { left: EDITOR_WIDTH_HANDLE_LEFT_OFFSET };
 };
 
 const getEditorWidthHandleTransformClassName = (
-  placement: EditorWidthHandlePlacement,
+  placement: Exclude<EditorWidthHandlePlacement, 'none'>,
 ): string => {
   if (placement === 'beforeRightGutter') {
     return 'translate-x-0';
@@ -1109,10 +1224,8 @@ const getEditorWidthHandleTransformClassName = (
   return '-translate-x-full';
 };
 
-const getEditorWidthHandleWidthClassName = (
-  placement: EditorWidthHandlePlacement,
-): string => {
-  return placement === 'hiddenLineNumberBoundary' ? 'w-6' : 'w-3';
+const getEditorWidthHandleWidthClassName = (): string => {
+  return 'w-3';
 };
 
 const getEditorWidthHandleLineClassName = (): string => {

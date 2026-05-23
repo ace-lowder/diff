@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
@@ -15,7 +15,6 @@ import {
 } from '../editor/codeMirrorDiffPaint';
 import { getCodeMirrorExtensions } from '../editor/codeMirrorExtensions';
 import {
-  LINE_NUMBER_AUTO_HIDE_DELAY_MS,
   getCodeMirrorPaneLineNumberClassName,
   getLineNumberEdgeTriggerClassName,
 } from '../editor/codeMirrorLineNumberSettings';
@@ -52,6 +51,9 @@ type CodeMirrorPaneProps = {
   onCopyLine: CopyLineHandler;
   lineNumberPosition: LineNumberPosition;
   lineNumberVisibilityMode: LineNumberVisibilityMode;
+  areLineNumbersVisible: boolean;
+  onShowLineNumbers: () => void;
+  onScheduleLineNumbersHide: () => void;
   ariaLabel: string;
   theme: CodeMirrorTheme;
   initialLineNumber: number;
@@ -78,6 +80,9 @@ export const CodeMirrorPane = ({
   onCopyLine,
   lineNumberPosition,
   lineNumberVisibilityMode,
+  areLineNumbersVisible,
+  onShowLineNumbers,
+  onScheduleLineNumbersHide,
   ariaLabel,
   theme,
   initialLineNumber,
@@ -101,6 +106,8 @@ export const CodeMirrorPane = ({
   const onRunConsoleCommandRef = useRef(onRunConsoleCommand);
   const onCopyLineRef = useRef(onCopyLine);
   const lineNumberVisibilityModeRef = useRef(lineNumberVisibilityMode);
+  const onShowLineNumbersRef = useRef(onShowLineNumbers);
+  const onScheduleLineNumbersHideRef = useRef(onScheduleLineNumbersHide);
   const lineNumberPositionRef = useRef(lineNumberPosition);
   const areLineNumbersVisibleRef = useRef(true);
   const initialValueRef = useRef(value);
@@ -109,10 +116,6 @@ export const CodeMirrorPane = ({
   const isApplyingExternalValueRef = useRef(false);
   const initialLineNumberRef = useRef(initialLineNumber);
   const initialScrollOffsetRef = useRef(savedScrollOffset);
-  const [areLineNumbersVisible, setAreLineNumbersVisible] = useState(
-    lineNumberVisibilityMode === 'visible',
-  );
-  const lineNumberHideTimeoutRef = useRef<number | null>(null);
   const decorationsRef = useRef(
     getCodeMirrorDecorationsInput({
       editorHighlightRanges,
@@ -154,26 +157,15 @@ export const CodeMirrorPane = ({
 
   useEffect(() => {
     lineNumberVisibilityModeRef.current = lineNumberVisibilityMode;
-
-    if (lineNumberVisibilityMode === 'visible') {
-      if (lineNumberHideTimeoutRef.current !== null) {
-        window.clearTimeout(lineNumberHideTimeoutRef.current);
-        lineNumberHideTimeoutRef.current = null;
-      }
-      window.queueMicrotask(() => {
-        setAreLineNumbersVisible(true);
-      });
-      return;
-    }
-
-    if (lineNumberHideTimeoutRef.current !== null) {
-      window.clearTimeout(lineNumberHideTimeoutRef.current);
-      lineNumberHideTimeoutRef.current = null;
-    }
-    window.queueMicrotask(() => {
-      setAreLineNumbersVisible(false);
-    });
   }, [lineNumberVisibilityMode]);
+
+  useEffect(() => {
+    onShowLineNumbersRef.current = onShowLineNumbers;
+  }, [onShowLineNumbers]);
+
+  useEffect(() => {
+    onScheduleLineNumbersHideRef.current = onScheduleLineNumbersHide;
+  }, [onScheduleLineNumbersHide]);
 
   useEffect(() => {
     lineNumberPositionRef.current = lineNumberPosition;
@@ -182,31 +174,6 @@ export const CodeMirrorPane = ({
   useEffect(() => {
     areLineNumbersVisibleRef.current = areLineNumbersVisible;
   }, [areLineNumbersVisible]);
-
-  const clearLineNumberHideTimeout = () => {
-    if (lineNumberHideTimeoutRef.current !== null) {
-      window.clearTimeout(lineNumberHideTimeoutRef.current);
-      lineNumberHideTimeoutRef.current = null;
-    }
-  };
-
-  const showLineNumbers = () => {
-    clearLineNumberHideTimeout();
-    setAreLineNumbersVisible(true);
-  };
-
-  const scheduleLineNumbersHide = () => {
-    clearLineNumberHideTimeout();
-
-    if (lineNumberVisibilityModeRef.current !== 'autoHide') {
-      return;
-    }
-
-    lineNumberHideTimeoutRef.current = window.setTimeout(() => {
-      setAreLineNumbersVisible(false);
-      lineNumberHideTimeoutRef.current = null;
-    }, LINE_NUMBER_AUTO_HIDE_DELAY_MS);
-  };
 
   const isInsideLineNumberGutter = (target: EventTarget | null): boolean => {
     return (
@@ -349,12 +316,6 @@ export const CodeMirrorPane = ({
   }, [value]);
 
   useEffect(() => {
-    return () => {
-      clearLineNumberHideTimeout();
-    };
-  }, []);
-
-  useEffect(() => {
     const editorView = editorViewRef.current;
     if (!editorView) {
       return;
@@ -384,7 +345,7 @@ export const CodeMirrorPane = ({
           lineNumberVisibilityMode === 'autoHide' &&
           isInsideLineNumberGutter(event.target)
         ) {
-          showLineNumbers();
+          onShowLineNumbersRef.current();
         }
       }}
       onPointerOut={(event) => {
@@ -400,18 +361,18 @@ export const CodeMirrorPane = ({
           return;
         }
 
-        scheduleLineNumbersHide();
+        onScheduleLineNumbersHideRef.current();
       }}
       onPointerLeave={() => {
         if (lineNumberVisibilityMode === 'autoHide') {
-          scheduleLineNumbersHide();
+          onScheduleLineNumbersHideRef.current();
         }
       }}
     >
       {lineNumberVisibilityMode === 'autoHide' && !areLineNumbersVisible && (
         <div
           aria-hidden="true"
-          onPointerEnter={showLineNumbers}
+          onPointerEnter={() => onShowLineNumbersRef.current()}
           className={getLineNumberEdgeTriggerClassName({
             position: lineNumberPosition,
           })}

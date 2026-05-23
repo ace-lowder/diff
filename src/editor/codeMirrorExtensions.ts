@@ -34,6 +34,9 @@ import type {
 } from '../appTypes';
 import type { FontStyleType, TextChange } from '../fontStyles';
 
+const RIGHT_LINE_NUMBER_TEXT_OFFSET = '0.75ch';
+const RIGHT_LINE_COPY_ICON_OFFSET = 'calc(100% - 2.6ch)';
+
 type CodeMirrorExtensionOptions = {
   ariaLabel: string;
   pane: PaneId;
@@ -179,6 +182,10 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       paddingLeft: '1ch',
       paddingRight: '3ch',
     },
+    '.byline-line-numbers-right .byline-line-number': {
+      position: 'relative',
+      right: RIGHT_LINE_NUMBER_TEXT_OFFSET,
+    },
     '.cm-lineNumbers .cm-gutterElement:hover': {
       color: '#BBBEBF',
     },
@@ -194,7 +201,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       transition: 'opacity 500ms ease-out',
     },
     '.byline-line-numbers-right .byline-line-copy-icon': {
-      left: 'calc(100% - 1.85ch)',
+      left: RIGHT_LINE_COPY_ICON_OFFSET,
     },
     '.byline-line-copy-icon-fading': {
       opacity: '0',
