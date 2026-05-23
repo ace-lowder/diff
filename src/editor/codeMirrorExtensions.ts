@@ -32,7 +32,8 @@ import type {
 } from "../appTypes";
 import type { FontStyleType, TextChange, TextSelectionRange } from "../fontStyles";
 
-const RIGHT_LINE_NUMBER_TEXT_OFFSET = "0.75ch";
+export const LEFT_LINE_NUMBER_TEXT_OFFSET = "0.5ch";
+export const RIGHT_LINE_NUMBER_TEXT_OFFSET = "0.75ch";
 const RIGHT_LINE_NUMBER_PADDING_LEFT = "1ch";
 const RIGHT_LINE_NUMBER_PADDING_RIGHT = "3ch";
 const LEFT_LINE_COPY_ICON_OFFSET = "calc(100% - 1.45ch)";
@@ -190,6 +191,10 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     ".byline-line-number-gutter-right .cm-gutterElement": {
       paddingLeft: RIGHT_LINE_NUMBER_PADDING_LEFT,
       paddingRight: RIGHT_LINE_NUMBER_PADDING_RIGHT,
+    },
+    ".byline-line-number-gutter-left .byline-line-number": {
+      display: "inline-block",
+      transform: `translateX(-${LEFT_LINE_NUMBER_TEXT_OFFSET})`,
     },
     ".byline-line-number-gutter-right .byline-line-number": {
       display: "inline-block",

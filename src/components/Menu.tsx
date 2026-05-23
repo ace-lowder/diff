@@ -194,7 +194,7 @@ const MenuStats = ({
 const FontSizeIcon = () => {
   return (
     <span className="inline-flex items-baseline leading-none" aria-hidden="true">
-      <span className="text-[0.72em] font-semibold">T</span>
+      <span className="text-[0.8em] font-bold">T</span>
       <span className="text-[1em] font-medium">T</span>
     </span>
   );

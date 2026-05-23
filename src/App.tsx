@@ -74,6 +74,10 @@ import {
 } from './editor/codeMirrorScroll';
 import { LINE_NUMBER_AUTO_HIDE_DELAY_MS } from './editor/codeMirrorLineNumberSettings';
 import { getVisibleLineNumberGutterWidthPx } from './editor/codeMirrorLineCopy';
+import {
+  getEditorWidthHandleStyle,
+  type EditorWidthHandlePlacement,
+} from './editor/editorWidthHandle';
 import type {
   AppMode,
   CopyLineHandler,
@@ -1291,11 +1295,6 @@ type EditorWidthDragState = {
   placement: Exclude<EditorWidthHandlePlacement, 'none'>;
 };
 
-type EditorWidthHandlePlacement =
-  | 'afterLeftGutter'
-  | 'beforeRightGutter'
-  | 'none';
-
 const DEFAULT_SPLIT_DRAFT_PERCENT = 50;
 const MIN_SPLIT_DRAFT_PERCENT = 15;
 const MAX_SPLIT_DRAFT_PERCENT = 85;
@@ -1325,24 +1324,6 @@ const getEditorWidthHandlePlacement = ({
   }
 
   return 'afterLeftGutter';
-};
-
-const getEditorWidthHandleStyle = ({
-  placement,
-  lineNumberGutterWidthPx,
-  scrollbarWidthPx,
-}: {
-  placement: Exclude<EditorWidthHandlePlacement, 'none'>;
-  lineNumberGutterWidthPx: number;
-  scrollbarWidthPx: number;
-}): { left?: string; right?: string } => {
-  if (placement === 'beforeRightGutter') {
-    return {
-      right: `${lineNumberGutterWidthPx + scrollbarWidthPx}px`,
-    };
-  }
-
-  return { left: `${lineNumberGutterWidthPx}px` };
 };
 
 const getEditorWidthHandleTransformClassName = (
