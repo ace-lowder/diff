@@ -1,5 +1,10 @@
 import { normalizeFontStyleRanges, type FontStyleRange } from "./fontStyles";
-import type { MenuPlacement } from './appTypes';
+import type {
+  LineNumberPosition,
+  LineNumberVisibilityMode,
+  MenuPlacement,
+  MenuVisibilityMode,
+} from './appTypes';
 
 export const DEFAULT_DRAFT_TEXT = `Welcome to byline: a text editor for authors with messy first drafts
 
@@ -26,6 +31,9 @@ export const storageKeys = {
   draftFontStyleRanges: "byline:draftFontStyleRanges",
   editorFontStyleRanges: "byline:editorFontStyleRanges",
   menuPlacement: 'byline:menuPlacement',
+  menuVisibilityMode: 'byline:menuVisibilityMode',
+  lineNumberPosition: 'byline:lineNumberPosition',
+  lineNumberVisibilityMode: 'byline:lineNumberVisibilityMode',
 } as const;
 
 export type StoredDocumentText = {
@@ -91,6 +99,83 @@ export const setStoredMenuPlacement = (placement: MenuPlacement): void => {
     }
 
     window.localStorage.setItem(storageKeys.menuPlacement, placement);
+  } catch {
+    // Ignore storage failures so editing still works.
+  }
+};
+
+export const getStoredMenuVisibilityMode = (): MenuVisibilityMode => {
+  try {
+    const value = window.localStorage.getItem(storageKeys.menuVisibilityMode);
+
+    if (value === 'visible' || value === 'autoHide') {
+      return value;
+    }
+
+    return 'visible';
+  } catch {
+    return 'visible';
+  }
+};
+
+export const setStoredMenuVisibilityMode = (
+  visibilityMode: MenuVisibilityMode,
+): void => {
+  try {
+    window.localStorage.setItem(storageKeys.menuVisibilityMode, visibilityMode);
+  } catch {
+    // Ignore storage failures so editing still works.
+  }
+};
+
+export const getStoredLineNumberPosition = (): LineNumberPosition => {
+  try {
+    const value = window.localStorage.getItem(storageKeys.lineNumberPosition);
+
+    if (value === 'left' || value === 'right') {
+      return value;
+    }
+
+    return 'left';
+  } catch {
+    return 'left';
+  }
+};
+
+export const setStoredLineNumberPosition = (
+  position: LineNumberPosition,
+): void => {
+  try {
+    window.localStorage.setItem(storageKeys.lineNumberPosition, position);
+  } catch {
+    // Ignore storage failures so editing still works.
+  }
+};
+
+export const getStoredLineNumberVisibilityMode = (): LineNumberVisibilityMode => {
+  try {
+    const value = window.localStorage.getItem(
+      storageKeys.lineNumberVisibilityMode,
+    );
+
+    if (value === 'visible' || value === 'autoHide') {
+      return value;
+    }
+
+    return 'visible';
+  } catch {
+    return 'visible';
+  }
+};
+
+export const setStoredLineNumberVisibilityMode = (
+  visibilityMode: LineNumberVisibilityMode,
+): void => {
+  try {
+    window.localStorage.setItem(
+      storageKeys.lineNumberVisibilityMode,
+      visibilityMode,
+    );
   } catch {
     // Ignore storage failures so editing still works.
   }

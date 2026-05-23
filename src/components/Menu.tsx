@@ -1,14 +1,19 @@
 import type { CSSProperties } from 'react';
 
 import type { EditorStats, StatsMode } from '../editorDiff';
-import type { AppMode, CoffeeStatus, CopyStatus, MenuPlacement } from '../appTypes';
+import type {
+  AppMode,
+  CoffeeStatus,
+  CopyStatus,
+  MenuPlacement,
+  MenuVisibilityMode,
+} from '../appTypes';
 import type { FontStyleType } from '../fontStyles';
 import { getFooterStatsLabels } from './footerStatsLabels';
 import {
   getMenuBorderClassName,
   getMenuLayoutClassName,
   getMenuVisibilityClassName,
-  type MenuVisibilityMode,
 } from './menuVisibility';
 
 type MenuProps = {

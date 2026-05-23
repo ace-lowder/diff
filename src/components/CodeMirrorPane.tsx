@@ -62,6 +62,7 @@ type CodeMirrorPaneProps = {
     scrollOffset: ScrollOffset,
     topVisibleLineNumber: number,
   ) => void;
+  onContentLayoutChange?: () => void;
   editorHighlightRanges?: EditorHighlightRange[];
   draftHighlightRanges?: DraftHighlightRange[];
   editorLineDecorations?: EditorLineDecoration[];
@@ -88,6 +89,7 @@ export const CodeMirrorPane = ({
   initialLineNumber,
   savedScrollOffset,
   onScrollOffsetChange,
+  onContentLayoutChange,
   editorHighlightRanges,
   draftHighlightRanges,
   editorLineDecorations,
@@ -100,6 +102,7 @@ export const CodeMirrorPane = ({
   const editorViewRef = useRef<EditorView | null>(null);
   const onDocumentChangeRef = useRef(onDocumentChange);
   const onScrollOffsetChangeRef = useRef(onScrollOffsetChange);
+  const onContentLayoutChangeRef = useRef(onContentLayoutChange);
   const onEditorViewChangeRef = useRef(onEditorViewChange);
   const onFocusPaneRef = useRef(onFocusPane);
   const onToggleFontStyleRef = useRef(onToggleFontStyle);
@@ -134,6 +137,10 @@ export const CodeMirrorPane = ({
   useEffect(() => {
     onScrollOffsetChangeRef.current = onScrollOffsetChange;
   }, [onScrollOffsetChange]);
+
+  useEffect(() => {
+    onContentLayoutChangeRef.current = onContentLayoutChange;
+  }, [onContentLayoutChange]);
 
   useEffect(() => {
     onEditorViewChangeRef.current = onEditorViewChange;
@@ -244,6 +251,7 @@ export const CodeMirrorPane = ({
             onToggleFontStyleRef.current(fontStyleType),
           onScroll: (nextScrollOffset, topVisibleLineNumber) =>
             onScrollOffsetChangeRef.current(nextScrollOffset, topVisibleLineNumber),
+          onContentLayoutChange: () => onContentLayoutChangeRef.current?.(),
           onCopyLine: (context) => onCopyLineRef.current(context),
           lineNumberPosition: lineNumberPositionRef.current,
           lineNumberVisibilityMode: lineNumberVisibilityModeRef.current,

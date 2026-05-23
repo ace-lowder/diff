@@ -4,8 +4,14 @@ import {
   DEFAULT_DRAFT_TEXT,
   DEFAULT_EDITOR_TEXT,
   getStoredDocumentText,
+  getStoredLineNumberPosition,
+  getStoredLineNumberVisibilityMode,
   getStoredMenuPlacement,
+  getStoredMenuVisibilityMode,
+  setStoredLineNumberPosition,
+  setStoredLineNumberVisibilityMode,
   setStoredMenuPlacement,
+  setStoredMenuVisibilityMode,
   storageKeys,
 } from './storage';
 
@@ -175,6 +181,156 @@ describe('menu placement storage', () => {
       window.localStorage.getItem = originalGetItem;
       window.localStorage.setItem = originalSetItem;
       window.localStorage.removeItem = originalRemoveItem;
+    }
+  });
+});
+
+describe('menu visibility mode storage', () => {
+  it('returns visible when value is missing', () => {
+    expect(getStoredMenuVisibilityMode()).toBe('visible');
+  });
+
+  it('returns visible when visible is stored', () => {
+    store.set(storageKeys.menuVisibilityMode, 'visible');
+    expect(getStoredMenuVisibilityMode()).toBe('visible');
+  });
+
+  it('returns autoHide when autoHide is stored', () => {
+    store.set(storageKeys.menuVisibilityMode, 'autoHide');
+    expect(getStoredMenuVisibilityMode()).toBe('autoHide');
+  });
+
+  it('returns visible for invalid stored value', () => {
+    store.set(storageKeys.menuVisibilityMode, 'weird');
+    expect(getStoredMenuVisibilityMode()).toBe('visible');
+  });
+
+  it('stores visible', () => {
+    setStoredMenuVisibilityMode('visible');
+    expect(store.get(storageKeys.menuVisibilityMode)).toBe('visible');
+  });
+
+  it('stores autoHide', () => {
+    setStoredMenuVisibilityMode('autoHide');
+    expect(store.get(storageKeys.menuVisibilityMode)).toBe('autoHide');
+  });
+
+  it('falls back safely when storage access fails', () => {
+    const originalGetItem = window.localStorage.getItem;
+    const originalSetItem = window.localStorage.setItem;
+    window.localStorage.getItem = () => {
+      throw new Error('get-failed');
+    };
+    window.localStorage.setItem = () => {
+      throw new Error('set-failed');
+    };
+
+    try {
+      expect(getStoredMenuVisibilityMode()).toBe('visible');
+      expect(() => setStoredMenuVisibilityMode('visible')).not.toThrow();
+    } finally {
+      window.localStorage.getItem = originalGetItem;
+      window.localStorage.setItem = originalSetItem;
+    }
+  });
+});
+
+describe('line number position storage', () => {
+  it('returns left when value is missing', () => {
+    expect(getStoredLineNumberPosition()).toBe('left');
+  });
+
+  it('returns left when left is stored', () => {
+    store.set(storageKeys.lineNumberPosition, 'left');
+    expect(getStoredLineNumberPosition()).toBe('left');
+  });
+
+  it('returns right when right is stored', () => {
+    store.set(storageKeys.lineNumberPosition, 'right');
+    expect(getStoredLineNumberPosition()).toBe('right');
+  });
+
+  it('returns left for invalid stored value', () => {
+    store.set(storageKeys.lineNumberPosition, 'middle');
+    expect(getStoredLineNumberPosition()).toBe('left');
+  });
+
+  it('stores left', () => {
+    setStoredLineNumberPosition('left');
+    expect(store.get(storageKeys.lineNumberPosition)).toBe('left');
+  });
+
+  it('stores right', () => {
+    setStoredLineNumberPosition('right');
+    expect(store.get(storageKeys.lineNumberPosition)).toBe('right');
+  });
+
+  it('falls back safely when storage access fails', () => {
+    const originalGetItem = window.localStorage.getItem;
+    const originalSetItem = window.localStorage.setItem;
+    window.localStorage.getItem = () => {
+      throw new Error('get-failed');
+    };
+    window.localStorage.setItem = () => {
+      throw new Error('set-failed');
+    };
+
+    try {
+      expect(getStoredLineNumberPosition()).toBe('left');
+      expect(() => setStoredLineNumberPosition('left')).not.toThrow();
+    } finally {
+      window.localStorage.getItem = originalGetItem;
+      window.localStorage.setItem = originalSetItem;
+    }
+  });
+});
+
+describe('line number visibility mode storage', () => {
+  it('returns visible when value is missing', () => {
+    expect(getStoredLineNumberVisibilityMode()).toBe('visible');
+  });
+
+  it('returns visible when visible is stored', () => {
+    store.set(storageKeys.lineNumberVisibilityMode, 'visible');
+    expect(getStoredLineNumberVisibilityMode()).toBe('visible');
+  });
+
+  it('returns autoHide when autoHide is stored', () => {
+    store.set(storageKeys.lineNumberVisibilityMode, 'autoHide');
+    expect(getStoredLineNumberVisibilityMode()).toBe('autoHide');
+  });
+
+  it('returns visible for invalid stored value', () => {
+    store.set(storageKeys.lineNumberVisibilityMode, 'invalid');
+    expect(getStoredLineNumberVisibilityMode()).toBe('visible');
+  });
+
+  it('stores visible', () => {
+    setStoredLineNumberVisibilityMode('visible');
+    expect(store.get(storageKeys.lineNumberVisibilityMode)).toBe('visible');
+  });
+
+  it('stores autoHide', () => {
+    setStoredLineNumberVisibilityMode('autoHide');
+    expect(store.get(storageKeys.lineNumberVisibilityMode)).toBe('autoHide');
+  });
+
+  it('falls back safely when storage access fails', () => {
+    const originalGetItem = window.localStorage.getItem;
+    const originalSetItem = window.localStorage.setItem;
+    window.localStorage.getItem = () => {
+      throw new Error('get-failed');
+    };
+    window.localStorage.setItem = () => {
+      throw new Error('set-failed');
+    };
+
+    try {
+      expect(getStoredLineNumberVisibilityMode()).toBe('visible');
+      expect(() => setStoredLineNumberVisibilityMode('visible')).not.toThrow();
+    } finally {
+      window.localStorage.getItem = originalGetItem;
+      window.localStorage.setItem = originalSetItem;
     }
   });
 });

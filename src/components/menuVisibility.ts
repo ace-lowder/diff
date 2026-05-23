@@ -1,6 +1,4 @@
-import type { MenuPlacement } from '../appTypes';
-
-export type MenuVisibilityMode = 'visible' | 'autoHide';
+import type { MenuPlacement, MenuVisibilityMode } from '../appTypes';
 
 export const getMenuLayoutClassName = ({
   visibilityMode,

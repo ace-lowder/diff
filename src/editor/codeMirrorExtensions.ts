@@ -50,6 +50,7 @@ type CodeMirrorExtensionOptions = {
   onFocusPane: () => void;
   onToggleFontStyle: (fontStyleType: FontStyleType) => void;
   onScroll: (scrollOffset: ScrollOffset, topVisibleLineNumber: number) => void;
+  onContentLayoutChange: () => void;
   onCopyLine: CopyLineHandler;
   lineNumberPosition: LineNumberPosition;
   lineNumberVisibilityMode: LineNumberVisibilityMode;
@@ -65,6 +66,7 @@ export const getCodeMirrorExtensions = ({
   onFocusPane,
   onToggleFontStyle,
   onScroll,
+  onContentLayoutChange,
   onCopyLine,
   lineNumberPosition,
   lineNumberVisibilityMode,
@@ -104,6 +106,7 @@ export const getCodeMirrorExtensions = ({
         changes.push({ fromA, toA, fromB, toB });
       });
       onDocumentChange({ value: update.state.doc.toString(), changes });
+      onContentLayoutChange();
     }),
     EditorView.domEventHandlers({
       scroll: (_event, view) => {

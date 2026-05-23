@@ -25,7 +25,6 @@ import type {
 import { Menu } from './components/Menu';
 import {
   getMenuEdgeTriggerClassName,
-  type MenuVisibilityMode,
 } from './components/menuVisibility';
 import { CodeMirrorPane } from './components/CodeMirrorPane';
 import {
@@ -47,9 +46,15 @@ import {
 } from './fontStyles';
 import {
   getStoredMenuPlacement,
+  getStoredMenuVisibilityMode,
+  getStoredLineNumberPosition,
+  getStoredLineNumberVisibilityMode,
   getStoredDocumentText,
   getStoredFontStyleRanges,
+  setStoredLineNumberPosition,
+  setStoredLineNumberVisibilityMode,
   setStoredMenuPlacement,
+  setStoredMenuVisibilityMode,
   setStoredFontStyleRanges,
   setStoredText,
   storageKeys,
@@ -66,6 +71,7 @@ import type {
   CoffeeStatus,
   LineNumberPosition,
   LineNumberVisibilityMode,
+  MenuVisibilityMode,
   MenuPlacement,
   TextLineContext,
   CopyStatus,
@@ -77,6 +83,14 @@ const MENU_AUTO_HIDE_DELAY_MS = 2000;
 
 const App = () => {
   const initialDocumentText = useMemo(() => getStoredDocumentText(), []);
+  const initialMenuVisibilityMode = useMemo(
+    () => getStoredMenuVisibilityMode(),
+    [],
+  );
+  const initialLineNumberVisibilityMode = useMemo(
+    () => getStoredLineNumberVisibilityMode(),
+    [],
+  );
 
   const [mode, setMode] = useState<AppMode>('split');
   const [statsMode, setStatsMode] = useState<StatsMode>('words');
@@ -113,16 +127,20 @@ const App = () => {
   const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle');
   const [coffeeStatus, setCoffeeStatus] = useState<CoffeeStatus>('idle');
   const [menuVisibilityMode, setMenuVisibilityMode] =
-    useState<MenuVisibilityMode>('visible');
-  const [isMenuVisible, setIsMenuVisible] = useState(true);
+    useState<MenuVisibilityMode>(initialMenuVisibilityMode);
+  const [isMenuVisible, setIsMenuVisible] = useState(
+    initialMenuVisibilityMode === 'visible',
+  );
   const [menuPlacement, setMenuPlacementState] = useState<MenuPlacement>(() =>
     getStoredMenuPlacement(),
   );
   const [lineNumberPosition, setLineNumberPosition] =
-    useState<LineNumberPosition>('left');
+    useState<LineNumberPosition>(() => getStoredLineNumberPosition());
   const [lineNumberVisibilityMode, setLineNumberVisibilityMode] =
-    useState<LineNumberVisibilityMode>('visible');
-  const [areLineNumbersVisible, setAreLineNumbersVisible] = useState(true);
+    useState<LineNumberVisibilityMode>(initialLineNumberVisibilityMode);
+  const [areLineNumbersVisible, setAreLineNumbersVisible] = useState(
+    initialLineNumberVisibilityMode === 'visible',
+  );
   const [editorScrollbarWidthPx, setEditorScrollbarWidthPx] = useState(0);
 
   const draftEditorViewRef = useRef<EditorView | null>(null);
@@ -270,6 +288,7 @@ const App = () => {
   };
 
   const enableMenuAutoHide = () => {
+    setStoredMenuVisibilityMode('autoHide');
     setMenuVisibilityMode('autoHide');
     setIsMenuVisible(true);
     clearMenuHideTimeout();
@@ -280,6 +299,7 @@ const App = () => {
   };
 
   const showMenuAlways = () => {
+    setStoredMenuVisibilityMode('visible');
     setMenuVisibilityMode('visible');
     setIsMenuVisible(true);
     clearMenuHideTimeout();
@@ -288,6 +308,22 @@ const App = () => {
   const setMenuPlacement = (placement: MenuPlacement) => {
     setMenuPlacementState(placement);
     setStoredMenuPlacement(placement);
+  };
+
+  const setPersistentLineNumberPosition = (
+    position: LineNumberPosition,
+  ) => {
+    setStoredLineNumberPosition(position);
+    setLineNumberPosition(position);
+  };
+
+  const setPersistentLineNumberVisibilityMode = (
+    visibilityMode: LineNumberVisibilityMode,
+  ) => {
+    clearLineNumberHideTimeout();
+    setStoredLineNumberVisibilityMode(visibilityMode);
+    setLineNumberVisibilityMode(visibilityMode);
+    setAreLineNumbersVisible(visibilityMode === 'visible');
   };
 
   const clearLineNumberHideTimeout = () => {
@@ -468,13 +504,11 @@ const App = () => {
 
     if (command.type === 'lineNumbers') {
       if (command.action === 'position') {
-        setLineNumberPosition(command.position);
+        setPersistentLineNumberPosition(command.position);
         return;
       }
 
-      clearLineNumberHideTimeout();
-      setLineNumberVisibilityMode(command.visibilityMode);
-      setAreLineNumbersVisible(command.visibilityMode === 'visible');
+      setPersistentLineNumberVisibilityMode(command.visibilityMode);
       return;
     }
 
@@ -872,6 +906,7 @@ const App = () => {
                 areLineNumbersVisible={areLineNumbersVisible}
                 onShowLineNumbers={showLineNumbers}
                 onScheduleLineNumbersHide={scheduleLineNumbersHide}
+                onContentLayoutChange={requestEditorMeasure}
                 ariaLabel="Draft text"
                 theme="draft"
                 initialLineNumber={initialLineNumber}
@@ -888,6 +923,7 @@ const App = () => {
                 }
                 onEditorViewChange={(editorView) => {
                   draftEditorViewRef.current = editorView;
+                  requestEditorMeasure();
                 }}
               />
             )}
@@ -921,6 +957,7 @@ const App = () => {
                 areLineNumbersVisible={areLineNumbersVisible}
                 onShowLineNumbers={showLineNumbers}
                 onScheduleLineNumbersHide={scheduleLineNumbersHide}
+                onContentLayoutChange={requestEditorMeasure}
                 ariaLabel="Editor text"
                 theme="editor"
                 initialLineNumber={initialLineNumber}
@@ -936,6 +973,7 @@ const App = () => {
                 lowestEditedLine={lowestEditedLine}
                 onEditorViewChange={(editorView) => {
                   editorEditorViewRef.current = editorView;
+                  requestEditorMeasure();
                 }}
               />
             )}
@@ -974,6 +1012,7 @@ const App = () => {
                     areLineNumbersVisible={areLineNumbersVisible}
                     onShowLineNumbers={showLineNumbers}
                     onScheduleLineNumbersHide={scheduleLineNumbersHide}
+                    onContentLayoutChange={requestEditorMeasure}
                     ariaLabel="Draft text"
                     theme="draft"
                     initialLineNumber={initialLineNumber}
@@ -992,6 +1031,7 @@ const App = () => {
                     }
                     onEditorViewChange={(editorView) => {
                       draftEditorViewRef.current = editorView;
+                      requestEditorMeasure();
                     }}
                   />
                 </div>
@@ -1039,6 +1079,7 @@ const App = () => {
                     areLineNumbersVisible={areLineNumbersVisible}
                     onShowLineNumbers={showLineNumbers}
                     onScheduleLineNumbersHide={scheduleLineNumbersHide}
+                    onContentLayoutChange={requestEditorMeasure}
                     ariaLabel="Editor text"
                     theme="editor"
                     initialLineNumber={initialLineNumber}
@@ -1054,6 +1095,7 @@ const App = () => {
                     lowestEditedLine={lowestEditedLine}
                     onEditorViewChange={(editorView) => {
                       editorEditorViewRef.current = editorView;
+                      requestEditorMeasure();
                     }}
                   />
                 </div>
