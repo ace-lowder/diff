@@ -974,9 +974,7 @@ const App = () => {
               onPointerCancel={handleEditorWidthPointerUp}
               onDoubleClick={handleEditorWidthDoubleClick}
               className={`group absolute bottom-0 top-0 z-[60] hidden w-3 cursor-col-resize touch-none select-none sm:block ${getEditorWidthHandleTransformClassName(editorWidthHandlePlacement)}`}
-              style={{
-                left: getEditorWidthHandleLeft(editorWidthHandlePlacement),
-              }}
+              style={getEditorWidthHandleStyle(editorWidthHandlePlacement)}
             >
               <div
                 className={`absolute h-full w-px ${getEditorWidthHandleLineColorClassName(editorWidthHandlePlacement)} ${getEditorWidthHandleLineClassName(editorWidthHandlePlacement)}`}
@@ -1050,7 +1048,10 @@ type EditorWidthDragState = {
   containerWidth: number;
 };
 
-type EditorWidthHandlePlacement = 'afterLeftGutter' | 'leftEdge';
+type EditorWidthHandlePlacement =
+  | 'afterLeftGutter'
+  | 'beforeRightGutter'
+  | 'leftEdge';
 
 const DEFAULT_SPLIT_DRAFT_PERCENT = 50;
 const MIN_SPLIT_DRAFT_PERCENT = 15;
@@ -1060,6 +1061,7 @@ const MIN_EDITOR_WIDTH_PERCENT = 55;
 const MAX_EDITOR_WIDTH_PERCENT = 100;
 const EDITOR_WIDTH_RESIZE_MIN_SCREEN_WIDTH = 640;
 const EDITOR_WIDTH_HANDLE_LEFT = 'calc(6ch + 12px)';
+const EDITOR_WIDTH_HANDLE_RIGHT = 'calc(6ch + 12px)';
 
 const getEditorWidthHandlePlacement = ({
   lineNumberPosition,
@@ -1068,38 +1070,57 @@ const getEditorWidthHandlePlacement = ({
   lineNumberPosition: LineNumberPosition;
   lineNumberVisibilityMode: LineNumberVisibilityMode;
 }): EditorWidthHandlePlacement => {
-  if (
-    lineNumberPosition === 'right' ||
-    lineNumberVisibilityMode === 'autoHide'
-  ) {
+  if (lineNumberVisibilityMode === 'autoHide') {
     return 'leftEdge';
+  }
+
+  if (lineNumberPosition === 'right') {
+    return 'beforeRightGutter';
   }
 
   return 'afterLeftGutter';
 };
 
-const getEditorWidthHandleLeft = (placement: EditorWidthHandlePlacement): string => {
-  return placement === 'leftEdge' ? '0' : EDITOR_WIDTH_HANDLE_LEFT;
+const getEditorWidthHandleStyle = (
+  placement: EditorWidthHandlePlacement,
+): { left?: string; right?: string } => {
+  if (placement === 'beforeRightGutter') {
+    return { right: EDITOR_WIDTH_HANDLE_RIGHT };
+  }
+
+  if (placement === 'leftEdge') {
+    return { left: '0' };
+  }
+
+  return { left: EDITOR_WIDTH_HANDLE_LEFT };
 };
 
 const getEditorWidthHandleTransformClassName = (
   placement: EditorWidthHandlePlacement,
 ): string => {
-  return placement === 'leftEdge' ? 'translate-x-0' : '-translate-x-full';
+  if (placement === 'afterLeftGutter') {
+    return '-translate-x-full';
+  }
+
+  return 'translate-x-0';
 };
 
 const getEditorWidthHandleLineClassName = (
   placement: EditorWidthHandlePlacement,
 ): string => {
-  return placement === 'leftEdge' ? 'left-0' : 'right-0';
+  if (placement === 'beforeRightGutter') {
+    return 'right-0';
+  }
+
+  return 'left-0';
 };
 
 const getEditorWidthHandleLineColorClassName = (
   placement: EditorWidthHandlePlacement,
 ): string => {
-  return placement === 'leftEdge'
-    ? 'bg-[#2A2B2C] group-hover:bg-[#3A3B3C]'
-    : 'bg-transparent group-hover:bg-[#3A3B3C]';
+  return placement === 'afterLeftGutter'
+    ? 'bg-transparent group-hover:bg-[#3A3B3C]'
+    : 'bg-[#2A2B2C] group-hover:bg-[#3A3B3C]';
 };
 
 const writeClipboardText = async ({

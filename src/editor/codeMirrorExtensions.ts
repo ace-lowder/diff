@@ -175,6 +175,10 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       position: 'relative',
       overflow: 'visible',
     },
+    '.byline-line-numbers-right .cm-lineNumbers .cm-gutterElement': {
+      paddingLeft: '1ch',
+      paddingRight: '1.25ch',
+    },
     '.cm-lineNumbers .cm-gutterElement:hover': {
       color: '#BBBEBF',
     },
@@ -188,6 +192,9 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       opacity: '1',
       pointerEvents: 'none',
       transition: 'opacity 500ms ease-out',
+    },
+    '.byline-line-numbers-right .byline-line-copy-icon': {
+      left: 'calc(100% - 1.1ch)',
     },
     '.byline-line-copy-icon-fading': {
       opacity: '0',

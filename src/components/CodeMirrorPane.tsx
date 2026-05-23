@@ -208,6 +208,13 @@ export const CodeMirrorPane = ({
     }, LINE_NUMBER_AUTO_HIDE_DELAY_MS);
   };
 
+  const isInsideLineNumberGutter = (target: EventTarget | null): boolean => {
+    return (
+      target instanceof HTMLElement &&
+      target.closest('.cm-gutters') !== null
+    );
+  };
+
   useEffect(() => {
     decorationsRef.current = getCodeMirrorDecorationsInput({
       editorHighlightRanges,
@@ -375,11 +382,25 @@ export const CodeMirrorPane = ({
       onPointerOver={(event) => {
         if (
           lineNumberVisibilityMode === 'autoHide' &&
-          event.target instanceof HTMLElement &&
-          event.target.closest('.cm-gutters')
+          isInsideLineNumberGutter(event.target)
         ) {
           showLineNumbers();
         }
+      }}
+      onPointerOut={(event) => {
+        if (lineNumberVisibilityMode !== 'autoHide') {
+          return;
+        }
+
+        if (!isInsideLineNumberGutter(event.target)) {
+          return;
+        }
+
+        if (isInsideLineNumberGutter(event.relatedTarget)) {
+          return;
+        }
+
+        scheduleLineNumbersHide();
       }}
       onPointerLeave={() => {
         if (lineNumberVisibilityMode === 'autoHide') {
@@ -387,7 +408,7 @@ export const CodeMirrorPane = ({
         }
       }}
     >
-      {lineNumberVisibilityMode === 'autoHide' && (
+      {lineNumberVisibilityMode === 'autoHide' && !areLineNumbersVisible && (
         <div
           aria-hidden="true"
           onPointerEnter={showLineNumbers}
