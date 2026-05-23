@@ -21,7 +21,10 @@ import {
   getMenuLayoutClassName,
   getMenuVisibilityClassName,
 } from './menuVisibility';
-import { FONT_SIZE_ICON_SMALL_T_CLASS_NAME } from '../layoutTuning';
+import {
+  FONT_SIZE_BUTTON_WIDTH_CLASS_NAME,
+  FONT_SIZE_ICON_SMALL_T_CLASS_NAME,
+} from '../layoutTuning';
 
 type MenuProps = {
   mode: AppMode;
@@ -94,7 +97,7 @@ export const Menu = ({
         onClick={onFontSizeToggle}
         aria-label={`Cycle font size. Current size: ${fontSizeMode}`}
         title={`Font size: ${fontSizeMode}`}
-        className="flex h-full w-10 items-center justify-center border-r border-[#2A2B2C] text-[#8C8C8C] hover:bg-[#242526] focus:outline-none focus-visible:bg-[#242526]"
+        className={`flex h-full ${FONT_SIZE_BUTTON_WIDTH_CLASS_NAME} items-center justify-center border-r border-[#2A2B2C] text-[#8C8C8C] hover:bg-[#242526] focus:outline-none focus-visible:bg-[#242526]`}
       >
         <FontSizeIcon />
       </button>

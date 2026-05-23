@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   EDITOR_CONTENT_HORIZONTAL_PADDING_PX,
+  FONT_SIZE_BUTTON_WIDTH_CLASS_NAME,
   FONT_SIZE_ICON_SMALL_T_CLASS_NAME,
   FULL_LINE_HIGHLIGHT_NO_LEFT_GUTTER_NUDGE_PX,
   FULL_LINE_HIGHLIGHT_RESERVED_LEFT_GUTTER_NUDGE_PX,
@@ -24,12 +25,15 @@ describe('layout tuning constants', () => {
     expect(LINE_NUMBER_GUTTER_TOTAL_WIDTH).toBe('calc(6ch + 2ch)');
     expect(LEFT_LINE_NUMBER_TEXT_NUDGE).toBe('0ch');
     expect(RIGHT_LINE_NUMBER_TEXT_NUDGE).toBe('-0.75ch');
-    expect(LEFT_RESIZE_HANDLE_NUDGE_PX).toBe(0);
-    expect(RIGHT_RESIZE_HANDLE_NUDGE_PX).toBe(4);
+    expect(LEFT_RESIZE_HANDLE_NUDGE_PX).toBe(12);
+    expect(RIGHT_RESIZE_HANDLE_NUDGE_PX).toBe(12);
     expect(FULL_LINE_HIGHLIGHT_RESERVED_LEFT_GUTTER_NUDGE_PX).toBe(12);
     expect(FULL_LINE_HIGHLIGHT_NO_LEFT_GUTTER_NUDGE_PX).toBe(0);
     expect(FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX).toBe(0);
     expect(FONT_SIZE_ICON_SMALL_T_CLASS_NAME).toBe('text-[0.72em] font-bold');
     expect(UNDERLINE_FONT_STYLE_LABEL_CLASS_NAME).toBe('text-[0.92em]');
+    expect(FONT_SIZE_BUTTON_WIDTH_CLASS_NAME).toBe(
+      'w-[var(--byline-menu-height)]',
+    );
   });
 });

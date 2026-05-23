@@ -4,8 +4,8 @@ import { RIGHT_RESIZE_HANDLE_NUDGE_PX } from '../layoutTuning';
 import { getEditorWidthHandleStyle } from './editorWidthHandle';
 
 describe('RIGHT_RESIZE_HANDLE_NUDGE_PX', () => {
-  it('is 4', () => {
-    expect(RIGHT_RESIZE_HANDLE_NUDGE_PX).toBe(4);
+  it('is 12', () => {
+    expect(RIGHT_RESIZE_HANDLE_NUDGE_PX).toBe(12);
   });
 });
 
@@ -17,7 +17,7 @@ describe('getEditorWidthHandleStyle', () => {
         lineNumberGutterWidthPx: 56,
         scrollbarWidthPx: 12,
       }),
-    ).toEqual({ left: '56px' });
+    ).toEqual({ left: '68px' });
   });
 
   it('returns right style with gutter + scrollbar + nudge for beforeRightGutter placement', () => {
@@ -27,6 +27,6 @@ describe('getEditorWidthHandleStyle', () => {
         lineNumberGutterWidthPx: 56,
         scrollbarWidthPx: 12,
       }),
-    ).toEqual({ right: '72px' });
+    ).toEqual({ right: '80px' });
   });
 });
