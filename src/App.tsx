@@ -589,13 +589,18 @@ const App = () => {
     startEditorWidthPercent,
     containerWidth,
     deltaX,
+    placement,
   }: {
     startEditorWidthPercent: number;
     containerWidth: number;
     deltaX: number;
+    placement: EditorWidthHandlePlacement;
   }): number => {
     const deltaPercent = ((deltaX * 2) / containerWidth) * 100;
-    const nextPercent = startEditorWidthPercent - deltaPercent;
+    const nextPercent =
+      placement === 'beforeRightGutter'
+        ? startEditorWidthPercent + deltaPercent
+        : startEditorWidthPercent - deltaPercent;
 
     return Math.min(
       MAX_EDITOR_WIDTH_PERCENT,
@@ -624,6 +629,7 @@ const App = () => {
       startClientX: event.clientX,
       startEditorWidthPercent: editorWidthPercent,
       containerWidth,
+      placement: editorWidthHandlePlacement,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -642,6 +648,7 @@ const App = () => {
       startEditorWidthPercent: dragState.startEditorWidthPercent,
       containerWidth: dragState.containerWidth,
       deltaX,
+      placement: dragState.placement,
     });
 
     setEditorWidthPercent(nextPercent);
@@ -973,11 +980,11 @@ const App = () => {
               onPointerUp={handleEditorWidthPointerUp}
               onPointerCancel={handleEditorWidthPointerUp}
               onDoubleClick={handleEditorWidthDoubleClick}
-              className={`group absolute bottom-0 top-0 z-[60] hidden w-3 cursor-col-resize touch-none select-none sm:block ${getEditorWidthHandleTransformClassName(editorWidthHandlePlacement)}`}
+              className={`group absolute bottom-0 top-0 z-[60] hidden cursor-col-resize touch-none select-none sm:block ${getEditorWidthHandleWidthClassName(editorWidthHandlePlacement)} ${getEditorWidthHandleTransformClassName(editorWidthHandlePlacement)}`}
               style={getEditorWidthHandleStyle(editorWidthHandlePlacement)}
             >
               <div
-                className={`absolute h-full w-px ${getEditorWidthHandleLineColorClassName(editorWidthHandlePlacement)} ${getEditorWidthHandleLineClassName(editorWidthHandlePlacement)}`}
+                className={`absolute h-full w-px ${getEditorWidthHandleLineColorClassName()} ${getEditorWidthHandleLineClassName(editorWidthHandlePlacement)}`}
               />
             </div>
           </div>
@@ -1046,6 +1053,7 @@ type EditorWidthDragState = {
   startClientX: number;
   startEditorWidthPercent: number;
   containerWidth: number;
+  placement: EditorWidthHandlePlacement;
 };
 
 type EditorWidthHandlePlacement =
@@ -1060,7 +1068,7 @@ const DEFAULT_EDITOR_WIDTH_PERCENT = 100;
 const MIN_EDITOR_WIDTH_PERCENT = 55;
 const MAX_EDITOR_WIDTH_PERCENT = 100;
 const EDITOR_WIDTH_RESIZE_MIN_SCREEN_WIDTH = 640;
-const EDITOR_WIDTH_HANDLE_LEFT = 'calc(6ch + 12px)';
+const EDITOR_WIDTH_HANDLE_LEFT = 'calc(6ch + 16px)';
 const EDITOR_WIDTH_HANDLE_RIGHT = 'calc(6ch + 12px)';
 
 const getEditorWidthHandlePlacement = ({
@@ -1105,6 +1113,12 @@ const getEditorWidthHandleTransformClassName = (
   return 'translate-x-0';
 };
 
+const getEditorWidthHandleWidthClassName = (
+  placement: EditorWidthHandlePlacement,
+): string => {
+  return placement === 'leftEdge' ? 'w-6' : 'w-3';
+};
+
 const getEditorWidthHandleLineClassName = (
   placement: EditorWidthHandlePlacement,
 ): string => {
@@ -1115,12 +1129,8 @@ const getEditorWidthHandleLineClassName = (
   return 'left-0';
 };
 
-const getEditorWidthHandleLineColorClassName = (
-  placement: EditorWidthHandlePlacement,
-): string => {
-  return placement === 'afterLeftGutter'
-    ? 'bg-transparent group-hover:bg-[#3A3B3C]'
-    : 'bg-[#2A2B2C] group-hover:bg-[#3A3B3C]';
+const getEditorWidthHandleLineColorClassName = (): string => {
+  return 'bg-transparent group-hover:bg-[#3A3B3C] group-focus-visible:bg-[#3A3B3C] group-active:bg-[#3A3B3C]';
 };
 
 const writeClipboardText = async ({

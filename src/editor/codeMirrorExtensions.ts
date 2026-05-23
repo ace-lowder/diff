@@ -177,7 +177,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     },
     '.byline-line-numbers-right .cm-lineNumbers .cm-gutterElement': {
       paddingLeft: '1ch',
-      paddingRight: '1.25ch',
+      paddingRight: '2ch',
     },
     '.cm-lineNumbers .cm-gutterElement:hover': {
       color: '#BBBEBF',
