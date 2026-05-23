@@ -37,6 +37,7 @@ import {
   type ClipboardHighlightRange,
 } from './clipboardExport';
 import {
+  getActiveFontStyleTypesForSelections,
   getInsertedFontStyleRanges,
   mapFontStyleRangesThroughChanges,
   normalizeFontStyleRanges,
@@ -109,6 +110,8 @@ const App = () => {
   const [editorActiveFontStyleTypes, setEditorActiveFontStyleTypes] = useState<
     FontStyleType[]
   >([]);
+  const [draftSelections, setDraftSelections] = useState<TextSelectionRange[]>([]);
+  const [editorSelections, setEditorSelections] = useState<TextSelectionRange[]>([]);
   const [activePane, setActivePane] = useState<PaneId>('editor');
   const [draftScrollOffset, setDraftScrollOffset] = useState<ScrollOffset>({
     left: 0,
@@ -847,13 +850,33 @@ const App = () => {
   };
 
   const handleToggleFontStyle = (fontStyleType: FontStyleType) => {
-    handleToggleFontStyleForPane(getTargetPane(), fontStyleType);
+    handleToggleFontStyleForPane(targetPane, fontStyleType);
   };
 
-  const activeFontStyleTypes =
-    getTargetPane() === 'draft'
-      ? draftActiveFontStyleTypes
-      : editorActiveFontStyleTypes;
+  const targetPane = getTargetPane();
+  const activeFontStyleTypes = useMemo(() => {
+    if (targetPane === 'draft') {
+      return getActiveFontStyleTypesForSelections({
+        ranges: draftFontStyleRanges,
+        selections: draftSelections,
+        fallbackActiveTypes: draftActiveFontStyleTypes,
+      });
+    }
+
+    return getActiveFontStyleTypesForSelections({
+      ranges: editorFontStyleRanges,
+      selections: editorSelections,
+      fallbackActiveTypes: editorActiveFontStyleTypes,
+    });
+  }, [
+    targetPane,
+    draftFontStyleRanges,
+    draftSelections,
+    draftActiveFontStyleTypes,
+    editorFontStyleRanges,
+    editorSelections,
+    editorActiveFontStyleTypes,
+  ]);
   const editorWidthHandlePlacement = getEditorWidthHandlePlacement({
     lineNumberPosition,
     lineNumberVisibilityMode,
@@ -910,6 +933,7 @@ const App = () => {
                 }
                 onRunConsoleCommand={handleRunConsoleCommand}
                 onCopyLine={handleCopyLine}
+                onSelectionChange={setDraftSelections}
                 lineNumberPosition={lineNumberPosition}
                 lineNumberVisibilityMode={lineNumberVisibilityMode}
                 areLineNumbersVisible={areLineNumbersVisible}
@@ -961,6 +985,7 @@ const App = () => {
                 }
                 onRunConsoleCommand={handleRunConsoleCommand}
                 onCopyLine={handleCopyLine}
+                onSelectionChange={setEditorSelections}
                 lineNumberPosition={lineNumberPosition}
                 lineNumberVisibilityMode={lineNumberVisibilityMode}
                 areLineNumbersVisible={areLineNumbersVisible}
@@ -1016,6 +1041,7 @@ const App = () => {
                     }
                     onRunConsoleCommand={handleRunConsoleCommand}
                     onCopyLine={handleCopyLine}
+                    onSelectionChange={setDraftSelections}
                     lineNumberPosition={lineNumberPosition}
                     lineNumberVisibilityMode={lineNumberVisibilityMode}
                     areLineNumbersVisible={areLineNumbersVisible}
@@ -1083,6 +1109,7 @@ const App = () => {
                     }
                     onRunConsoleCommand={handleRunConsoleCommand}
                     onCopyLine={handleCopyLine}
+                    onSelectionChange={setEditorSelections}
                     lineNumberPosition={lineNumberPosition}
                     lineNumberVisibilityMode={lineNumberVisibilityMode}
                     areLineNumbersVisible={areLineNumbersVisible}

@@ -34,7 +34,12 @@ import type {
   EditorLineDecoration,
   LowestEditedLine,
 } from '../editorDiff';
-import type { FontStyleRange, FontStyleType, TextChange } from '../fontStyles';
+import type {
+  FontStyleRange,
+  FontStyleType,
+  TextChange,
+  TextSelectionRange,
+} from '../fontStyles';
 import { shouldRevealAutoHiddenControls } from '../pointerEvents';
 
 type CodeMirrorPaneProps = {
@@ -64,6 +69,7 @@ type CodeMirrorPaneProps = {
     topVisibleLineNumber: number,
   ) => void;
   onContentLayoutChange?: () => void;
+  onSelectionChange?: (selections: TextSelectionRange[]) => void;
   editorHighlightRanges?: EditorHighlightRange[];
   draftHighlightRanges?: DraftHighlightRange[];
   editorLineDecorations?: EditorLineDecoration[];
@@ -91,6 +97,7 @@ export const CodeMirrorPane = ({
   savedScrollOffset,
   onScrollOffsetChange,
   onContentLayoutChange,
+  onSelectionChange,
   editorHighlightRanges,
   draftHighlightRanges,
   editorLineDecorations,
@@ -104,6 +111,7 @@ export const CodeMirrorPane = ({
   const onDocumentChangeRef = useRef(onDocumentChange);
   const onScrollOffsetChangeRef = useRef(onScrollOffsetChange);
   const onContentLayoutChangeRef = useRef(onContentLayoutChange);
+  const onSelectionChangeRef = useRef(onSelectionChange);
   const onEditorViewChangeRef = useRef(onEditorViewChange);
   const onFocusPaneRef = useRef(onFocusPane);
   const onToggleFontStyleRef = useRef(onToggleFontStyle);
@@ -142,6 +150,10 @@ export const CodeMirrorPane = ({
   useEffect(() => {
     onContentLayoutChangeRef.current = onContentLayoutChange;
   }, [onContentLayoutChange]);
+
+  useEffect(() => {
+    onSelectionChangeRef.current = onSelectionChange;
+  }, [onSelectionChange]);
 
   useEffect(() => {
     onEditorViewChangeRef.current = onEditorViewChange;
@@ -253,6 +265,8 @@ export const CodeMirrorPane = ({
           onScroll: (nextScrollOffset, topVisibleLineNumber) =>
             onScrollOffsetChangeRef.current(nextScrollOffset, topVisibleLineNumber),
           onContentLayoutChange: () => onContentLayoutChangeRef.current?.(),
+          onSelectionChange: (selections) =>
+            onSelectionChangeRef.current?.(selections),
           onCopyLine: (context) => onCopyLineRef.current(context),
           lineNumberPosition: lineNumberPositionRef.current,
           lineNumberVisibilityMode: lineNumberVisibilityModeRef.current,
@@ -275,6 +289,7 @@ export const CodeMirrorPane = ({
     });
 
     return () => {
+      onSelectionChangeRef.current?.([]);
       editorView.destroy();
       editorViewRef.current = null;
       onEditorViewChangeRef.current?.(null);

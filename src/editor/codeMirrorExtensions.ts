@@ -28,7 +28,7 @@ import type {
   PaneId,
   ScrollOffset,
 } from "../appTypes";
-import type { FontStyleType, TextChange } from "../fontStyles";
+import type { FontStyleType, TextChange, TextSelectionRange } from "../fontStyles";
 
 const RIGHT_LINE_NUMBER_TEXT_OFFSET = "0.75ch";
 const RIGHT_LINE_NUMBER_PADDING_LEFT = "1ch";
@@ -52,6 +52,7 @@ type CodeMirrorExtensionOptions = {
   onToggleFontStyle: (fontStyleType: FontStyleType) => void;
   onScroll: (scrollOffset: ScrollOffset, topVisibleLineNumber: number) => void;
   onContentLayoutChange: () => void;
+  onSelectionChange?: (selections: TextSelectionRange[]) => void;
   onCopyLine: CopyLineHandler;
   lineNumberPosition: LineNumberPosition;
   lineNumberVisibilityMode: LineNumberVisibilityMode;
@@ -68,6 +69,7 @@ export const getCodeMirrorExtensions = ({
   onToggleFontStyle,
   onScroll,
   onContentLayoutChange,
+  onSelectionChange,
   onCopyLine,
   lineNumberPosition,
   lineNumberVisibilityMode,
@@ -98,16 +100,18 @@ export const getCodeMirrorExtensions = ({
       "aria-label": ariaLabel,
     }),
     EditorView.updateListener.of((update) => {
-      if (!update.docChanged) {
-        return;
+      if (update.docChanged) {
+        const changes: TextChange[] = [];
+        update.changes.iterChanges((fromA, toA, fromB, toB) => {
+          changes.push({ fromA, toA, fromB, toB });
+        });
+        onDocumentChange({ value: update.state.doc.toString(), changes });
+        onContentLayoutChange();
       }
 
-      const changes: TextChange[] = [];
-      update.changes.iterChanges((fromA, toA, fromB, toB) => {
-        changes.push({ fromA, toA, fromB, toB });
-      });
-      onDocumentChange({ value: update.state.doc.toString(), changes });
-      onContentLayoutChange();
+      if (update.selectionSet || update.docChanged) {
+        onSelectionChange?.(getTextSelectionRanges(update.state));
+      }
     }),
     EditorView.domEventHandlers({
       scroll: (_event, view) => {
@@ -310,4 +314,13 @@ const getFontStyleKeyBindings = (
       },
     },
   ];
+};
+
+const getTextSelectionRanges = (state: EditorState): TextSelectionRange[] => {
+  return state.selection.ranges
+    .map((range) => ({
+      from: range.from,
+      to: range.to,
+    }))
+    .filter((range) => range.to > range.from);
 };

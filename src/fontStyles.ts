@@ -18,6 +18,8 @@ export type TextSelectionRange = {
   to: number;
 };
 
+const FONT_STYLE_TYPES: FontStyleType[] = ['bold', 'italic', 'underline'];
+
 export const normalizeFontStyleRanges = (
   ranges: FontStyleRange[],
 ): FontStyleRange[] => {
@@ -131,6 +133,32 @@ export const getInsertedFontStyleRanges = ({
   }
 
   return normalizeFontStyleRanges(insertedRanges);
+};
+
+export const getActiveFontStyleTypesForSelections = ({
+  ranges,
+  selections,
+  fallbackActiveTypes,
+}: {
+  ranges: FontStyleRange[];
+  selections: TextSelectionRange[];
+  fallbackActiveTypes: FontStyleType[];
+}): FontStyleType[] => {
+  const normalizedSelections = normalizeSelections(selections);
+
+  if (normalizedSelections.length === 0) {
+    const fallbackTypeSet = new Set(fallbackActiveTypes);
+    return FONT_STYLE_TYPES.filter((type) => fallbackTypeSet.has(type));
+  }
+
+  const normalizedRanges = normalizeFontStyleRanges(ranges);
+
+  return FONT_STYLE_TYPES.filter((type) => {
+    const styleRanges = normalizedRanges.filter((range) => range.type === type);
+    return normalizedSelections.every((selection) =>
+      isSelectionFullyCoveredByRanges(selection, styleRanges),
+    );
+  });
 };
 
 const normalizeSelections = (
