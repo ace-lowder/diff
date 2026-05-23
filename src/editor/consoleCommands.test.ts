@@ -49,11 +49,35 @@ describe('parseConsoleCommandLine', () => {
     });
     expect(parseConsoleCommandLine('/menu hide')).toEqual({
       kind: 'valid',
-      command: { type: 'menu', visibilityMode: 'autoHide' },
+      command: { type: 'menu', action: 'visibility', visibilityMode: 'autoHide' },
     });
     expect(parseConsoleCommandLine('/menu show')).toEqual({
       kind: 'valid',
-      command: { type: 'menu', visibilityMode: 'visible' },
+      command: { type: 'menu', action: 'visibility', visibilityMode: 'visible' },
+    });
+    expect(parseConsoleCommandLine('/menu top')).toEqual({
+      kind: 'valid',
+      command: { type: 'menu', action: 'placement', placement: 'top' },
+    });
+    expect(parseConsoleCommandLine('/menu bottom')).toEqual({
+      kind: 'valid',
+      command: { type: 'menu', action: 'placement', placement: 'bottom' },
+    });
+    expect(parseConsoleCommandLine('/linenums left')).toEqual({
+      kind: 'valid',
+      command: { type: 'lineNumbers', action: 'position', position: 'left' },
+    });
+    expect(parseConsoleCommandLine('/linenums right')).toEqual({
+      kind: 'valid',
+      command: { type: 'lineNumbers', action: 'position', position: 'right' },
+    });
+    expect(parseConsoleCommandLine('/linenum show')).toEqual({
+      kind: 'valid',
+      command: { type: 'lineNumbers', action: 'visibility', visibilityMode: 'visible' },
+    });
+    expect(parseConsoleCommandLine('/linenum hide')).toEqual({
+      kind: 'valid',
+      command: { type: 'lineNumbers', action: 'visibility', visibilityMode: 'autoHide' },
     });
   });
 
@@ -74,6 +98,22 @@ describe('parseConsoleCommandLine', () => {
     expect(parseConsoleCommandLine('/menu test')).toEqual({
       kind: 'unknown-command',
       message: '/menu test - unknown command',
+    });
+    expect(parseConsoleCommandLine('/linenums')).toEqual({
+      kind: 'unknown-command',
+      message: '/linenums - unknown command',
+    });
+    expect(parseConsoleCommandLine('/linenums show')).toEqual({
+      kind: 'unknown-command',
+      message: '/linenums show - unknown command',
+    });
+    expect(parseConsoleCommandLine('/linenum')).toEqual({
+      kind: 'unknown-command',
+      message: '/linenum - unknown command',
+    });
+    expect(parseConsoleCommandLine('/linenum left')).toEqual({
+      kind: 'unknown-command',
+      message: '/linenum left - unknown command',
     });
     expect(parseConsoleCommandLine('text /view')).toEqual({ kind: 'not-command' });
   });
@@ -98,7 +138,14 @@ describe('getNoLineAboveCommandLineText', () => {
 describe('getConsoleCommandMenu', () => {
   it('returns root options', () => {
     expect(getConsoleCommandMenu({ lineText: '/', cursorOffset: 1 })).toEqual({
-      options: [{ label: 'view' }, { label: 'copy' }, { label: 'count' }, { label: 'menu' }],
+      options: [
+        { label: 'view' },
+        { label: 'copy' },
+        { label: 'count' },
+        { label: 'menu' },
+        { label: 'linenums' },
+        { label: 'linenum' },
+      ],
       tokenFrom: 1,
       tokenTo: 1,
     });
@@ -121,6 +168,12 @@ describe('getConsoleCommandMenu', () => {
       options: [{ label: 'menu' }],
       tokenFrom: 1,
       tokenTo: 2,
+    });
+
+    expect(getConsoleCommandMenu({ lineText: '/li', cursorOffset: 3 })).toEqual({
+      options: [{ label: 'linenums' }, { label: 'linenum' }],
+      tokenFrom: 1,
+      tokenTo: 3,
     });
   });
 
@@ -156,7 +209,7 @@ describe('getConsoleCommandMenu', () => {
     });
 
     expect(getConsoleCommandMenu({ lineText: '/menu ', cursorOffset: 6 })).toEqual({
-      options: [{ label: 'hide' }, { label: 'show' }],
+      options: [{ label: 'hide' }, { label: 'show' }, { label: 'top' }, { label: 'bottom' }],
       tokenFrom: 6,
       tokenTo: 6,
     });
@@ -166,6 +219,36 @@ describe('getConsoleCommandMenu', () => {
       tokenFrom: 6,
       tokenTo: 7,
     });
+
+    expect(getConsoleCommandMenu({ lineText: '/menu b', cursorOffset: 7 })).toEqual({
+      options: [{ label: 'bottom' }],
+      tokenFrom: 6,
+      tokenTo: 7,
+    });
+
+    expect(getConsoleCommandMenu({ lineText: '/linenums ', cursorOffset: 10 })).toEqual({
+      options: [{ label: 'left' }, { label: 'right' }],
+      tokenFrom: 10,
+      tokenTo: 10,
+    });
+
+    expect(getConsoleCommandMenu({ lineText: '/linenums r', cursorOffset: 11 })).toEqual({
+      options: [{ label: 'right' }],
+      tokenFrom: 10,
+      tokenTo: 11,
+    });
+
+    expect(getConsoleCommandMenu({ lineText: '/linenum ', cursorOffset: 9 })).toEqual({
+      options: [{ label: 'show' }, { label: 'hide' }],
+      tokenFrom: 9,
+      tokenTo: 9,
+    });
+
+    expect(getConsoleCommandMenu({ lineText: '/linenum h', cursorOffset: 10 })).toEqual({
+      options: [{ label: 'hide' }],
+      tokenFrom: 9,
+      tokenTo: 10,
+    });
   });
 
   it('does not show menu for complete subcommands', () => {
@@ -173,6 +256,8 @@ describe('getConsoleCommandMenu', () => {
     expect(getConsoleCommandMenu({ lineText: '/count', cursorOffset: 6 })).toBeNull();
     expect(getConsoleCommandMenu({ lineText: '/menu hide', cursorOffset: 10 })).toBeNull();
     expect(getConsoleCommandMenu({ lineText: '/menu show', cursorOffset: 10 })).toBeNull();
+    expect(getConsoleCommandMenu({ lineText: '/menu top', cursorOffset: 9 })).toBeNull();
+    expect(getConsoleCommandMenu({ lineText: '/menu bottom', cursorOffset: 12 })).toBeNull();
   });
 });
 
@@ -209,6 +294,22 @@ describe('getCompletedConsoleCommandLine', () => {
         selectedLabel: 'hide',
       }),
     ).toBe('/menu hide');
+
+    expect(
+      getCompletedConsoleCommandLine({
+        lineText: '/linenums r',
+        cursorOffset: 11,
+        selectedLabel: 'right',
+      }),
+    ).toBe('/linenums right');
+
+    expect(
+      getCompletedConsoleCommandLine({
+        lineText: '/linenum h',
+        cursorOffset: 10,
+        selectedLabel: 'hide',
+      }),
+    ).toBe('/linenum hide');
   });
 });
 
@@ -253,5 +354,29 @@ describe('getConsoleCommandPrediction', () => {
         selectedLabel: 'hide',
       }),
     ).toBe('ide');
+
+    expect(
+      getConsoleCommandPrediction({
+        lineText: '/linenums r',
+        cursorOffset: 11,
+        selectedLabel: 'right',
+      }),
+    ).toBe('ight');
+
+    expect(
+      getConsoleCommandPrediction({
+        lineText: '/linenum h',
+        cursorOffset: 10,
+        selectedLabel: 'hide',
+      }),
+    ).toBe('ide');
+
+    expect(
+      getConsoleCommandPrediction({
+        lineText: '/menu b',
+        cursorOffset: 7,
+        selectedLabel: 'bottom',
+      }),
+    ).toBe('ottom');
   });
 });

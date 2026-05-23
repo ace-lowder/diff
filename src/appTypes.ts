@@ -1,6 +1,9 @@
 export type AppMode = 'draft' | 'editor' | 'split';
 
 export type CodeMirrorTheme = 'draft' | 'editor';
+export type MenuPlacement = 'responsive' | 'top' | 'bottom';
+export type LineNumberPosition = 'left' | 'right';
+export type LineNumberVisibilityMode = 'visible' | 'autoHide';
 
 export type ScrollOffset = {
   left: number;

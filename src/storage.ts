@@ -1,4 +1,5 @@
 import { normalizeFontStyleRanges, type FontStyleRange } from "./fontStyles";
+import type { MenuPlacement } from './appTypes';
 
 export const DEFAULT_DRAFT_TEXT = `Welcome to byline: a text editor for authors with messy first drafts
 
@@ -24,6 +25,7 @@ export const storageKeys = {
   editorText: "byline:editorText",
   draftFontStyleRanges: "byline:draftFontStyleRanges",
   editorFontStyleRanges: "byline:editorFontStyleRanges",
+  menuPlacement: 'byline:menuPlacement',
 } as const;
 
 export type StoredDocumentText = {
@@ -62,6 +64,33 @@ export const getStoredDocumentText = (): StoredDocumentText => {
 export const setStoredText = (key: string, value: string): void => {
   try {
     window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore storage failures so editing still works.
+  }
+};
+
+export const getStoredMenuPlacement = (): MenuPlacement => {
+  try {
+    const value = window.localStorage.getItem(storageKeys.menuPlacement);
+
+    if (value === 'top' || value === 'bottom') {
+      return value;
+    }
+
+    return 'responsive';
+  } catch {
+    return 'responsive';
+  }
+};
+
+export const setStoredMenuPlacement = (placement: MenuPlacement): void => {
+  try {
+    if (placement === 'responsive') {
+      window.localStorage.removeItem(storageKeys.menuPlacement);
+      return;
+    }
+
+    window.localStorage.setItem(storageKeys.menuPlacement, placement);
   } catch {
     // Ignore storage failures so editing still works.
   }

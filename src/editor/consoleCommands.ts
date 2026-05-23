@@ -1,4 +1,9 @@
 import type { StatsMode } from '../editorDiff';
+import type {
+  LineNumberPosition,
+  LineNumberVisibilityMode,
+  MenuPlacement,
+} from '../appTypes';
 
 export type ConsoleCommandViewMode = 'draft' | 'editor' | 'split';
 
@@ -17,7 +22,23 @@ export type ConsoleCommand =
     }
   | {
       type: 'menu';
+      action: 'visibility';
       visibilityMode: 'autoHide' | 'visible';
+    }
+  | {
+      type: 'menu';
+      action: 'placement';
+      placement: Extract<MenuPlacement, 'top' | 'bottom'>;
+    }
+  | {
+      type: 'lineNumbers';
+      action: 'position';
+      position: LineNumberPosition;
+    }
+  | {
+      type: 'lineNumbers';
+      action: 'visibility';
+      visibilityMode: LineNumberVisibilityMode;
     };
 
 export type ConsoleCommandParseResult =
@@ -52,11 +73,20 @@ export type ConsoleCommandMenu = {
 const UNKNOWN_COMMAND_SUFFIX = ' - unknown command';
 const NO_LINE_ABOVE_SUFFIX = ' - no line above to copy';
 
-const ROOT_OPTIONS = ['view', 'copy', 'count', 'menu'] as const;
+const ROOT_OPTIONS = [
+  'view',
+  'copy',
+  'count',
+  'menu',
+  'linenums',
+  'linenum',
+] as const;
 const VIEW_OPTIONS = ['draft', 'editor', 'split'] as const;
 const COPY_OPTIONS = ['line'] as const;
 const COUNT_OPTIONS = ['word', 'char'] as const;
-const MENU_OPTIONS = ['hide', 'show'] as const;
+const MENU_OPTIONS = ['hide', 'show', 'top', 'bottom'] as const;
+const LINE_NUMBERS_POSITION_OPTIONS = ['left', 'right'] as const;
+const LINE_NUMBER_VISIBILITY_OPTIONS = ['show', 'hide'] as const;
 
 export const parseConsoleCommandLine = (
   lineText: string,
@@ -158,17 +188,73 @@ export const parseConsoleCommandLine = (
     };
   }
 
-  if (parts.length === 2 && option === 'hide') {
+  if (root === 'menu') {
+    if (parts.length === 2 && option === 'hide') {
+      return {
+        kind: 'valid',
+        command: { type: 'menu', action: 'visibility', visibilityMode: 'autoHide' },
+      };
+    }
+
+    if (parts.length === 2 && option === 'show') {
+      return {
+        kind: 'valid',
+        command: { type: 'menu', action: 'visibility', visibilityMode: 'visible' },
+      };
+    }
+
+    if (parts.length === 2 && option === 'top') {
+      return {
+        kind: 'valid',
+        command: { type: 'menu', action: 'placement', placement: 'top' },
+      };
+    }
+
+    if (parts.length === 2 && option === 'bottom') {
+      return {
+        kind: 'valid',
+        command: { type: 'menu', action: 'placement', placement: 'bottom' },
+      };
+    }
+
     return {
-      kind: 'valid',
-      command: { type: 'menu', visibilityMode: 'autoHide' },
+      kind: 'unknown-command',
+      message: `${trimmedLineText}${UNKNOWN_COMMAND_SUFFIX}`,
     };
   }
 
-  if (parts.length === 2 && option === 'show') {
+  if (root === 'linenums') {
+    if (parts.length === 2 && option === 'left') {
+      return {
+        kind: 'valid',
+        command: { type: 'lineNumbers', action: 'position', position: 'left' },
+      };
+    }
+
+    if (parts.length === 2 && option === 'right') {
+      return {
+        kind: 'valid',
+        command: { type: 'lineNumbers', action: 'position', position: 'right' },
+      };
+    }
+
+    return {
+      kind: 'unknown-command',
+      message: `${trimmedLineText}${UNKNOWN_COMMAND_SUFFIX}`,
+    };
+  }
+
+  if (root === 'linenum' && parts.length === 2 && option === 'show') {
     return {
       kind: 'valid',
-      command: { type: 'menu', visibilityMode: 'visible' },
+      command: { type: 'lineNumbers', action: 'visibility', visibilityMode: 'visible' },
+    };
+  }
+
+  if (root === 'linenum' && parts.length === 2 && option === 'hide') {
+    return {
+      kind: 'valid',
+      command: { type: 'lineNumbers', action: 'visibility', visibilityMode: 'autoHide' },
     };
   }
 
@@ -238,7 +324,9 @@ export const getConsoleCommandMenu = ({
       currentTokenText === '/view' ||
       currentTokenText === '/copy' ||
       currentTokenText === '/count' ||
-      currentTokenText === '/menu'
+      currentTokenText === '/menu' ||
+      currentTokenText === '/linenums' ||
+      currentTokenText === '/linenum'
     ) {
       return null;
     }
@@ -352,6 +440,14 @@ const getOptionsForRoot = (
 
   if (root === 'menu') {
     return MENU_OPTIONS;
+  }
+
+  if (root === 'linenums') {
+    return LINE_NUMBERS_POSITION_OPTIONS;
+  }
+
+  if (root === 'linenum') {
+    return LINE_NUMBER_VISIBILITY_OPTIONS;
   }
 
   return null;

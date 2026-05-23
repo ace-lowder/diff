@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 
 import type { EditorStats, StatsMode } from '../editorDiff';
-import type { AppMode, CoffeeStatus, CopyStatus } from '../appTypes';
+import type { AppMode, CoffeeStatus, CopyStatus, MenuPlacement } from '../appTypes';
 import type { FontStyleType } from '../fontStyles';
 import { getFooterStatsLabels } from './footerStatsLabels';
 import {
@@ -25,6 +25,7 @@ type MenuProps = {
   onCopyText: () => void;
   onCoffeeClick: () => void;
   visibilityMode: MenuVisibilityMode;
+  placement: MenuPlacement;
   isVisible: boolean;
   onPointerEnter: () => void;
   onPointerLeave: () => void;
@@ -45,14 +46,16 @@ export const Menu = ({
   onCopyText,
   onCoffeeClick,
   visibilityMode,
+  placement,
   isVisible,
   onPointerEnter,
   onPointerLeave,
 }: MenuProps) => {
-  const layoutClassName = getMenuLayoutClassName({ visibilityMode });
+  const layoutClassName = getMenuLayoutClassName({ visibilityMode, placement });
   const visibilityClassName = getMenuVisibilityClassName({
     visibilityMode,
     isVisible,
+    placement,
   });
 
   return (

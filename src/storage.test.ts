@@ -4,30 +4,35 @@ import {
   DEFAULT_DRAFT_TEXT,
   DEFAULT_EDITOR_TEXT,
   getStoredDocumentText,
+  getStoredMenuPlacement,
+  setStoredMenuPlacement,
   storageKeys,
 } from './storage';
 
-describe('getStoredDocumentText', () => {
-  const store = new Map<string, string>();
+const store = new Map<string, string>();
 
-  (globalThis as { window?: unknown }).window = {
-    localStorage: {
-      getItem(storageKey: string) {
-        return store.has(storageKey) ? store.get(storageKey)! : null;
-      },
-      setItem(storageKey: string, value: string) {
-        store.set(storageKey, value);
-      },
-      clear() {
-        store.clear();
-      },
+(globalThis as { window?: unknown }).window = {
+  localStorage: {
+    getItem(storageKey: string) {
+      return store.has(storageKey) ? store.get(storageKey)! : null;
     },
-  };
+    setItem(storageKey: string, value: string) {
+      store.set(storageKey, value);
+    },
+    removeItem(storageKey: string) {
+      store.delete(storageKey);
+    },
+    clear() {
+      store.clear();
+    },
+  },
+};
 
-  beforeEach(() => {
-    store.clear();
-  });
+beforeEach(() => {
+  store.clear();
+});
 
+describe('getStoredDocumentText', () => {
   it('returns both templates when both keys are missing', () => {
     expect(getStoredDocumentText()).toEqual({
       draftText: DEFAULT_DRAFT_TEXT,
@@ -107,6 +112,69 @@ describe('getStoredDocumentText', () => {
       });
     } finally {
       window.localStorage.getItem = originalGetItem;
+    }
+  });
+});
+
+describe('menu placement storage', () => {
+  it('returns responsive when menu placement is missing', () => {
+    expect(getStoredMenuPlacement()).toBe('responsive');
+  });
+
+  it('returns top when top is stored', () => {
+    store.set(storageKeys.menuPlacement, 'top');
+    expect(getStoredMenuPlacement()).toBe('top');
+  });
+
+  it('returns bottom when bottom is stored', () => {
+    store.set(storageKeys.menuPlacement, 'bottom');
+    expect(getStoredMenuPlacement()).toBe('bottom');
+  });
+
+  it('returns responsive for invalid stored value', () => {
+    store.set(storageKeys.menuPlacement, 'left');
+    expect(getStoredMenuPlacement()).toBe('responsive');
+  });
+
+  it('stores top placement', () => {
+    setStoredMenuPlacement('top');
+    expect(store.get(storageKeys.menuPlacement)).toBe('top');
+  });
+
+  it('stores bottom placement', () => {
+    setStoredMenuPlacement('bottom');
+    expect(store.get(storageKeys.menuPlacement)).toBe('bottom');
+  });
+
+  it('removes stored value for responsive placement', () => {
+    store.set(storageKeys.menuPlacement, 'top');
+    setStoredMenuPlacement('responsive');
+    expect(store.has(storageKeys.menuPlacement)).toBe(false);
+  });
+
+  it('falls back safely when storage access fails', () => {
+    const originalGetItem = window.localStorage.getItem;
+    const originalSetItem = window.localStorage.setItem;
+    const originalRemoveItem = window.localStorage.removeItem;
+
+    window.localStorage.getItem = () => {
+      throw new Error('get-failed');
+    };
+    window.localStorage.setItem = () => {
+      throw new Error('set-failed');
+    };
+    window.localStorage.removeItem = () => {
+      throw new Error('remove-failed');
+    };
+
+    try {
+      expect(getStoredMenuPlacement()).toBe('responsive');
+      expect(() => setStoredMenuPlacement('top')).not.toThrow();
+      expect(() => setStoredMenuPlacement('responsive')).not.toThrow();
+    } finally {
+      window.localStorage.getItem = originalGetItem;
+      window.localStorage.setItem = originalSetItem;
+      window.localStorage.removeItem = originalRemoveItem;
     }
   });
 });

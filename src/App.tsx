@@ -16,7 +16,10 @@ import type {
   RunConsoleCommand,
 } from './editor/codeMirrorConsoleCommands';
 import { Menu } from './components/Menu';
-import type { MenuVisibilityMode } from './components/menuVisibility';
+import {
+  getMenuEdgeTriggerClassName,
+  type MenuVisibilityMode,
+} from './components/menuVisibility';
 import { CodeMirrorPane } from './components/CodeMirrorPane';
 import {
   getClipboardFontStyleRangesForLine,
@@ -36,8 +39,10 @@ import {
   type TextSelectionRange,
 } from './fontStyles';
 import {
+  getStoredMenuPlacement,
   getStoredDocumentText,
   getStoredFontStyleRanges,
+  setStoredMenuPlacement,
   setStoredFontStyleRanges,
   setStoredText,
   storageKeys,
@@ -51,6 +56,9 @@ import type {
   AppMode,
   CopyLineHandler,
   CoffeeStatus,
+  LineNumberPosition,
+  LineNumberVisibilityMode,
+  MenuPlacement,
   TextLineContext,
   CopyStatus,
   PaneId,
@@ -99,6 +107,13 @@ const App = () => {
   const [menuVisibilityMode, setMenuVisibilityMode] =
     useState<MenuVisibilityMode>('visible');
   const [isMenuVisible, setIsMenuVisible] = useState(true);
+  const [menuPlacement, setMenuPlacementState] = useState<MenuPlacement>(() =>
+    getStoredMenuPlacement(),
+  );
+  const [lineNumberPosition, setLineNumberPosition] =
+    useState<LineNumberPosition>('left');
+  const [lineNumberVisibilityMode, setLineNumberVisibilityMode] =
+    useState<LineNumberVisibilityMode>('visible');
 
   const draftEditorViewRef = useRef<EditorView | null>(null);
   const editorEditorViewRef = useRef<EditorView | null>(null);
@@ -256,6 +271,11 @@ const App = () => {
     clearMenuHideTimeout();
   };
 
+  const setMenuPlacement = (placement: MenuPlacement) => {
+    setMenuPlacementState(placement);
+    setStoredMenuPlacement(placement);
+  };
+
   const handleCopyText = async () => {
     const copyText = mode === 'draft' ? draftText : editorText;
     await copyDocumentText({
@@ -393,12 +413,27 @@ const App = () => {
     }
 
     if (command.type === 'menu') {
-      if (command.visibilityMode === 'autoHide') {
-        enableMenuAutoHide();
+      if (command.action === 'visibility') {
+        if (command.visibilityMode === 'autoHide') {
+          enableMenuAutoHide();
+          return;
+        }
+
+        showMenuAlways();
         return;
       }
 
-      showMenuAlways();
+      setMenuPlacement(command.placement);
+      return;
+    }
+
+    if (command.type === 'lineNumbers') {
+      if (command.action === 'position') {
+        setLineNumberPosition(command.position);
+        return;
+      }
+
+      setLineNumberVisibilityMode(command.visibilityMode);
       return;
     }
 
@@ -708,7 +743,7 @@ const App = () => {
         <div
           aria-hidden="true"
           onPointerEnter={showMenu}
-          className="fixed left-0 top-0 z-40 h-3 w-full sm:bottom-0 sm:top-auto"
+          className={getMenuEdgeTriggerClassName({ placement: menuPlacement })}
         />
       )}
       <main className="min-h-0 flex-1">
@@ -742,6 +777,8 @@ const App = () => {
                 }
                 onRunConsoleCommand={handleRunConsoleCommand}
                 onCopyLine={handleCopyLine}
+                lineNumberPosition={lineNumberPosition}
+                lineNumberVisibilityMode={lineNumberVisibilityMode}
                 ariaLabel="Draft text"
                 theme="draft"
                 initialLineNumber={initialLineNumber}
@@ -786,6 +823,8 @@ const App = () => {
                 }
                 onRunConsoleCommand={handleRunConsoleCommand}
                 onCopyLine={handleCopyLine}
+                lineNumberPosition={lineNumberPosition}
+                lineNumberVisibilityMode={lineNumberVisibilityMode}
                 ariaLabel="Editor text"
                 theme="editor"
                 initialLineNumber={initialLineNumber}
@@ -834,6 +873,8 @@ const App = () => {
                     }
                     onRunConsoleCommand={handleRunConsoleCommand}
                     onCopyLine={handleCopyLine}
+                    lineNumberPosition={lineNumberPosition}
+                    lineNumberVisibilityMode={lineNumberVisibilityMode}
                     ariaLabel="Draft text"
                     theme="draft"
                     initialLineNumber={initialLineNumber}
@@ -894,6 +935,8 @@ const App = () => {
                     }
                     onRunConsoleCommand={handleRunConsoleCommand}
                     onCopyLine={handleCopyLine}
+                    lineNumberPosition={lineNumberPosition}
+                    lineNumberVisibilityMode={lineNumberVisibilityMode}
                     ariaLabel="Editor text"
                     theme="editor"
                     initialLineNumber={initialLineNumber}
@@ -927,7 +970,12 @@ const App = () => {
               onPointerCancel={handleEditorWidthPointerUp}
               onDoubleClick={handleEditorWidthDoubleClick}
               className="group absolute bottom-0 top-0 z-10 hidden w-3 -translate-x-full cursor-col-resize touch-none select-none sm:block"
-              style={{ left: EDITOR_WIDTH_HANDLE_LEFT }}
+              style={{
+                left: getEditorWidthHandleLeft({
+                  lineNumberPosition,
+                  lineNumberVisibilityMode,
+                }),
+              }}
             >
               <div className="absolute right-0 h-full w-px bg-transparent group-hover:bg-[#3A3B3C]" />
             </div>
@@ -950,6 +998,7 @@ const App = () => {
         onCopyText={handleCopyText}
         onCoffeeClick={handleCoffeeClick}
         visibilityMode={menuVisibilityMode}
+        placement={menuPlacement}
         isVisible={isMenuVisible}
         onPointerEnter={showMenu}
         onPointerLeave={scheduleMenuHide}
@@ -1006,6 +1055,23 @@ const MIN_EDITOR_WIDTH_PERCENT = 55;
 const MAX_EDITOR_WIDTH_PERCENT = 100;
 const EDITOR_WIDTH_RESIZE_MIN_SCREEN_WIDTH = 640;
 const EDITOR_WIDTH_HANDLE_LEFT = 'calc(6ch + 12px)';
+
+const getEditorWidthHandleLeft = ({
+  lineNumberPosition,
+  lineNumberVisibilityMode,
+}: {
+  lineNumberPosition: LineNumberPosition;
+  lineNumberVisibilityMode: LineNumberVisibilityMode;
+}): string => {
+  if (
+    lineNumberPosition === 'right' ||
+    lineNumberVisibilityMode === 'autoHide'
+  ) {
+    return '0';
+  }
+
+  return EDITOR_WIDTH_HANDLE_LEFT;
+};
 
 const writeClipboardText = async ({
   plainText,

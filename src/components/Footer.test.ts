@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  getMenuEdgeTriggerClassName,
   getMenuLayoutClassName,
   getMenuVisibilityClassName,
 } from './menuVisibility';
@@ -122,6 +123,7 @@ describe('getMenuVisibilityClassName', () => {
       getMenuVisibilityClassName({
         visibilityMode: 'visible',
         isVisible: false,
+        placement: 'responsive',
       }),
     ).toBe('translate-y-0');
   });
@@ -131,30 +133,96 @@ describe('getMenuVisibilityClassName', () => {
       getMenuVisibilityClassName({
         visibilityMode: 'autoHide',
         isVisible: true,
+        placement: 'responsive',
       }),
     ).toBe('translate-y-0');
   });
 
-  it('returns hidden class when autoHide mode is currently hidden', () => {
+  it('returns hidden class when responsive autoHide mode is currently hidden', () => {
     expect(
       getMenuVisibilityClassName({
         visibilityMode: 'autoHide',
         isVisible: false,
+        placement: 'responsive',
       }),
     ).toBe('-translate-y-full sm:translate-y-full');
+  });
+
+  it('returns hidden class when top autoHide mode is hidden', () => {
+    expect(
+      getMenuVisibilityClassName({
+        visibilityMode: 'autoHide',
+        isVisible: false,
+        placement: 'top',
+      }),
+    ).toBe('-translate-y-full');
+  });
+
+  it('returns hidden class when bottom autoHide mode is hidden', () => {
+    expect(
+      getMenuVisibilityClassName({
+        visibilityMode: 'autoHide',
+        isVisible: false,
+        placement: 'bottom',
+      }),
+    ).toBe('translate-y-full');
   });
 });
 
 describe('getMenuLayoutClassName', () => {
-  it('returns normal flow classes for visible mode', () => {
+  it('returns responsive normal flow classes for visible mode', () => {
     expect(
-      getMenuLayoutClassName({ visibilityMode: 'visible' }),
+      getMenuLayoutClassName({ visibilityMode: 'visible', placement: 'responsive' }),
     ).toBe('relative order-first sm:order-last');
   });
 
-  it('returns fixed overlay classes for autoHide mode', () => {
+  it('returns top normal flow classes for visible mode', () => {
     expect(
-      getMenuLayoutClassName({ visibilityMode: 'autoHide' }),
+      getMenuLayoutClassName({ visibilityMode: 'visible', placement: 'top' }),
+    ).toBe('relative order-first');
+  });
+
+  it('returns bottom normal flow classes for visible mode', () => {
+    expect(
+      getMenuLayoutClassName({ visibilityMode: 'visible', placement: 'bottom' }),
+    ).toBe('relative order-last');
+  });
+
+  it('returns responsive fixed overlay classes for autoHide mode', () => {
+    expect(
+      getMenuLayoutClassName({ visibilityMode: 'autoHide', placement: 'responsive' }),
     ).toBe('fixed left-0 right-0 top-0 sm:bottom-0 sm:top-auto');
+  });
+
+  it('returns top fixed overlay classes for autoHide mode', () => {
+    expect(
+      getMenuLayoutClassName({ visibilityMode: 'autoHide', placement: 'top' }),
+    ).toBe('fixed left-0 right-0 top-0');
+  });
+
+  it('returns bottom fixed overlay classes for autoHide mode', () => {
+    expect(
+      getMenuLayoutClassName({ visibilityMode: 'autoHide', placement: 'bottom' }),
+    ).toBe('fixed bottom-0 left-0 right-0');
+  });
+});
+
+describe('getMenuEdgeTriggerClassName', () => {
+  it('returns responsive trigger classes', () => {
+    expect(
+      getMenuEdgeTriggerClassName({ placement: 'responsive' }),
+    ).toBe('fixed left-0 top-0 z-40 h-3 w-full sm:bottom-0 sm:top-auto');
+  });
+
+  it('returns top trigger classes', () => {
+    expect(getMenuEdgeTriggerClassName({ placement: 'top' })).toBe(
+      'fixed left-0 top-0 z-40 h-3 w-full',
+    );
+  });
+
+  it('returns bottom trigger classes', () => {
+    expect(getMenuEdgeTriggerClassName({ placement: 'bottom' })).toBe(
+      'fixed bottom-0 left-0 z-40 h-3 w-full',
+    );
   });
 });
