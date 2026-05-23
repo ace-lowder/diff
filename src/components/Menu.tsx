@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, PointerEventHandler } from 'react';
 
 import type { EditorStats, StatsMode } from '../editorDiff';
 import type {
@@ -33,7 +33,7 @@ type MenuProps = {
   visibilityMode: MenuVisibilityMode;
   placement: MenuPlacement;
   isVisible: boolean;
-  onPointerEnter: () => void;
+  onPointerEnter: PointerEventHandler<HTMLElement>;
   onPointerLeave: () => void;
 };
 

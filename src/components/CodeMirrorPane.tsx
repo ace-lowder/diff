@@ -35,6 +35,7 @@ import type {
   LowestEditedLine,
 } from '../editorDiff';
 import type { FontStyleRange, FontStyleType, TextChange } from '../fontStyles';
+import { shouldRevealAutoHiddenControls } from '../pointerEvents';
 
 type CodeMirrorPaneProps = {
   value: string;
@@ -349,12 +350,19 @@ export const CodeMirrorPane = ({
         isVisible: areLineNumbersVisible,
       })}`}
       onPointerOver={(event) => {
-        if (
-          lineNumberVisibilityMode === 'autoHide' &&
-          isInsideLineNumberGutter(event.target)
-        ) {
-          onShowLineNumbersRef.current();
+        if (lineNumberVisibilityMode !== 'autoHide') {
+          return;
         }
+
+        if (!shouldRevealAutoHiddenControls(event.pointerType)) {
+          return;
+        }
+
+        if (!isInsideLineNumberGutter(event.target)) {
+          return;
+        }
+
+        onShowLineNumbersRef.current();
       }}
       onPointerOut={(event) => {
         if (lineNumberVisibilityMode !== 'autoHide') {
@@ -380,7 +388,13 @@ export const CodeMirrorPane = ({
       {lineNumberVisibilityMode === 'autoHide' && !areLineNumbersVisible && (
         <div
           aria-hidden="true"
-          onPointerEnter={() => onShowLineNumbersRef.current()}
+          onPointerEnter={(event) => {
+            if (!shouldRevealAutoHiddenControls(event.pointerType)) {
+              return;
+            }
+
+            onShowLineNumbersRef.current();
+          }}
           className={getLineNumberEdgeTriggerClassName({
             position: lineNumberPosition,
           })}

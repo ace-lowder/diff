@@ -27,6 +27,7 @@ import {
   getMenuEdgeTriggerClassName,
 } from './components/menuVisibility';
 import { CodeMirrorPane } from './components/CodeMirrorPane';
+import { shouldRevealAutoHiddenControls } from './pointerEvents';
 import {
   getClipboardFontStyleRangesForLine,
   getClipboardHighlightRangesForLine,
@@ -273,6 +274,14 @@ const App = () => {
   const showMenu = () => {
     clearMenuHideTimeout();
     setIsMenuVisible(true);
+  };
+
+  const handleMenuPointerEnter = (event: PointerEvent<HTMLElement>) => {
+    if (!shouldRevealAutoHiddenControls(event.pointerType)) {
+      return;
+    }
+
+    showMenu();
   };
 
   const scheduleMenuHide = () => {
@@ -866,7 +875,7 @@ const App = () => {
       {menuVisibilityMode === 'autoHide' && (
         <div
           aria-hidden="true"
-          onPointerEnter={showMenu}
+          onPointerEnter={handleMenuPointerEnter}
           className={getMenuEdgeTriggerClassName({ placement: menuPlacement })}
         />
       )}
@@ -1146,7 +1155,7 @@ const App = () => {
         visibilityMode={menuVisibilityMode}
         placement={menuPlacement}
         isVisible={isMenuVisible}
-        onPointerEnter={showMenu}
+        onPointerEnter={handleMenuPointerEnter}
         onPointerLeave={scheduleMenuHide}
       />
     </div>
