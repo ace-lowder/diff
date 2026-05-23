@@ -3,11 +3,6 @@
 @tailwind utilities;
 
 @layer components {
-  .byline-font-style-control-hover:hover {
-    background-color: inherit;
-    color: inherit;
-  }
-
   .byline-mouse-reveal-edge-trigger {
     pointer-events: none;
   }
