@@ -14,7 +14,7 @@ export const FONT_SIZE_SETTINGS: Record<
     menuHeightPx: number;
   }
 > = {
-  small: { fontSizePx: 10, lineHeightPx: 15, menuHeightPx: 32 },
+  small: { fontSizePx: 10, lineHeightPx: 16, menuHeightPx: 32 },
   medium: { fontSizePx: 12, lineHeightPx: 18, menuHeightPx: 36 },
   large: { fontSizePx: 14, lineHeightPx: 21, menuHeightPx: 40 },
 };

@@ -46,4 +46,12 @@ describe('site chrome base styles', () => {
   it('defines root selector in css', () => {
     expect(indexCss).toContain('#root');
   });
+
+  it('sets webkit text-size-adjust in css', () => {
+    expect(indexCss).toContain('-webkit-text-size-adjust: 100%;');
+  });
+
+  it('sets text-size-adjust in css', () => {
+    expect(indexCss).toContain('text-size-adjust: 100%;');
+  });
 });

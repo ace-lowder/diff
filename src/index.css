@@ -17,6 +17,8 @@
   #root {
     min-height: 100%;
     background-color: #121314;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 }
 

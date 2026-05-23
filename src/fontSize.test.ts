@@ -17,7 +17,7 @@ describe('DEFAULT_FONT_SIZE_MODE', () => {
 describe('FONT_SIZE_SETTINGS', () => {
   it('has exact small medium and large settings', () => {
     expect(FONT_SIZE_SETTINGS).toEqual({
-      small: { fontSizePx: 10, lineHeightPx: 15, menuHeightPx: 32 },
+      small: { fontSizePx: 10, lineHeightPx: 16, menuHeightPx: 32 },
       medium: { fontSizePx: 12, lineHeightPx: 18, menuHeightPx: 36 },
       large: { fontSizePx: 14, lineHeightPx: 21, menuHeightPx: 40 },
     });
@@ -54,7 +54,7 @@ describe('getFontSizeCssVariables', () => {
   it('returns small and large menu heights', () => {
     expect(getFontSizeCssVariables('small')).toEqual({
       '--byline-font-size': '10px',
-      '--byline-line-height': '15px',
+      '--byline-line-height': '16px',
       '--byline-menu-height': '32px',
     });
 
