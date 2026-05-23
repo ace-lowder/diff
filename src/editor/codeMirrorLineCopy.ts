@@ -97,6 +97,12 @@ export const getLineNumberGutterSide = (
   return position === 'right' ? 'after' : 'before';
 };
 
+export const getLineNumberGutterClassName = (
+  position: LineNumberPosition,
+): string => {
+  return `cm-lineNumbers byline-line-number-gutter byline-line-number-gutter-${position}`;
+};
+
 class LineNumberMarker extends GutterMarker {
   readonly lineNumber: number;
 
@@ -251,7 +257,7 @@ const getLineNumberGutterExtension = ({
   return [
     lineCopyPlugin,
     gutter({
-      class: 'cm-lineNumbers byline-line-number-gutter',
+      class: getLineNumberGutterClassName(position),
       side: getLineNumberGutterSide(position),
       lineMarker(view, line) {
         return new LineNumberMarker(view.state.doc.lineAt(line.from).number);

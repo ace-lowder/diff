@@ -6,6 +6,7 @@ import {
   LINE_COPY_ICON_FADING_CLASS_NAME,
   LINE_COPY_ICON_REMOVE_MS,
   LINE_COPY_ICON_VISIBLE_MS,
+  getLineNumberGutterClassName,
   getLineNumberGutterSide,
   getLineNumberElement,
   getLineCopyIconMarkup,
@@ -99,6 +100,18 @@ describe('line number gutter visibility and side helpers', () => {
 
   it('maps right position to after side', () => {
     expect(getLineNumberGutterSide('right')).toBe('after');
+  });
+
+  it('builds the left gutter class name', () => {
+    expect(getLineNumberGutterClassName('left')).toBe(
+      'cm-lineNumbers byline-line-number-gutter byline-line-number-gutter-left',
+    );
+  });
+
+  it('builds the right gutter class name', () => {
+    expect(getLineNumberGutterClassName('right')).toBe(
+      'cm-lineNumbers byline-line-number-gutter byline-line-number-gutter-right',
+    );
   });
 });
 
