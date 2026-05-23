@@ -1,12 +1,58 @@
-import type { Extension } from '@codemirror/state';
 import {
-  EditorView,
+  Compartment,
+  StateEffect,
+  StateField,
+  type Extension,
+} from '@codemirror/state';
+import {
+  GutterMarker,
+  gutter,
+  gutters,
   ViewPlugin,
-  lineNumbers,
   type BlockInfo,
+  type EditorView,
 } from '@codemirror/view';
 
-import type { CopyLineHandler, PaneId, TextLineContext } from '../appTypes';
+import type {
+  CopyLineHandler,
+  LineNumberPosition,
+  LineNumberVisibilityMode,
+  PaneId,
+  TextLineContext,
+} from '../appTypes';
+
+export const lineNumberCompartment = new Compartment();
+
+export const setLineNumberSettingsEffect = StateEffect.define<{
+  position: LineNumberPosition;
+  visibilityMode: LineNumberVisibilityMode;
+  isVisible: boolean;
+}>();
+
+export const lineNumberSettingsField = StateField.define<{
+  position: LineNumberPosition;
+  visibilityMode: LineNumberVisibilityMode;
+  isVisible: boolean;
+}>({
+  create() {
+    return {
+      position: 'left',
+      visibilityMode: 'visible',
+      isVisible: true,
+    };
+  },
+  update(value, transaction) {
+    let nextValue = value;
+
+    for (const effect of transaction.effects) {
+      if (effect.is(setLineNumberSettingsEffect)) {
+        nextValue = effect.value;
+      }
+    }
+
+    return nextValue;
+  },
+});
 
 export const LINE_COPY_ICON_VISIBLE_MS = 500;
 export const LINE_COPY_ICON_FADE_MS = 500;
@@ -34,6 +80,42 @@ export const getLineCopyIconMarkup = (): string => {
     </svg>
   `;
 };
+
+export const shouldShowLineNumberGutter = ({
+  visibilityMode,
+  isVisible,
+}: {
+  visibilityMode: LineNumberVisibilityMode;
+  isVisible: boolean;
+}): boolean => {
+  return visibilityMode === 'visible' || isVisible;
+};
+
+export const getLineNumberGutterSide = (
+  position: LineNumberPosition,
+): 'before' | 'after' => {
+  return position === 'right' ? 'after' : 'before';
+};
+
+class LineNumberMarker extends GutterMarker {
+  readonly lineNumber: number;
+
+  constructor(lineNumber: number) {
+    super();
+    this.lineNumber = lineNumber;
+  }
+
+  eq(other: LineNumberMarker): boolean {
+    return other.lineNumber === this.lineNumber;
+  }
+
+  toDOM(): HTMLElement {
+    const element = document.createElement('div');
+    element.textContent = String(this.lineNumber);
+    element.className = 'byline-line-number';
+    return element;
+  }
+}
 
 const getTextLineContext = (
   view: EditorView,
@@ -68,14 +150,14 @@ export const getLineNumberElement = (event: Event): HTMLElement | null => {
   return null;
 };
 
-export const getCodeMirrorLineCopyExtension = ({
+const getLineCopyPlugin = ({
   pane,
   onCopyLine,
 }: {
   pane: PaneId;
   onCopyLine: CopyLineHandler;
-}): Extension[] => {
-  const lineCopyPlugin = ViewPlugin.fromClass(
+}) => {
+  return ViewPlugin.fromClass(
     class {
       readonly view: EditorView;
       readonly pane: PaneId;
@@ -153,10 +235,30 @@ export const getCodeMirrorLineCopyExtension = ({
       }
     },
   );
+};
+
+const getLineNumberGutterExtension = ({
+  position,
+  pane,
+  onCopyLine,
+}: {
+  position: LineNumberPosition;
+  pane: PaneId;
+  onCopyLine: CopyLineHandler;
+}): Extension => {
+  const lineCopyPlugin = getLineCopyPlugin({ pane, onCopyLine });
 
   return [
     lineCopyPlugin,
-    lineNumbers({
+    gutter({
+      class: 'cm-lineNumbers byline-line-number-gutter',
+      side: getLineNumberGutterSide(position),
+      lineMarker(view, line) {
+        return new LineNumberMarker(view.state.doc.lineAt(line.from).number);
+      },
+      initialSpacer() {
+        return new LineNumberMarker(999);
+      },
       domEventHandlers: {
         click(view, block, event) {
           event.preventDefault();
@@ -171,5 +273,56 @@ export const getCodeMirrorLineCopyExtension = ({
         },
       },
     }),
+    gutters({ fixed: true }),
+  ];
+};
+
+export const getCodeMirrorLineCopyExtension = ({
+  pane,
+  onCopyLine,
+  position,
+  visibilityMode,
+  isVisible,
+}: {
+  pane: PaneId;
+  onCopyLine: CopyLineHandler;
+  position: LineNumberPosition;
+  visibilityMode: LineNumberVisibilityMode;
+  isVisible: boolean;
+}): Extension[] => {
+  const initialSettings = { position, visibilityMode, isVisible };
+
+  return [
+    lineNumberSettingsField,
+    lineNumberCompartment.of(
+      shouldShowLineNumberGutter(initialSettings)
+        ? getLineNumberGutterExtension({ position, pane, onCopyLine })
+        : [],
+    ),
+  ];
+};
+
+export const getLineNumberReconfigureEffects = ({
+  position,
+  visibilityMode,
+  isVisible,
+  pane,
+  onCopyLine,
+}: {
+  position: LineNumberPosition;
+  visibilityMode: LineNumberVisibilityMode;
+  isVisible: boolean;
+  pane: PaneId;
+  onCopyLine: CopyLineHandler;
+}): StateEffect<unknown>[] => {
+  const settings = { position, visibilityMode, isVisible };
+
+  return [
+    setLineNumberSettingsEffect.of(settings),
+    lineNumberCompartment.reconfigure(
+      shouldShowLineNumberGutter(settings)
+        ? getLineNumberGutterExtension({ position, pane, onCopyLine })
+        : [],
+    ),
   ];
 };

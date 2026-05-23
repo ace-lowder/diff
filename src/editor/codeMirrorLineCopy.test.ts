@@ -6,8 +6,10 @@ import {
   LINE_COPY_ICON_FADING_CLASS_NAME,
   LINE_COPY_ICON_REMOVE_MS,
   LINE_COPY_ICON_VISIBLE_MS,
+  getLineNumberGutterSide,
   getLineNumberElement,
   getLineCopyIconMarkup,
+  shouldShowLineNumberGutter,
 } from './codeMirrorLineCopy';
 
 class MockElement {
@@ -60,6 +62,43 @@ describe('getLineCopyIconMarkup', () => {
     expect(markup).toContain('<rect x="9" y="9" width="13" height="13"');
     expect(markup).toContain('<path d="M5 15H4');
     expect(markup).not.toContain('m5 13 4 4L19 7');
+  });
+});
+
+describe('line number gutter visibility and side helpers', () => {
+  it('shows gutter when visibility mode is visible', () => {
+    expect(
+      shouldShowLineNumberGutter({
+        visibilityMode: 'visible',
+        isVisible: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('shows gutter when autoHide mode is currently visible', () => {
+    expect(
+      shouldShowLineNumberGutter({
+        visibilityMode: 'autoHide',
+        isVisible: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('hides gutter when autoHide mode is currently hidden', () => {
+    expect(
+      shouldShowLineNumberGutter({
+        visibilityMode: 'autoHide',
+        isVisible: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('maps left position to before side', () => {
+    expect(getLineNumberGutterSide('left')).toBe('before');
+  });
+
+  it('maps right position to after side', () => {
+    expect(getLineNumberGutterSide('right')).toBe('after');
   });
 });
 

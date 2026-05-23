@@ -20,6 +20,10 @@ import {
   type DiffPaintGeometryRole,
   type PaintRectBox,
 } from './codeMirrorDiffPaintGeometry';
+import {
+  lineNumberSettingsField,
+  shouldShowLineNumberGutter,
+} from './codeMirrorLineCopy';
 import { getMarkerRange, type MarkerSide } from './markerRanges';
 
 export type DiffPaintClassName =
@@ -788,13 +792,16 @@ const getContentWidth = (view: EditorView): number => {
 const getDiffPaintLineNumberLayout = (
   view: EditorView,
 ): DiffPaintLineNumberLayout => {
-  const paneRoot = view.dom.closest(
-    '.byline-line-numbers-left.byline-line-numbers-visible-mode',
-  );
+  const settings = view.state.field(lineNumberSettingsField, false);
+  if (
+    settings &&
+    settings.position === 'left' &&
+    shouldShowLineNumberGutter(settings)
+  ) {
+    return 'reservedLeftGutter';
+  }
 
-  return paneRoot
-    ? 'reservedLeftGutter'
-    : 'noReservedLeftGutter';
+  return 'noReservedLeftGutter';
 };
 
 const getLineHeight = (view: EditorView): number => {

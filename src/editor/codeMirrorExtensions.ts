@@ -27,6 +27,8 @@ import {
 import type {
   CodeMirrorTheme,
   CopyLineHandler,
+  LineNumberPosition,
+  LineNumberVisibilityMode,
   PaneId,
   ScrollOffset,
 } from '../appTypes';
@@ -48,6 +50,9 @@ type CodeMirrorExtensionOptions = {
   onToggleFontStyle: (fontStyleType: FontStyleType) => void;
   onScroll: (scrollOffset: ScrollOffset, topVisibleLineNumber: number) => void;
   onCopyLine: CopyLineHandler;
+  lineNumberPosition: LineNumberPosition;
+  lineNumberVisibilityMode: LineNumberVisibilityMode;
+  areLineNumbersVisible: boolean;
 };
 
 export const getCodeMirrorExtensions = ({
@@ -60,11 +65,17 @@ export const getCodeMirrorExtensions = ({
   onToggleFontStyle,
   onScroll,
   onCopyLine,
+  lineNumberPosition,
+  lineNumberVisibilityMode,
+  areLineNumbersVisible,
 }: CodeMirrorExtensionOptions): Extension[] => {
   return [
     ...getCodeMirrorLineCopyExtension({
       pane,
       onCopyLine,
+      position: lineNumberPosition,
+      visibilityMode: lineNumberVisibilityMode,
+      isVisible: areLineNumbersVisible,
     }),
     highlightActiveLineGutter(),
     history(),

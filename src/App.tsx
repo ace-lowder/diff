@@ -973,7 +973,7 @@ const App = () => {
               onPointerUp={handleEditorWidthPointerUp}
               onPointerCancel={handleEditorWidthPointerUp}
               onDoubleClick={handleEditorWidthDoubleClick}
-              className={`group absolute bottom-0 top-0 z-10 hidden w-3 cursor-col-resize touch-none select-none sm:block ${getEditorWidthHandleTransformClassName(editorWidthHandlePlacement)}`}
+              className={`group absolute bottom-0 top-0 z-40 hidden w-3 cursor-col-resize touch-none select-none sm:block ${getEditorWidthHandleTransformClassName(editorWidthHandlePlacement)}`}
               style={{
                 left: getEditorWidthHandleLeft(editorWidthHandlePlacement),
               }}
