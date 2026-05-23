@@ -47,14 +47,20 @@ import {
   type TextSelectionRange,
 } from './fontStyles';
 import {
+  getFontSizeCssVariables,
+  getNextFontSizeMode,
+} from './fontSize';
+import {
   getStoredMenuPlacement,
   getStoredMenuVisibilityMode,
+  getStoredFontSizeMode,
   getStoredLineNumberPosition,
   getStoredLineNumberVisibilityMode,
   getStoredDocumentText,
   getStoredFontStyleRanges,
   setStoredLineNumberPosition,
   setStoredLineNumberVisibilityMode,
+  setStoredFontSizeMode,
   setStoredMenuPlacement,
   setStoredMenuVisibilityMode,
   setStoredFontStyleRanges,
@@ -73,6 +79,7 @@ import type {
   CoffeeStatus,
   LineNumberPosition,
   LineNumberVisibilityMode,
+  FontSizeMode,
   MenuVisibilityMode,
   MenuPlacement,
   TextLineContext,
@@ -93,6 +100,7 @@ const App = () => {
     () => getStoredLineNumberVisibilityMode(),
     [],
   );
+  const initialFontSizeMode = useMemo(() => getStoredFontSizeMode(), []);
 
   const [mode, setMode] = useState<AppMode>('split');
   const [statsMode, setStatsMode] = useState<StatsMode>('words');
@@ -142,6 +150,8 @@ const App = () => {
     useState<LineNumberPosition>(() => getStoredLineNumberPosition());
   const [lineNumberVisibilityMode, setLineNumberVisibilityMode] =
     useState<LineNumberVisibilityMode>(initialLineNumberVisibilityMode);
+  const [fontSizeMode, setFontSizeMode] =
+    useState<FontSizeMode>(initialFontSizeMode);
   const [areLineNumbersVisible, setAreLineNumbersVisible] = useState(
     initialLineNumberVisibilityMode === 'visible',
   );
@@ -189,6 +199,10 @@ const App = () => {
     return getEditorStats(editorText, displayChanges);
   }, [editorText, displayChanges]);
   const shouldShowDraftDiff = editorText.length > 0;
+  const fontSizeStyle = useMemo(
+    () => getFontSizeCssVariables(fontSizeMode),
+    [fontSizeMode],
+  );
 
   useEffect(() => {
     setStoredText(storageKeys.draftText, draftText);
@@ -348,6 +362,15 @@ const App = () => {
   const showLineNumbers = () => {
     clearLineNumberHideTimeout();
     setAreLineNumbersVisible(true);
+  };
+
+  const setPersistentFontSizeMode = (nextFontSizeMode: FontSizeMode) => {
+    setStoredFontSizeMode(nextFontSizeMode);
+    setFontSizeMode(nextFontSizeMode);
+  };
+
+  const handleFontSizeToggle = () => {
+    setPersistentFontSizeMode(getNextFontSizeMode(fontSizeMode));
   };
 
   const scheduleLineNumbersHide = () => {
@@ -521,6 +544,11 @@ const App = () => {
       }
 
       setPersistentLineNumberVisibilityMode(command.visibilityMode);
+      return;
+    }
+
+    if (command.type === 'fontSize') {
+      setPersistentFontSizeMode(command.fontSizeMode);
       return;
     }
 
@@ -893,8 +921,15 @@ const App = () => {
     requestEditorMeasure,
   ]);
 
+  useEffect(() => {
+    requestEditorMeasure();
+  }, [fontSizeMode, requestEditorMeasure]);
+
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#121314] text-[#D4D4D4]">
+    <div
+      style={fontSizeStyle}
+      className="flex h-screen flex-col overflow-hidden bg-[#121314] text-[#D4D4D4]"
+    >
       {menuVisibilityMode === 'autoHide' && (
         <div
           aria-hidden="true"
@@ -1173,8 +1208,10 @@ const App = () => {
         editorStats={editorStats}
         copyStatus={copyStatus}
         coffeeStatus={coffeeStatus}
+        fontSizeMode={fontSizeMode}
         activeFontStyleTypes={activeFontStyleTypes}
         onModeToggle={handleModeToggle}
+        onFontSizeToggle={handleFontSizeToggle}
         onStatsModeToggle={handleStatsModeToggle}
         onToggleFontStyle={handleToggleFontStyle}
         onCopyText={handleCopyText}

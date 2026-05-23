@@ -6,6 +6,8 @@
   :root {
     color-scheme: dark;
     background-color: #121314;
+    --byline-font-size: 12px;
+    --byline-line-height: 18px;
   }
 
   html,

@@ -1,0 +1,53 @@
+import type { CSSProperties } from 'react';
+
+import type { FontSizeMode } from './appTypes';
+
+export const DEFAULT_FONT_SIZE_MODE: FontSizeMode = 'medium';
+
+export const FONT_SIZE_MODES: FontSizeMode[] = ['small', 'medium', 'large'];
+
+export const FONT_SIZE_SETTINGS: Record<
+  FontSizeMode,
+  {
+    fontSizePx: number;
+    lineHeightPx: number;
+  }
+> = {
+  small: { fontSizePx: 10, lineHeightPx: 15 },
+  medium: { fontSizePx: 12, lineHeightPx: 18 },
+  large: { fontSizePx: 14, lineHeightPx: 21 },
+};
+
+export const isFontSizeMode = (value: string): value is FontSizeMode => {
+  return value === 'small' || value === 'medium' || value === 'large';
+};
+
+export const getNextFontSizeMode = (
+  fontSizeMode: FontSizeMode,
+): FontSizeMode => {
+  if (fontSizeMode === 'small') {
+    return 'medium';
+  }
+
+  if (fontSizeMode === 'medium') {
+    return 'large';
+  }
+
+  return 'small';
+};
+
+type FontSizeCssVariables = CSSProperties & {
+  '--byline-font-size': string;
+  '--byline-line-height': string;
+};
+
+export const getFontSizeCssVariables = (
+  fontSizeMode: FontSizeMode,
+): FontSizeCssVariables => {
+  const settings = FONT_SIZE_SETTINGS[fontSizeMode];
+
+  return {
+    '--byline-font-size': `${settings.fontSizePx}px`,
+    '--byline-line-height': `${settings.lineHeightPx}px`,
+  };
+};

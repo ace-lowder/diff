@@ -1,5 +1,10 @@
 import { normalizeFontStyleRanges, type FontStyleRange } from "./fontStyles";
+import {
+  DEFAULT_FONT_SIZE_MODE,
+  isFontSizeMode,
+} from './fontSize';
 import type {
+  FontSizeMode,
   LineNumberPosition,
   LineNumberVisibilityMode,
   MenuPlacement,
@@ -34,6 +39,7 @@ export const storageKeys = {
   menuVisibilityMode: 'byline:menuVisibilityMode',
   lineNumberPosition: 'byline:lineNumberPosition',
   lineNumberVisibilityMode: 'byline:lineNumberVisibilityMode',
+  fontSizeMode: 'byline:fontSizeMode',
 } as const;
 
 export type StoredDocumentText = {
@@ -176,6 +182,30 @@ export const setStoredLineNumberVisibilityMode = (
       storageKeys.lineNumberVisibilityMode,
       visibilityMode,
     );
+  } catch {
+    // Ignore storage failures so editing still works.
+  }
+};
+
+export const getStoredFontSizeMode = (): FontSizeMode => {
+  try {
+    const value = window.localStorage.getItem(storageKeys.fontSizeMode);
+
+    if (value && isFontSizeMode(value)) {
+      return value;
+    }
+
+    return DEFAULT_FONT_SIZE_MODE;
+  } catch {
+    return DEFAULT_FONT_SIZE_MODE;
+  }
+};
+
+export const setStoredFontSizeMode = (
+  fontSizeMode: FontSizeMode,
+): void => {
+  try {
+    window.localStorage.setItem(storageKeys.fontSizeMode, fontSizeMode);
   } catch {
     // Ignore storage failures so editing still works.
   }

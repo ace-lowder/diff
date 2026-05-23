@@ -4,10 +4,12 @@ import {
   DEFAULT_DRAFT_TEXT,
   DEFAULT_EDITOR_TEXT,
   getStoredDocumentText,
+  getStoredFontSizeMode,
   getStoredLineNumberPosition,
   getStoredLineNumberVisibilityMode,
   getStoredMenuPlacement,
   getStoredMenuVisibilityMode,
+  setStoredFontSizeMode,
   setStoredLineNumberPosition,
   setStoredLineNumberVisibilityMode,
   setStoredMenuPlacement,
@@ -328,6 +330,56 @@ describe('line number visibility mode storage', () => {
     try {
       expect(getStoredLineNumberVisibilityMode()).toBe('visible');
       expect(() => setStoredLineNumberVisibilityMode('visible')).not.toThrow();
+    } finally {
+      window.localStorage.getItem = originalGetItem;
+      window.localStorage.setItem = originalSetItem;
+    }
+  });
+});
+
+describe('font size mode storage', () => {
+  it('returns medium when value is missing', () => {
+    expect(getStoredFontSizeMode()).toBe('medium');
+  });
+
+  it('returns small when small is stored', () => {
+    store.set(storageKeys.fontSizeMode, 'small');
+    expect(getStoredFontSizeMode()).toBe('small');
+  });
+
+  it('returns medium when medium is stored', () => {
+    store.set(storageKeys.fontSizeMode, 'medium');
+    expect(getStoredFontSizeMode()).toBe('medium');
+  });
+
+  it('returns large when large is stored', () => {
+    store.set(storageKeys.fontSizeMode, 'large');
+    expect(getStoredFontSizeMode()).toBe('large');
+  });
+
+  it('returns medium for invalid stored value', () => {
+    store.set(storageKeys.fontSizeMode, 'huge');
+    expect(getStoredFontSizeMode()).toBe('medium');
+  });
+
+  it('stores the mode', () => {
+    setStoredFontSizeMode('large');
+    expect(store.get(storageKeys.fontSizeMode)).toBe('large');
+  });
+
+  it('falls back safely when storage access fails', () => {
+    const originalGetItem = window.localStorage.getItem;
+    const originalSetItem = window.localStorage.setItem;
+    window.localStorage.getItem = () => {
+      throw new Error('get-failed');
+    };
+    window.localStorage.setItem = () => {
+      throw new Error('set-failed');
+    };
+
+    try {
+      expect(getStoredFontSizeMode()).toBe('medium');
+      expect(() => setStoredFontSizeMode('small')).not.toThrow();
     } finally {
       window.localStorage.getItem = originalGetItem;
       window.localStorage.setItem = originalSetItem;

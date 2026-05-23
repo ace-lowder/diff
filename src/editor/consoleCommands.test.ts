@@ -79,6 +79,18 @@ describe('parseConsoleCommandLine', () => {
       kind: 'valid',
       command: { type: 'lineNumbers', action: 'visibility', visibilityMode: 'autoHide' },
     });
+    expect(parseConsoleCommandLine('/fontsize small')).toEqual({
+      kind: 'valid',
+      command: { type: 'fontSize', fontSizeMode: 'small' },
+    });
+    expect(parseConsoleCommandLine('/fontsize medium')).toEqual({
+      kind: 'valid',
+      command: { type: 'fontSize', fontSizeMode: 'medium' },
+    });
+    expect(parseConsoleCommandLine('/fontsize large')).toEqual({
+      kind: 'valid',
+      command: { type: 'fontSize', fontSizeMode: 'large' },
+    });
   });
 
   it('parses invalid and non-command lines', () => {
@@ -102,6 +114,14 @@ describe('parseConsoleCommandLine', () => {
     expect(parseConsoleCommandLine('/linenums')).toEqual({
       kind: 'unknown-command',
       message: '/linenums - unknown command',
+    });
+    expect(parseConsoleCommandLine('/fontsize')).toEqual({
+      kind: 'unknown-command',
+      message: '/fontsize - unknown command',
+    });
+    expect(parseConsoleCommandLine('/fontsize huge')).toEqual({
+      kind: 'unknown-command',
+      message: '/fontsize huge - unknown command',
     });
     expect(parseConsoleCommandLine('/linenum show')).toEqual({
       kind: 'unknown-root',
@@ -135,6 +155,7 @@ describe('getConsoleCommandMenu', () => {
         { label: 'count' },
         { label: 'menu' },
         { label: 'linenums' },
+        { label: 'fontsize' },
       ],
       tokenFrom: 1,
       tokenTo: 1,
@@ -164,6 +185,12 @@ describe('getConsoleCommandMenu', () => {
       options: [{ label: 'linenums' }],
       tokenFrom: 1,
       tokenTo: 3,
+    });
+
+    expect(getConsoleCommandMenu({ lineText: '/font', cursorOffset: 5 })).toEqual({
+      options: [{ label: 'fontsize' }],
+      tokenFrom: 1,
+      tokenTo: 5,
     });
   });
 
@@ -233,6 +260,18 @@ describe('getConsoleCommandMenu', () => {
       tokenFrom: 10,
       tokenTo: 11,
     });
+
+    expect(getConsoleCommandMenu({ lineText: '/fontsize ', cursorOffset: 10 })).toEqual({
+      options: [{ label: 'small' }, { label: 'medium' }, { label: 'large' }],
+      tokenFrom: 10,
+      tokenTo: 10,
+    });
+
+    expect(getConsoleCommandMenu({ lineText: '/fontsize m', cursorOffset: 11 })).toEqual({
+      options: [{ label: 'medium' }],
+      tokenFrom: 10,
+      tokenTo: 11,
+    });
   });
 
   it('does not show menu for complete subcommands', () => {
@@ -242,6 +281,7 @@ describe('getConsoleCommandMenu', () => {
     expect(getConsoleCommandMenu({ lineText: '/menu show', cursorOffset: 10 })).toBeNull();
     expect(getConsoleCommandMenu({ lineText: '/menu top', cursorOffset: 9 })).toBeNull();
     expect(getConsoleCommandMenu({ lineText: '/menu bottom', cursorOffset: 12 })).toBeNull();
+    expect(getConsoleCommandMenu({ lineText: '/fontsize medium', cursorOffset: 16 })).toBeNull();
   });
 });
 
@@ -294,6 +334,14 @@ describe('getCompletedConsoleCommandLine', () => {
         selectedLabel: 'hide',
       }),
     ).toBe('/linenums hide');
+
+    expect(
+      getCompletedConsoleCommandLine({
+        lineText: '/fontsize m',
+        cursorOffset: 11,
+        selectedLabel: 'medium',
+      }),
+    ).toBe('/fontsize medium');
   });
 });
 

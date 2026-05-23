@@ -5,6 +5,7 @@ import type {
   AppMode,
   CoffeeStatus,
   CopyStatus,
+  FontSizeMode,
   MenuPlacement,
   MenuVisibilityMode,
 } from '../appTypes';
@@ -28,8 +29,10 @@ type MenuProps = {
   editorStats: EditorStats;
   copyStatus: CopyStatus;
   coffeeStatus: CoffeeStatus;
+  fontSizeMode: FontSizeMode;
   activeFontStyleTypes: FontStyleType[];
   onModeToggle: () => void;
+  onFontSizeToggle: () => void;
   onStatsModeToggle: () => void;
   onToggleFontStyle: (fontStyleType: FontStyleType) => void;
   onCopyText: () => void;
@@ -49,8 +52,10 @@ export const Menu = ({
   editorStats,
   copyStatus,
   coffeeStatus,
+  fontSizeMode,
   activeFontStyleTypes,
   onModeToggle,
+  onFontSizeToggle,
   onStatsModeToggle,
   onToggleFontStyle,
   onCopyText,
@@ -73,14 +78,23 @@ export const Menu = ({
     <nav
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
-      className={`${layoutClassName} ${borderClassName} z-50 flex h-10 shrink-0 items-center border-[#2A2B2C] bg-[#191A1B] text-base transition-transform duration-200 ease-out ${visibilityClassName}`}
+      className={`${layoutClassName} ${borderClassName} z-50 flex h-10 shrink-0 items-center border-[#2A2B2C] bg-[#191A1B] text-[length:var(--byline-font-size)] transition-transform duration-200 ease-out ${visibilityClassName}`}
     >
       <button
         type="button"
         onClick={onModeToggle}
-        className="flex h-full w-16 items-center justify-center border-r border-[#2A2B2C] text-center text-sm font-medium text-[#8C8C8C] hover:bg-[#242526] focus:outline-none focus-visible:bg-[#242526]"
+        className="flex h-full w-16 items-center justify-center border-r border-[#2A2B2C] text-center font-medium text-[#8C8C8C] hover:bg-[#242526] focus:outline-none focus-visible:bg-[#242526]"
       >
         {getModeLabel(mode)}
+      </button>
+      <button
+        type="button"
+        onClick={onFontSizeToggle}
+        aria-label={`Cycle font size. Current size: ${fontSizeMode}`}
+        title={`Font size: ${fontSizeMode}`}
+        className="flex h-full w-10 items-center justify-center border-r border-[#2A2B2C] text-[#8C8C8C] hover:bg-[#242526] focus:outline-none focus-visible:bg-[#242526]"
+      >
+        <FontSizeIcon />
       </button>
 
       <a
@@ -171,9 +185,18 @@ const MenuStats = ({
       className={buttonClassName}
     >
       <span>{labels.baseLabel}</span>
-      <span className="ml-1 text-sm leading-none text-[#2A4C2C]">{labels.addedLabel}</span>
-      <span className="ml-1 text-sm leading-none text-[#693330]">{labels.deletedLabel}</span>
+      <span className="ml-1 leading-none text-[#2A4C2C]">{labels.addedLabel}</span>
+      <span className="ml-1 leading-none text-[#693330]">{labels.deletedLabel}</span>
     </button>
+  );
+};
+
+const FontSizeIcon = () => {
+  return (
+    <span className="inline-flex items-baseline leading-none" aria-hidden="true">
+      <span className="text-[0.5em] font-semibold">T</span>
+      <span className="text-[1em] font-medium">T</span>
+    </span>
   );
 };
 

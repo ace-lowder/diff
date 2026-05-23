@@ -1,5 +1,6 @@
 import type { StatsMode } from '../editorDiff';
 import type {
+  FontSizeMode,
   LineNumberPosition,
   LineNumberVisibilityMode,
   MenuPlacement,
@@ -39,6 +40,10 @@ export type ConsoleCommand =
       type: 'lineNumbers';
       action: 'visibility';
       visibilityMode: LineNumberVisibilityMode;
+    }
+  | {
+      type: 'fontSize';
+      fontSizeMode: FontSizeMode;
     };
 
 export type ConsoleCommandParseResult =
@@ -79,12 +84,14 @@ const ROOT_OPTIONS = [
   'count',
   'menu',
   'linenums',
+  'fontsize',
 ] as const;
 const VIEW_OPTIONS = ['draft', 'editor', 'split'] as const;
 const COPY_OPTIONS = ['line'] as const;
 const COUNT_OPTIONS = ['word', 'char'] as const;
 const MENU_OPTIONS = ['hide', 'show', 'top', 'bottom'] as const;
 const LINE_NUMBERS_OPTIONS = ['left', 'right', 'show', 'hide'] as const;
+const FONT_SIZE_OPTIONS = ['small', 'medium', 'large'] as const;
 
 export const parseConsoleCommandLine = (
   lineText: string,
@@ -256,6 +263,34 @@ export const parseConsoleCommandLine = (
     };
   }
 
+  if (root === 'fontsize') {
+    if (parts.length === 2 && option === 'small') {
+      return {
+        kind: 'valid',
+        command: { type: 'fontSize', fontSizeMode: 'small' },
+      };
+    }
+
+    if (parts.length === 2 && option === 'medium') {
+      return {
+        kind: 'valid',
+        command: { type: 'fontSize', fontSizeMode: 'medium' },
+      };
+    }
+
+    if (parts.length === 2 && option === 'large') {
+      return {
+        kind: 'valid',
+        command: { type: 'fontSize', fontSizeMode: 'large' },
+      };
+    }
+
+    return {
+      kind: 'unknown-command',
+      message: `${trimmedLineText}${UNKNOWN_COMMAND_SUFFIX}`,
+    };
+  }
+
   return {
     kind: 'unknown-command',
     message: `${trimmedLineText}${UNKNOWN_COMMAND_SUFFIX}`,
@@ -323,7 +358,8 @@ export const getConsoleCommandMenu = ({
       currentTokenText === '/copy' ||
       currentTokenText === '/count' ||
       currentTokenText === '/menu' ||
-      currentTokenText === '/linenums'
+      currentTokenText === '/linenums' ||
+      currentTokenText === '/fontsize'
     ) {
       return null;
     }
@@ -441,6 +477,10 @@ const getOptionsForRoot = (
 
   if (root === 'linenums') {
     return LINE_NUMBERS_OPTIONS;
+  }
+
+  if (root === 'fontsize') {
+    return FONT_SIZE_OPTIONS;
   }
 
   return null;
