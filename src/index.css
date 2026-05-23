@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    color-scheme: dark;
+    background-color: #121314;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    background-color: #121314;
+  }
+}
+
 @layer components {
   .byline-mouse-reveal-edge-trigger {
     pointer-events: none;
