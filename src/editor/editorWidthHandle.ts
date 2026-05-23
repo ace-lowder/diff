@@ -1,9 +1,12 @@
+import {
+  LEFT_RESIZE_HANDLE_NUDGE_PX,
+  RIGHT_RESIZE_HANDLE_NUDGE_PX,
+} from '../layoutTuning';
+
 export type EditorWidthHandlePlacement =
   | 'none'
   | 'afterLeftGutter'
   | 'beforeRightGutter';
-
-export const EDITOR_WIDTH_HANDLE_RIGHT_NUDGE_PX = 2;
 
 export const getEditorWidthHandleStyle = ({
   placement,
@@ -16,9 +19,9 @@ export const getEditorWidthHandleStyle = ({
 }): { left?: string; right?: string } => {
   if (placement === 'beforeRightGutter') {
     return {
-      right: `${lineNumberGutterWidthPx + scrollbarWidthPx + EDITOR_WIDTH_HANDLE_RIGHT_NUDGE_PX}px`,
+      right: `${lineNumberGutterWidthPx + scrollbarWidthPx + RIGHT_RESIZE_HANDLE_NUDGE_PX}px`,
     };
   }
 
-  return { left: `${lineNumberGutterWidthPx}px` };
+  return { left: `${lineNumberGutterWidthPx + LEFT_RESIZE_HANDLE_NUDGE_PX}px` };
 };

@@ -9,7 +9,7 @@
     --byline-font-size: 12px;
     --byline-line-height: 18px;
     --byline-menu-height: 36px;
-    --byline-line-number-gutter-width: calc(6ch + 12px);
+    --byline-line-number-gutter-width: calc(6ch + 2ch);
   }
 
   html,

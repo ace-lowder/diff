@@ -1,0 +1,31 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  EDITOR_CONTENT_HORIZONTAL_PADDING_PX,
+  FONT_SIZE_ICON_SMALL_T_CLASS_NAME,
+  FULL_LINE_HIGHLIGHT_LEFT_NUDGE_PX,
+  FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX,
+  LEFT_LINE_NUMBER_TEXT_NUDGE,
+  LEFT_RESIZE_HANDLE_NUDGE_PX,
+  LINE_NUMBER_GUTTER_CONTENT_WIDTH,
+  LINE_NUMBER_GUTTER_PADDING_RIGHT,
+  LINE_NUMBER_GUTTER_TOTAL_WIDTH,
+  RIGHT_LINE_NUMBER_TEXT_NUDGE,
+  RIGHT_RESIZE_HANDLE_NUDGE_PX,
+} from './layoutTuning';
+
+describe('layout tuning constants', () => {
+  it('match expected default values', () => {
+    expect(EDITOR_CONTENT_HORIZONTAL_PADDING_PX).toBe(12);
+    expect(LINE_NUMBER_GUTTER_CONTENT_WIDTH).toBe('6ch');
+    expect(LINE_NUMBER_GUTTER_PADDING_RIGHT).toBe('2ch');
+    expect(LINE_NUMBER_GUTTER_TOTAL_WIDTH).toBe('calc(6ch + 2ch)');
+    expect(LEFT_LINE_NUMBER_TEXT_NUDGE).toBe('0ch');
+    expect(RIGHT_LINE_NUMBER_TEXT_NUDGE).toBe('-0.75ch');
+    expect(LEFT_RESIZE_HANDLE_NUDGE_PX).toBe(0);
+    expect(RIGHT_RESIZE_HANDLE_NUDGE_PX).toBe(4);
+    expect(FULL_LINE_HIGHLIGHT_LEFT_NUDGE_PX).toBe(0);
+    expect(FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX).toBe(0);
+    expect(FONT_SIZE_ICON_SMALL_T_CLASS_NAME).toBe('text-[0.76em] font-bold');
+  });
+});

@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  EDITOR_WIDTH_HANDLE_RIGHT_NUDGE_PX,
-  getEditorWidthHandleStyle,
-} from './editorWidthHandle';
+import { RIGHT_RESIZE_HANDLE_NUDGE_PX } from '../layoutTuning';
+import { getEditorWidthHandleStyle } from './editorWidthHandle';
 
-describe('EDITOR_WIDTH_HANDLE_RIGHT_NUDGE_PX', () => {
-  it('is 2', () => {
-    expect(EDITOR_WIDTH_HANDLE_RIGHT_NUDGE_PX).toBe(2);
+describe('RIGHT_RESIZE_HANDLE_NUDGE_PX', () => {
+  it('is 4', () => {
+    expect(RIGHT_RESIZE_HANDLE_NUDGE_PX).toBe(4);
   });
 });
 
@@ -29,6 +27,6 @@ describe('getEditorWidthHandleStyle', () => {
         lineNumberGutterWidthPx: 56,
         scrollbarWidthPx: 12,
       }),
-    ).toEqual({ right: '70px' });
+    ).toEqual({ right: '72px' });
   });
 });

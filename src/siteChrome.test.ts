@@ -32,7 +32,7 @@ describe('site chrome base styles', () => {
   });
 
   it('sets default line number gutter width css variable', () => {
-    expect(indexCss).toContain('--byline-line-number-gutter-width: calc(6ch + 12px);');
+    expect(indexCss).toContain('--byline-line-number-gutter-width: calc(6ch + 2ch);');
   });
 
   it('defines html selector in css', () => {

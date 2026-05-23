@@ -14,9 +14,7 @@ describe('code mirror theme constants', () => {
   });
 
   it('uses the shared byline line number gutter variables', () => {
-    expect(CODE_MIRROR_LINE_NUMBER_GUTTER_WIDTH).toBe(
-      'var(--byline-line-number-gutter-width)',
-    );
-    expect(CODE_MIRROR_LINE_NUMBER_GUTTER_PADDING_RIGHT).toBe('12px');
+    expect(CODE_MIRROR_LINE_NUMBER_GUTTER_WIDTH).toBe('6ch');
+    expect(CODE_MIRROR_LINE_NUMBER_GUTTER_PADDING_RIGHT).toBe('2ch');
   });
 });

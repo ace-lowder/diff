@@ -23,7 +23,8 @@ export type PaintRectBox = {
 };
 
 export const DIFF_PAINT_VERTICAL_OFFSET_PX = 8;
-export const DIFF_CONTENT_HORIZONTAL_PADDING_PX = 12;
+export const DIFF_CONTENT_HORIZONTAL_PADDING_PX =
+  EDITOR_CONTENT_HORIZONTAL_PADDING_PX;
 export const DIFF_TICK_WIDTH_PX = 3;
 export const DIFF_FULL_LINE_LEFT_OFFSET_PX = 64;
 export const DIFF_FULL_LINE_RIGHT_OFFSET_PX = 40;
@@ -96,14 +97,20 @@ export const getLinePaintGeometryAdjustment = ({
   if (lineNumberLayout === 'reservedLeftGutter') {
     return {
       ...adjustment,
-      leftOffsetPx: reservedLeftGutterWidthPx,
+      leftOffsetPx:
+        reservedLeftGutterWidthPx + FULL_LINE_HIGHLIGHT_LEFT_NUDGE_PX,
+      rightOffsetPx:
+        adjustment.rightOffsetPx + FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX,
     };
   }
 
   return {
     ...adjustment,
-    leftOffsetPx: DIFF_CONTENT_HORIZONTAL_PADDING_PX,
-    rightOffsetPx: -DIFF_CONTENT_HORIZONTAL_PADDING_PX,
+    leftOffsetPx:
+      DIFF_CONTENT_HORIZONTAL_PADDING_PX + FULL_LINE_HIGHLIGHT_LEFT_NUDGE_PX,
+    rightOffsetPx:
+      -DIFF_CONTENT_HORIZONTAL_PADDING_PX +
+      FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX,
   };
 };
 
@@ -152,3 +159,8 @@ export const getLowestEditedLineRuleBox = (
     height: LOWEST_EDITED_LINE_HEIGHT_PX,
   };
 };
+import {
+  EDITOR_CONTENT_HORIZONTAL_PADDING_PX,
+  FULL_LINE_HIGHLIGHT_LEFT_NUDGE_PX,
+  FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX,
+} from '../layoutTuning';

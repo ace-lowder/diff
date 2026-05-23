@@ -20,6 +20,7 @@ import {
   getMenuLayoutClassName,
   getMenuVisibilityClassName,
 } from './menuVisibility';
+import { FONT_SIZE_ICON_SMALL_T_CLASS_NAME } from '../layoutTuning';
 
 type MenuProps = {
   mode: AppMode;
@@ -194,7 +195,7 @@ const MenuStats = ({
 const FontSizeIcon = () => {
   return (
     <span className="inline-flex items-baseline leading-none" aria-hidden="true">
-      <span className="text-[0.8em] font-bold">T</span>
+      <span className={FONT_SIZE_ICON_SMALL_T_CLASS_NAME}>T</span>
       <span className="text-[1em] font-medium">T</span>
     </span>
   );

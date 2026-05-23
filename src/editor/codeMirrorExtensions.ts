@@ -31,9 +31,12 @@ import type {
   ScrollOffset,
 } from "../appTypes";
 import type { FontStyleType, TextChange, TextSelectionRange } from "../fontStyles";
+import {
+  EDITOR_CONTENT_HORIZONTAL_PADDING_PX,
+  LEFT_LINE_NUMBER_TEXT_NUDGE,
+  RIGHT_LINE_NUMBER_TEXT_NUDGE,
+} from '../layoutTuning';
 
-export const LEFT_LINE_NUMBER_TEXT_OFFSET = "0.5ch";
-export const RIGHT_LINE_NUMBER_TEXT_OFFSET = "0.75ch";
 const RIGHT_LINE_NUMBER_PADDING_LEFT = "1ch";
 const RIGHT_LINE_NUMBER_PADDING_RIGHT = "3ch";
 const LEFT_LINE_COPY_ICON_OFFSET = "calc(100% - 1.45ch)";
@@ -161,7 +164,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       lineHeight: CODE_MIRROR_LINE_HEIGHT,
     },
     ".cm-content": {
-      padding: "8px 12px",
+      padding: `8px ${EDITOR_CONTENT_HORIZONTAL_PADDING_PX}px`,
       caretColor: "#D4D4D4",
       tabSize: String(CODE_MIRROR_TAB_SIZE),
     },
@@ -194,11 +197,11 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     },
     ".byline-line-number-gutter-left .byline-line-number": {
       display: "inline-block",
-      transform: `translateX(-${LEFT_LINE_NUMBER_TEXT_OFFSET})`,
+      transform: `translateX(${LEFT_LINE_NUMBER_TEXT_NUDGE})`,
     },
     ".byline-line-number-gutter-right .byline-line-number": {
       display: "inline-block",
-      transform: `translateX(-${RIGHT_LINE_NUMBER_TEXT_OFFSET})`,
+      transform: `translateX(${RIGHT_LINE_NUMBER_TEXT_NUDGE})`,
     },
     ".cm-lineNumbers .cm-gutterElement:hover": {
       color: "#BBBEBF",
