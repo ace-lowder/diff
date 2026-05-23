@@ -1,3 +1,10 @@
+import {
+  EDITOR_CONTENT_HORIZONTAL_PADDING_PX,
+  FULL_LINE_HIGHLIGHT_NO_LEFT_GUTTER_NUDGE_PX,
+  FULL_LINE_HIGHLIGHT_RESERVED_LEFT_GUTTER_NUDGE_PX,
+  FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX,
+} from '../layoutTuning';
+
 export type DiffPaintGeometryRole =
   | 'inlineText'
   | 'tick'
@@ -98,7 +105,8 @@ export const getLinePaintGeometryAdjustment = ({
     return {
       ...adjustment,
       leftOffsetPx:
-        reservedLeftGutterWidthPx + FULL_LINE_HIGHLIGHT_LEFT_NUDGE_PX,
+        reservedLeftGutterWidthPx +
+        FULL_LINE_HIGHLIGHT_RESERVED_LEFT_GUTTER_NUDGE_PX,
       rightOffsetPx:
         adjustment.rightOffsetPx + FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX,
     };
@@ -107,7 +115,8 @@ export const getLinePaintGeometryAdjustment = ({
   return {
     ...adjustment,
     leftOffsetPx:
-      DIFF_CONTENT_HORIZONTAL_PADDING_PX + FULL_LINE_HIGHLIGHT_LEFT_NUDGE_PX,
+      DIFF_CONTENT_HORIZONTAL_PADDING_PX +
+      FULL_LINE_HIGHLIGHT_NO_LEFT_GUTTER_NUDGE_PX,
     rightOffsetPx:
       -DIFF_CONTENT_HORIZONTAL_PADDING_PX +
       FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX,
@@ -159,8 +168,3 @@ export const getLowestEditedLineRuleBox = (
     height: LOWEST_EDITED_LINE_HEIGHT_PX,
   };
 };
-import {
-  EDITOR_CONTENT_HORIZONTAL_PADDING_PX,
-  FULL_LINE_HIGHLIGHT_LEFT_NUDGE_PX,
-  FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX,
-} from '../layoutTuning';

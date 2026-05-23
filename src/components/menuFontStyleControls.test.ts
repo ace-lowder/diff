@@ -3,7 +3,8 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import {
   FONT_STYLE_CONTROL_HOVER_CLASS_NAME,
   getFontStyleControlButtonClassName,
-  ITALIC_FONT_STYLE_LABEL_CLASS_NAME,
+  getItalicFontStyleLabelClassName,
+  UNDERLINE_FONT_STYLE_LABEL_CLASS_NAME,
 } from './menuFontStyleControls';
 
 describe('getFontStyleControlButtonClassName', () => {
@@ -47,9 +48,23 @@ describe('getFontStyleControlButtonClassName', () => {
   });
 });
 
-describe('ITALIC_FONT_STYLE_LABEL_CLASS_NAME', () => {
-  it('matches the expected italic label class', () => {
-    expect(ITALIC_FONT_STYLE_LABEL_CLASS_NAME).toBe('italic top-px');
+describe('getItalicFontStyleLabelClassName', () => {
+  it('returns italic top-px for small', () => {
+    expect(getItalicFontStyleLabelClassName('small')).toBe('italic top-px');
+  });
+
+  it('returns italic top-px for medium', () => {
+    expect(getItalicFontStyleLabelClassName('medium')).toBe('italic top-px');
+  });
+
+  it('returns italic for large', () => {
+    expect(getItalicFontStyleLabelClassName('large')).toBe('italic');
+  });
+});
+
+describe('UNDERLINE_FONT_STYLE_LABEL_CLASS_NAME', () => {
+  it('matches the expected underline label class', () => {
+    expect(UNDERLINE_FONT_STYLE_LABEL_CLASS_NAME).toBe('text-[0.92em]');
   });
 });
 

@@ -21,6 +21,11 @@ import {
   getLowestEditedLineRuleBox,
   LOWEST_EDITED_LINE_HEIGHT_PX,
 } from './codeMirrorDiffPaintGeometry';
+import {
+  FULL_LINE_HIGHLIGHT_NO_LEFT_GUTTER_NUDGE_PX,
+  FULL_LINE_HIGHLIGHT_RESERVED_LEFT_GUTTER_NUDGE_PX,
+  FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX,
+} from '../layoutTuning';
 
 const BASE_TEXT = 'one\ntwo\nthree';
 
@@ -402,8 +407,12 @@ describe('getLinePaintGeometryAdjustment', () => {
       reservedLeftGutterWidthPx: 73,
     });
 
-    expect(adjustment.leftOffsetPx).toBe(73);
-    expect(adjustment.rightOffsetPx).toBe(DIFF_FULL_LINE_RIGHT_OFFSET_PX);
+    expect(adjustment.leftOffsetPx).toBe(
+      73 + FULL_LINE_HIGHLIGHT_RESERVED_LEFT_GUTTER_NUDGE_PX,
+    );
+    expect(adjustment.rightOffsetPx).toBe(
+      DIFF_FULL_LINE_RIGHT_OFFSET_PX + FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX,
+    );
   });
 
   it('uses content padding offsets for line-wide paint when no left gutter is reserved', () => {
@@ -420,12 +429,27 @@ describe('getLinePaintGeometryAdjustment', () => {
       lineNumberLayout: 'noReservedLeftGutter',
     });
 
-    expect(fullLine.leftOffsetPx).toBe(DIFF_CONTENT_HORIZONTAL_PADDING_PX);
-    expect(fullLine.rightOffsetPx).toBe(-DIFF_CONTENT_HORIZONTAL_PADDING_PX);
-    expect(activeLine.leftOffsetPx).toBe(DIFF_CONTENT_HORIZONTAL_PADDING_PX);
-    expect(activeLine.rightOffsetPx).toBe(-DIFF_CONTENT_HORIZONTAL_PADDING_PX);
-    expect(lowestEditedLine.leftOffsetPx).toBe(DIFF_CONTENT_HORIZONTAL_PADDING_PX);
-    expect(lowestEditedLine.rightOffsetPx).toBe(-DIFF_CONTENT_HORIZONTAL_PADDING_PX);
+    expect(fullLine.leftOffsetPx).toBe(
+      DIFF_CONTENT_HORIZONTAL_PADDING_PX +
+      FULL_LINE_HIGHLIGHT_NO_LEFT_GUTTER_NUDGE_PX,
+    );
+    expect(fullLine.rightOffsetPx).toBe(
+      -DIFF_CONTENT_HORIZONTAL_PADDING_PX + FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX,
+    );
+    expect(activeLine.leftOffsetPx).toBe(
+      DIFF_CONTENT_HORIZONTAL_PADDING_PX +
+      FULL_LINE_HIGHLIGHT_NO_LEFT_GUTTER_NUDGE_PX,
+    );
+    expect(activeLine.rightOffsetPx).toBe(
+      -DIFF_CONTENT_HORIZONTAL_PADDING_PX + FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX,
+    );
+    expect(lowestEditedLine.leftOffsetPx).toBe(
+      DIFF_CONTENT_HORIZONTAL_PADDING_PX +
+      FULL_LINE_HIGHLIGHT_NO_LEFT_GUTTER_NUDGE_PX,
+    );
+    expect(lowestEditedLine.rightOffsetPx).toBe(
+      -DIFF_CONTENT_HORIZONTAL_PADDING_PX + FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX,
+    );
   });
 
   it('does not change inlineText horizontal offsets', () => {

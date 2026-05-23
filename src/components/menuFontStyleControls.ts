@@ -1,7 +1,20 @@
+import type { FontSizeMode } from '../appTypes';
+import { UNDERLINE_FONT_STYLE_LABEL_CLASS_NAME } from '../layoutTuning';
+
 export const FONT_STYLE_CONTROL_HOVER_CLASS_NAME =
   'byline-font-style-control-hover';
 
-export const ITALIC_FONT_STYLE_LABEL_CLASS_NAME = 'italic top-px';
+export const getItalicFontStyleLabelClassName = (
+  fontSizeMode: FontSizeMode,
+): string => {
+  if (fontSizeMode === 'large') {
+    return 'italic';
+  }
+
+  return 'italic top-px';
+};
+
+export { UNDERLINE_FONT_STYLE_LABEL_CLASS_NAME };
 
 export const getFontStyleControlButtonClassName = (
   isActive: boolean,

@@ -10,7 +10,9 @@ export const RIGHT_LINE_NUMBER_TEXT_NUDGE = '-0.75ch';
 export const LEFT_RESIZE_HANDLE_NUDGE_PX = 0;
 export const RIGHT_RESIZE_HANDLE_NUDGE_PX = 4;
 
-export const FULL_LINE_HIGHLIGHT_LEFT_NUDGE_PX = 0;
+export const FULL_LINE_HIGHLIGHT_RESERVED_LEFT_GUTTER_NUDGE_PX = 12;
+export const FULL_LINE_HIGHLIGHT_NO_LEFT_GUTTER_NUDGE_PX = 0;
 export const FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX = 0;
 
-export const FONT_SIZE_ICON_SMALL_T_CLASS_NAME = 'text-[0.76em] font-bold';
+export const FONT_SIZE_ICON_SMALL_T_CLASS_NAME = 'text-[0.72em] font-bold';
+export const UNDERLINE_FONT_STYLE_LABEL_CLASS_NAME = 'text-[0.92em]';

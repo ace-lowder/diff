@@ -13,7 +13,8 @@ import type { FontStyleType } from '../fontStyles';
 import { getFooterStatsLabels } from './footerStatsLabels';
 import {
   getFontStyleControlButtonClassName,
-  ITALIC_FONT_STYLE_LABEL_CLASS_NAME,
+  getItalicFontStyleLabelClassName,
+  UNDERLINE_FONT_STYLE_LABEL_CLASS_NAME,
 } from './menuFontStyleControls';
 import {
   getMenuBorderClassName,
@@ -120,6 +121,7 @@ export const Menu = ({
       />
 
       <FontStyleControls
+        fontSizeMode={fontSizeMode}
         activeFontStyleTypes={activeFontStyleTypes}
         onToggleFontStyle={onToggleFontStyle}
       />
@@ -202,11 +204,13 @@ const FontSizeIcon = () => {
 };
 
 type FontStyleControlsProps = {
+  fontSizeMode: FontSizeMode;
   activeFontStyleTypes: FontStyleType[];
   onToggleFontStyle: (fontStyleType: FontStyleType) => void;
 };
 
 const FontStyleControls = ({
+  fontSizeMode,
   activeFontStyleTypes,
   onToggleFontStyle,
 }: FontStyleControlsProps) => {
@@ -221,7 +225,7 @@ const FontStyleControls = ({
       <FontStyleControlButton
         label="I"
         ariaLabel="Toggle italic"
-        labelClassName={ITALIC_FONT_STYLE_LABEL_CLASS_NAME}
+        labelClassName={getItalicFontStyleLabelClassName(fontSizeMode)}
         labelStyle={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
         isActive={activeFontStyleTypes.includes('italic')}
         onClick={() => onToggleFontStyle('italic')}
@@ -229,6 +233,7 @@ const FontStyleControls = ({
       <FontStyleControlButton
         label="U"
         ariaLabel="Toggle underline"
+        labelClassName={UNDERLINE_FONT_STYLE_LABEL_CLASS_NAME}
         showUnderline
         isActive={activeFontStyleTypes.includes('underline')}
         onClick={() => onToggleFontStyle('underline')}
