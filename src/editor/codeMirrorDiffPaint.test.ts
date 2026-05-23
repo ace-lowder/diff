@@ -14,7 +14,10 @@ import {
 } from './codeMirrorDiffPaint';
 import {
   DIFF_PAINT_GEOMETRY,
+  DIFF_FULL_LINE_LEFT_OFFSET_PX,
+  DIFF_FULL_LINE_RIGHT_OFFSET_PX,
   getAdjustedPaintRectBox,
+  getLinePaintGeometryAdjustment,
   getLowestEditedLineRuleBox,
   LOWEST_EDITED_LINE_HEIGHT_PX,
 } from './codeMirrorDiffPaintGeometry';
@@ -388,6 +391,50 @@ describe('getDiffPaintEffectValue', () => {
       draftLineDecorations: [],
       lowestEditedLine: { lineNumber: 8 },
     });
+  });
+});
+
+describe('getLinePaintGeometryAdjustment', () => {
+  it('keeps fullLine offsets with reserved left gutter', () => {
+    const adjustment = getLinePaintGeometryAdjustment({
+      geometryRole: 'fullLine',
+      lineNumberLayout: 'reservedLeftGutter',
+    });
+
+    expect(adjustment.leftOffsetPx).toBe(DIFF_FULL_LINE_LEFT_OFFSET_PX);
+    expect(adjustment.rightOffsetPx).toBe(DIFF_FULL_LINE_RIGHT_OFFSET_PX);
+  });
+
+  it('zeros full-line horizontal offsets when no left gutter is reserved', () => {
+    const fullLine = getLinePaintGeometryAdjustment({
+      geometryRole: 'fullLine',
+      lineNumberLayout: 'noReservedLeftGutter',
+    });
+    const activeLine = getLinePaintGeometryAdjustment({
+      geometryRole: 'activeLine',
+      lineNumberLayout: 'noReservedLeftGutter',
+    });
+    const lowestEditedLine = getLinePaintGeometryAdjustment({
+      geometryRole: 'lowestEditedLine',
+      lineNumberLayout: 'noReservedLeftGutter',
+    });
+
+    expect(fullLine.leftOffsetPx).toBe(0);
+    expect(fullLine.rightOffsetPx).toBe(0);
+    expect(activeLine.leftOffsetPx).toBe(0);
+    expect(activeLine.rightOffsetPx).toBe(0);
+    expect(lowestEditedLine.leftOffsetPx).toBe(0);
+    expect(lowestEditedLine.rightOffsetPx).toBe(0);
+  });
+
+  it('does not change inlineText horizontal offsets', () => {
+    const adjustment = getLinePaintGeometryAdjustment({
+      geometryRole: 'inlineText',
+      lineNumberLayout: 'noReservedLeftGutter',
+    });
+
+    expect(adjustment.leftOffsetPx).toBe(DIFF_PAINT_GEOMETRY.inlineText.leftOffsetPx);
+    expect(adjustment.rightOffsetPx).toBe(DIFF_PAINT_GEOMETRY.inlineText.rightOffsetPx);
   });
 });
 

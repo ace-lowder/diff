@@ -71,11 +71,11 @@ describe('parseConsoleCommandLine', () => {
       kind: 'valid',
       command: { type: 'lineNumbers', action: 'position', position: 'right' },
     });
-    expect(parseConsoleCommandLine('/linenum show')).toEqual({
+    expect(parseConsoleCommandLine('/linenums show')).toEqual({
       kind: 'valid',
       command: { type: 'lineNumbers', action: 'visibility', visibilityMode: 'visible' },
     });
-    expect(parseConsoleCommandLine('/linenum hide')).toEqual({
+    expect(parseConsoleCommandLine('/linenums hide')).toEqual({
       kind: 'valid',
       command: { type: 'lineNumbers', action: 'visibility', visibilityMode: 'autoHide' },
     });
@@ -103,17 +103,8 @@ describe('parseConsoleCommandLine', () => {
       kind: 'unknown-command',
       message: '/linenums - unknown command',
     });
-    expect(parseConsoleCommandLine('/linenums show')).toEqual({
-      kind: 'unknown-command',
-      message: '/linenums show - unknown command',
-    });
-    expect(parseConsoleCommandLine('/linenum')).toEqual({
-      kind: 'unknown-command',
-      message: '/linenum - unknown command',
-    });
-    expect(parseConsoleCommandLine('/linenum left')).toEqual({
-      kind: 'unknown-command',
-      message: '/linenum left - unknown command',
+    expect(parseConsoleCommandLine('/linenum show')).toEqual({
+      kind: 'unknown-root',
     });
     expect(parseConsoleCommandLine('text /view')).toEqual({ kind: 'not-command' });
   });
@@ -144,7 +135,6 @@ describe('getConsoleCommandMenu', () => {
         { label: 'count' },
         { label: 'menu' },
         { label: 'linenums' },
-        { label: 'linenum' },
       ],
       tokenFrom: 1,
       tokenTo: 1,
@@ -171,7 +161,7 @@ describe('getConsoleCommandMenu', () => {
     });
 
     expect(getConsoleCommandMenu({ lineText: '/li', cursorOffset: 3 })).toEqual({
-      options: [{ label: 'linenums' }, { label: 'linenum' }],
+      options: [{ label: 'linenums' }],
       tokenFrom: 1,
       tokenTo: 3,
     });
@@ -227,7 +217,7 @@ describe('getConsoleCommandMenu', () => {
     });
 
     expect(getConsoleCommandMenu({ lineText: '/linenums ', cursorOffset: 10 })).toEqual({
-      options: [{ label: 'left' }, { label: 'right' }],
+      options: [{ label: 'left' }, { label: 'right' }, { label: 'show' }, { label: 'hide' }],
       tokenFrom: 10,
       tokenTo: 10,
     });
@@ -238,16 +228,10 @@ describe('getConsoleCommandMenu', () => {
       tokenTo: 11,
     });
 
-    expect(getConsoleCommandMenu({ lineText: '/linenum ', cursorOffset: 9 })).toEqual({
-      options: [{ label: 'show' }, { label: 'hide' }],
-      tokenFrom: 9,
-      tokenTo: 9,
-    });
-
-    expect(getConsoleCommandMenu({ lineText: '/linenum h', cursorOffset: 10 })).toEqual({
+    expect(getConsoleCommandMenu({ lineText: '/linenums h', cursorOffset: 11 })).toEqual({
       options: [{ label: 'hide' }],
-      tokenFrom: 9,
-      tokenTo: 10,
+      tokenFrom: 10,
+      tokenTo: 11,
     });
   });
 
@@ -305,11 +289,11 @@ describe('getCompletedConsoleCommandLine', () => {
 
     expect(
       getCompletedConsoleCommandLine({
-        lineText: '/linenum h',
-        cursorOffset: 10,
+        lineText: '/linenums h',
+        cursorOffset: 11,
         selectedLabel: 'hide',
       }),
-    ).toBe('/linenum hide');
+    ).toBe('/linenums hide');
   });
 });
 
@@ -365,8 +349,8 @@ describe('getConsoleCommandPrediction', () => {
 
     expect(
       getConsoleCommandPrediction({
-        lineText: '/linenum h',
-        cursorOffset: 10,
+        lineText: '/linenums h',
+        cursorOffset: 11,
         selectedLabel: 'hide',
       }),
     ).toBe('ide');

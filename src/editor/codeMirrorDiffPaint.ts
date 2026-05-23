@@ -14,7 +14,9 @@ import {
   DIFF_PAINT_GEOMETRY,
   DIFF_TICK_WIDTH_PX,
   getAdjustedPaintRectBox,
+  getLinePaintGeometryAdjustment,
   getLowestEditedLineRuleBox,
+  type DiffPaintLineNumberLayout,
   type DiffPaintGeometryRole,
   type PaintRectBox,
 } from './codeMirrorDiffPaintGeometry';
@@ -464,11 +466,13 @@ const getLowestEditedLineMarkers = (view: EditorView): RectangleMarker[] => {
   if (contentWidth <= 0) {
     return [];
   }
+  const lineNumberLayout = getDiffPaintLineNumberLayout(view);
 
   return getLowestEditedLineRuleMarkers({
     view,
     lineNumber: lowestEditedLine.lineNumber,
     contentWidth,
+    lineNumberLayout,
   });
 };
 
@@ -484,6 +488,7 @@ const getLineMarkers = (
   if (contentWidth <= 0) {
     return [];
   }
+  const lineNumberLayout = getDiffPaintLineNumberLayout(view);
 
   const markers: RectangleMarker[] = [];
   for (const target of targets) {
@@ -494,6 +499,7 @@ const getLineMarkers = (
         geometryRole: target.geometryRole,
         lineNumber: target.lineNumber,
         contentWidth,
+        lineNumberLayout,
       }),
     );
   }
@@ -779,6 +785,18 @@ const getContentWidth = (view: EditorView): number => {
   return width > 0 ? width : 0;
 };
 
+const getDiffPaintLineNumberLayout = (
+  view: EditorView,
+): DiffPaintLineNumberLayout => {
+  const paneRoot = view.dom.closest(
+    '.byline-line-numbers-left.byline-line-numbers-visible-mode',
+  );
+
+  return paneRoot
+    ? 'reservedLeftGutter'
+    : 'noReservedLeftGutter';
+};
+
 const getLineHeight = (view: EditorView): number => {
   return Math.max(1, view.defaultLineHeight);
 };
@@ -789,12 +807,14 @@ const getLineBlockMarkers = ({
   geometryRole,
   lineNumber,
   contentWidth,
+  lineNumberLayout,
 }: {
   view: EditorView;
   className: DiffPaintClassName;
   geometryRole: DiffPaintGeometryRole;
   lineNumber: number;
   contentWidth: number;
+  lineNumberLayout: DiffPaintLineNumberLayout;
 }): RectangleMarker[] => {
   if (lineNumber < 1 || lineNumber > view.state.doc.lines) {
     return [];
@@ -804,7 +824,10 @@ const getLineBlockMarkers = ({
   const block = view.lineBlockAt(line.from);
   const textBlocks = getTextBlocksFromLineBlock(block);
   const lineHeight = getLineHeight(view);
-  const adjustment = DIFF_PAINT_GEOMETRY[geometryRole];
+  const adjustment = getLinePaintGeometryAdjustment({
+    geometryRole,
+    lineNumberLayout,
+  });
   const markers: RectangleMarker[] = [];
 
   for (const textBlock of textBlocks) {
@@ -842,10 +865,12 @@ const getLowestEditedLineRuleMarkers = ({
   view,
   lineNumber,
   contentWidth,
+  lineNumberLayout,
 }: {
   view: EditorView;
   lineNumber: number;
   contentWidth: number;
+  lineNumberLayout: DiffPaintLineNumberLayout;
 }): RectangleMarker[] => {
   if (lineNumber < 1 || lineNumber > view.state.doc.lines) {
     return [];
@@ -868,7 +893,10 @@ const getLowestEditedLineRuleMarkers = ({
     top: finalTextRowTop,
     width: contentWidth,
     height: lineHeight,
-  });
+  }, getLinePaintGeometryAdjustment({
+    geometryRole: 'lowestEditedLine',
+    lineNumberLayout,
+  }));
   if (!ruleBox) {
     return [];
   }

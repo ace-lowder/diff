@@ -5,6 +5,7 @@ export type DiffPaintGeometryRole =
   | 'fullLine'
   | 'activeLine'
   | 'lowestEditedLine';
+export type DiffPaintLineNumberLayout = 'reservedLeftGutter' | 'noReservedLeftGutter';
 
 export type PaintGeometryAdjustment = {
   topOffsetPx: number;
@@ -72,6 +73,31 @@ export const DIFF_PAINT_GEOMETRY: Record<
   },
 };
 
+export const getLinePaintGeometryAdjustment = ({
+  geometryRole,
+  lineNumberLayout,
+}: {
+  geometryRole: DiffPaintGeometryRole;
+  lineNumberLayout: DiffPaintLineNumberLayout;
+}): PaintGeometryAdjustment => {
+  const adjustment = DIFF_PAINT_GEOMETRY[geometryRole];
+
+  if (
+    lineNumberLayout === 'reservedLeftGutter' ||
+    (geometryRole !== 'fullLine' &&
+      geometryRole !== 'activeLine' &&
+      geometryRole !== 'lowestEditedLine')
+  ) {
+    return adjustment;
+  }
+
+  return {
+    ...adjustment,
+    leftOffsetPx: 0,
+    rightOffsetPx: 0,
+  };
+};
+
 export const getAdjustedPaintRectBox = (
   rect: PaintRectBox,
   adjustment: PaintGeometryAdjustment,
@@ -100,10 +126,11 @@ export const getAdjustedPaintRectBox = (
 
 export const getLowestEditedLineRuleBox = (
   linePaintBox: PaintRectBox,
+  linePaintAdjustment: PaintGeometryAdjustment = DIFF_PAINT_GEOMETRY.lowestEditedLine,
 ): PaintRectBox | null => {
   const adjustedBox = getAdjustedPaintRectBox(
     linePaintBox,
-    DIFF_PAINT_GEOMETRY.lowestEditedLine,
+    linePaintAdjustment,
   );
   if (!adjustedBox) {
     return null;

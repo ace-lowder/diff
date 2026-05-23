@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  getMenuBorderClassName,
   getMenuEdgeTriggerClassName,
   getMenuLayoutClassName,
   getMenuVisibilityClassName,
@@ -224,5 +225,21 @@ describe('getMenuEdgeTriggerClassName', () => {
     expect(getMenuEdgeTriggerClassName({ placement: 'bottom' })).toBe(
       'fixed bottom-0 left-0 z-40 h-3 w-full',
     );
+  });
+});
+
+describe('getMenuBorderClassName', () => {
+  it('returns responsive border classes', () => {
+    expect(getMenuBorderClassName({ placement: 'responsive' })).toBe(
+      'border-b sm:border-b-0 sm:border-t',
+    );
+  });
+
+  it('returns top placement border classes', () => {
+    expect(getMenuBorderClassName({ placement: 'top' })).toBe('border-b');
+  });
+
+  it('returns bottom placement border classes', () => {
+    expect(getMenuBorderClassName({ placement: 'bottom' })).toBe('border-t');
   });
 });

@@ -736,6 +736,10 @@ const App = () => {
     getTargetPane() === 'draft'
       ? draftActiveFontStyleTypes
       : editorActiveFontStyleTypes;
+  const editorWidthHandlePlacement = getEditorWidthHandlePlacement({
+    lineNumberPosition,
+    lineNumberVisibilityMode,
+  });
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#121314] text-[#D4D4D4]">
@@ -969,15 +973,14 @@ const App = () => {
               onPointerUp={handleEditorWidthPointerUp}
               onPointerCancel={handleEditorWidthPointerUp}
               onDoubleClick={handleEditorWidthDoubleClick}
-              className="group absolute bottom-0 top-0 z-10 hidden w-3 -translate-x-full cursor-col-resize touch-none select-none sm:block"
+              className={`group absolute bottom-0 top-0 z-10 hidden w-3 cursor-col-resize touch-none select-none sm:block ${getEditorWidthHandleTransformClassName(editorWidthHandlePlacement)}`}
               style={{
-                left: getEditorWidthHandleLeft({
-                  lineNumberPosition,
-                  lineNumberVisibilityMode,
-                }),
+                left: getEditorWidthHandleLeft(editorWidthHandlePlacement),
               }}
             >
-              <div className="absolute right-0 h-full w-px bg-transparent group-hover:bg-[#3A3B3C]" />
+              <div
+                className={`absolute h-full w-px bg-transparent group-hover:bg-[#3A3B3C] ${getEditorWidthHandleLineClassName(editorWidthHandlePlacement)}`}
+              />
             </div>
           </div>
         </div>
@@ -1047,6 +1050,8 @@ type EditorWidthDragState = {
   containerWidth: number;
 };
 
+type EditorWidthHandlePlacement = 'afterLeftGutter' | 'leftEdge';
+
 const DEFAULT_SPLIT_DRAFT_PERCENT = 50;
 const MIN_SPLIT_DRAFT_PERCENT = 15;
 const MAX_SPLIT_DRAFT_PERCENT = 85;
@@ -1056,21 +1061,37 @@ const MAX_EDITOR_WIDTH_PERCENT = 100;
 const EDITOR_WIDTH_RESIZE_MIN_SCREEN_WIDTH = 640;
 const EDITOR_WIDTH_HANDLE_LEFT = 'calc(6ch + 12px)';
 
-const getEditorWidthHandleLeft = ({
+const getEditorWidthHandlePlacement = ({
   lineNumberPosition,
   lineNumberVisibilityMode,
 }: {
   lineNumberPosition: LineNumberPosition;
   lineNumberVisibilityMode: LineNumberVisibilityMode;
-}): string => {
+}): EditorWidthHandlePlacement => {
   if (
     lineNumberPosition === 'right' ||
     lineNumberVisibilityMode === 'autoHide'
   ) {
-    return '0';
+    return 'leftEdge';
   }
 
-  return EDITOR_WIDTH_HANDLE_LEFT;
+  return 'afterLeftGutter';
+};
+
+const getEditorWidthHandleLeft = (placement: EditorWidthHandlePlacement): string => {
+  return placement === 'leftEdge' ? '0' : EDITOR_WIDTH_HANDLE_LEFT;
+};
+
+const getEditorWidthHandleTransformClassName = (
+  placement: EditorWidthHandlePlacement,
+): string => {
+  return placement === 'leftEdge' ? 'translate-x-0' : '-translate-x-full';
+};
+
+const getEditorWidthHandleLineClassName = (
+  placement: EditorWidthHandlePlacement,
+): string => {
+  return placement === 'leftEdge' ? 'left-0' : 'right-0';
 };
 
 const writeClipboardText = async ({

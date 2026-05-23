@@ -3,8 +3,16 @@
 @tailwind utilities;
 
 @layer components {
-  .byline-line-numbers-right .cm-scroller {
-    flex-direction: row-reverse;
+  .byline-line-numbers-right.byline-line-numbers-visible-mode .cm-gutters {
+    position: absolute;
+    inset-block: 0;
+    right: 0;
+    z-index: 20;
+  }
+
+  .byline-line-numbers-right.byline-line-numbers-visible-mode .cm-content {
+    padding-left: 12px;
+    padding-right: calc(6ch + 12px);
   }
 
   .byline-line-numbers-auto-hide .cm-gutters {

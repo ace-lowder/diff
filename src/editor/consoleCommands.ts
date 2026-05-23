@@ -79,14 +79,12 @@ const ROOT_OPTIONS = [
   'count',
   'menu',
   'linenums',
-  'linenum',
 ] as const;
 const VIEW_OPTIONS = ['draft', 'editor', 'split'] as const;
 const COPY_OPTIONS = ['line'] as const;
 const COUNT_OPTIONS = ['word', 'char'] as const;
 const MENU_OPTIONS = ['hide', 'show', 'top', 'bottom'] as const;
-const LINE_NUMBERS_POSITION_OPTIONS = ['left', 'right'] as const;
-const LINE_NUMBER_VISIBILITY_OPTIONS = ['show', 'hide'] as const;
+const LINE_NUMBERS_OPTIONS = ['left', 'right', 'show', 'hide'] as const;
 
 export const parseConsoleCommandLine = (
   lineText: string,
@@ -238,23 +236,23 @@ export const parseConsoleCommandLine = (
       };
     }
 
+    if (parts.length === 2 && option === 'show') {
+      return {
+        kind: 'valid',
+        command: { type: 'lineNumbers', action: 'visibility', visibilityMode: 'visible' },
+      };
+    }
+
+    if (parts.length === 2 && option === 'hide') {
+      return {
+        kind: 'valid',
+        command: { type: 'lineNumbers', action: 'visibility', visibilityMode: 'autoHide' },
+      };
+    }
+
     return {
       kind: 'unknown-command',
       message: `${trimmedLineText}${UNKNOWN_COMMAND_SUFFIX}`,
-    };
-  }
-
-  if (root === 'linenum' && parts.length === 2 && option === 'show') {
-    return {
-      kind: 'valid',
-      command: { type: 'lineNumbers', action: 'visibility', visibilityMode: 'visible' },
-    };
-  }
-
-  if (root === 'linenum' && parts.length === 2 && option === 'hide') {
-    return {
-      kind: 'valid',
-      command: { type: 'lineNumbers', action: 'visibility', visibilityMode: 'autoHide' },
     };
   }
 
@@ -325,8 +323,7 @@ export const getConsoleCommandMenu = ({
       currentTokenText === '/copy' ||
       currentTokenText === '/count' ||
       currentTokenText === '/menu' ||
-      currentTokenText === '/linenums' ||
-      currentTokenText === '/linenum'
+      currentTokenText === '/linenums'
     ) {
       return null;
     }
@@ -443,11 +440,7 @@ const getOptionsForRoot = (
   }
 
   if (root === 'linenums') {
-    return LINE_NUMBERS_POSITION_OPTIONS;
-  }
-
-  if (root === 'linenum') {
-    return LINE_NUMBER_VISIBILITY_OPTIONS;
+    return LINE_NUMBERS_OPTIONS;
   }
 
   return null;

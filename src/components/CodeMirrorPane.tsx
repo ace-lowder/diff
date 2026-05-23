@@ -351,6 +351,10 @@ export const CodeMirrorPane = ({
     };
   }, []);
 
+  useEffect(() => {
+    editorViewRef.current?.requestMeasure();
+  }, [lineNumberPosition, lineNumberVisibilityMode, areLineNumbersVisible]);
+
   return (
     <div
       className={`relative h-full w-full overflow-hidden ${getCodeMirrorPaneLineNumberClassName({

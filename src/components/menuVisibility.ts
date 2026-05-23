@@ -71,3 +71,19 @@ export const getMenuEdgeTriggerClassName = ({
 
   return 'fixed left-0 top-0 z-40 h-3 w-full sm:bottom-0 sm:top-auto';
 };
+
+export const getMenuBorderClassName = ({
+  placement,
+}: {
+  placement: MenuPlacement;
+}): string => {
+  if (placement === 'top') {
+    return 'border-b';
+  }
+
+  if (placement === 'bottom') {
+    return 'border-t';
+  }
+
+  return 'border-b sm:border-b-0 sm:border-t';
+};

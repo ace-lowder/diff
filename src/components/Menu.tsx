@@ -5,6 +5,7 @@ import type { AppMode, CoffeeStatus, CopyStatus, MenuPlacement } from '../appTyp
 import type { FontStyleType } from '../fontStyles';
 import { getFooterStatsLabels } from './footerStatsLabels';
 import {
+  getMenuBorderClassName,
   getMenuLayoutClassName,
   getMenuVisibilityClassName,
   type MenuVisibilityMode,
@@ -52,6 +53,7 @@ export const Menu = ({
   onPointerLeave,
 }: MenuProps) => {
   const layoutClassName = getMenuLayoutClassName({ visibilityMode, placement });
+  const borderClassName = getMenuBorderClassName({ placement });
   const visibilityClassName = getMenuVisibilityClassName({
     visibilityMode,
     isVisible,
@@ -62,7 +64,7 @@ export const Menu = ({
     <nav
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
-      className={`${layoutClassName} z-50 flex h-10 shrink-0 items-center border-b border-[#2A2B2C] bg-[#191A1B] text-base transition-transform duration-200 ease-out sm:border-b-0 sm:border-t ${visibilityClassName}`}
+      className={`${layoutClassName} ${borderClassName} z-50 flex h-10 shrink-0 items-center border-[#2A2B2C] bg-[#191A1B] text-base transition-transform duration-200 ease-out ${visibilityClassName}`}
     >
       <button
         type="button"
