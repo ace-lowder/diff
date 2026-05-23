@@ -23,6 +23,7 @@ import { scrollToLineNumber } from '../editor/codeMirrorScroll';
 import type {
   CodeMirrorTheme,
   CopyLineHandler,
+  FontSizeMode,
   LineNumberPosition,
   LineNumberVisibilityMode,
   ScrollOffset,
@@ -60,6 +61,7 @@ type CodeMirrorPaneProps = {
   areLineNumbersVisible: boolean;
   onShowLineNumbers: () => void;
   onScheduleLineNumbersHide: () => void;
+  fontSizeMode: FontSizeMode;
   ariaLabel: string;
   theme: CodeMirrorTheme;
   initialLineNumber: number;
@@ -91,6 +93,7 @@ export const CodeMirrorPane = ({
   areLineNumbersVisible,
   onShowLineNumbers,
   onScheduleLineNumbersHide,
+  fontSizeMode,
   ariaLabel,
   theme,
   initialLineNumber,
@@ -202,6 +205,21 @@ export const CodeMirrorPane = ({
     );
   };
 
+  const refreshEditorGeometry = (editorView: EditorView) => {
+    editorView.requestMeasure();
+
+    editorView.dispatch({
+      effects: [
+        setEditorDecorationsEffect.of(
+          getCodeMirrorDecorations(editorView, decorationsRef.current),
+        ),
+        setDiffPaintEffect.of(getDiffPaintEffectValue(decorationsRef.current)),
+      ],
+    });
+
+    editorView.requestMeasure();
+  };
+
   useEffect(() => {
     decorationsRef.current = getCodeMirrorDecorationsInput({
       editorHighlightRanges,
@@ -218,14 +236,7 @@ export const CodeMirrorPane = ({
       return;
     }
 
-    editorView.dispatch({
-      effects: [
-        setEditorDecorationsEffect.of(
-          getCodeMirrorDecorations(editorView, decorationsRef.current),
-        ),
-        setDiffPaintEffect.of(getDiffPaintEffectValue(decorationsRef.current)),
-      ],
-    });
+    refreshEditorGeometry(editorView);
   }, [
     draftHighlightRanges,
     draftLineDecorations,
@@ -356,6 +367,20 @@ export const CodeMirrorPane = ({
     });
     editorView.requestMeasure();
   }, [lineNumberPosition, lineNumberVisibilityMode, areLineNumbersVisible, theme]);
+
+  useEffect(() => {
+    const editorView = editorViewRef.current;
+
+    if (!editorView) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      refreshEditorGeometry(editorView);
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [fontSizeMode]);
 
   return (
     <div

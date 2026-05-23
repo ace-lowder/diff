@@ -11,11 +11,12 @@ export const FONT_SIZE_SETTINGS: Record<
   {
     fontSizePx: number;
     lineHeightPx: number;
+    menuHeightPx: number;
   }
 > = {
-  small: { fontSizePx: 10, lineHeightPx: 15 },
-  medium: { fontSizePx: 12, lineHeightPx: 18 },
-  large: { fontSizePx: 14, lineHeightPx: 21 },
+  small: { fontSizePx: 10, lineHeightPx: 15, menuHeightPx: 32 },
+  medium: { fontSizePx: 12, lineHeightPx: 18, menuHeightPx: 36 },
+  large: { fontSizePx: 14, lineHeightPx: 21, menuHeightPx: 40 },
 };
 
 export const isFontSizeMode = (value: string): value is FontSizeMode => {
@@ -39,6 +40,7 @@ export const getNextFontSizeMode = (
 type FontSizeCssVariables = CSSProperties & {
   '--byline-font-size': string;
   '--byline-line-height': string;
+  '--byline-menu-height': string;
 };
 
 export const getFontSizeCssVariables = (
@@ -49,5 +51,6 @@ export const getFontSizeCssVariables = (
   return {
     '--byline-font-size': `${settings.fontSizePx}px`,
     '--byline-line-height': `${settings.lineHeightPx}px`,
+    '--byline-menu-height': `${settings.menuHeightPx}px`,
   };
 };

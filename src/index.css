@@ -8,6 +8,7 @@
     background-color: #121314;
     --byline-font-size: 12px;
     --byline-line-height: 18px;
+    --byline-menu-height: 36px;
   }
 
   html,

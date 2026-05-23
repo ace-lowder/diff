@@ -974,6 +974,7 @@ const App = () => {
                 areLineNumbersVisible={areLineNumbersVisible}
                 onShowLineNumbers={showLineNumbers}
                 onScheduleLineNumbersHide={scheduleLineNumbersHide}
+                fontSizeMode={fontSizeMode}
                 onContentLayoutChange={requestEditorMeasure}
                 ariaLabel="Draft text"
                 theme="draft"
@@ -1026,6 +1027,7 @@ const App = () => {
                 areLineNumbersVisible={areLineNumbersVisible}
                 onShowLineNumbers={showLineNumbers}
                 onScheduleLineNumbersHide={scheduleLineNumbersHide}
+                fontSizeMode={fontSizeMode}
                 onContentLayoutChange={requestEditorMeasure}
                 ariaLabel="Editor text"
                 theme="editor"
@@ -1082,6 +1084,7 @@ const App = () => {
                     areLineNumbersVisible={areLineNumbersVisible}
                     onShowLineNumbers={showLineNumbers}
                     onScheduleLineNumbersHide={scheduleLineNumbersHide}
+                    fontSizeMode={fontSizeMode}
                     onContentLayoutChange={requestEditorMeasure}
                     ariaLabel="Draft text"
                     theme="draft"
@@ -1150,6 +1153,7 @@ const App = () => {
                     areLineNumbersVisible={areLineNumbersVisible}
                     onShowLineNumbers={showLineNumbers}
                     onScheduleLineNumbersHide={scheduleLineNumbersHide}
+                    fontSizeMode={fontSizeMode}
                     onContentLayoutChange={requestEditorMeasure}
                     ariaLabel="Editor text"
                     theme="editor"

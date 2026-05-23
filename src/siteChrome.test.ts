@@ -27,6 +27,10 @@ describe('site chrome base styles', () => {
     expect(indexCss).toContain('background-color: #121314;');
   });
 
+  it('sets default menu height css variable', () => {
+    expect(indexCss).toContain('--byline-menu-height: 36px;');
+  });
+
   it('defines html selector in css', () => {
     expect(indexCss).toContain('html,');
   });

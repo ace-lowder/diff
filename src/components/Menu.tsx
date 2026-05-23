@@ -78,7 +78,7 @@ export const Menu = ({
     <nav
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
-      className={`${layoutClassName} ${borderClassName} z-50 flex h-10 shrink-0 items-center border-[#2A2B2C] bg-[#191A1B] text-[length:var(--byline-font-size)] transition-transform duration-200 ease-out ${visibilityClassName}`}
+      className={`${layoutClassName} ${borderClassName} z-50 flex h-[var(--byline-menu-height)] shrink-0 items-center border-[#2A2B2C] bg-[#191A1B] text-[length:var(--byline-font-size)] transition-transform duration-200 ease-out ${visibilityClassName}`}
     >
       <button
         type="button"
