@@ -11,6 +11,10 @@ import type {
 import type { FontStyleType } from '../fontStyles';
 import { getFooterStatsLabels } from './footerStatsLabels';
 import {
+  getFontStyleControlButtonClassName,
+  ITALIC_FONT_STYLE_LABEL_CLASS_NAME,
+} from './menuFontStyleControls';
+import {
   getMenuBorderClassName,
   getMenuLayoutClassName,
   getMenuVisibilityClassName,
@@ -193,7 +197,7 @@ const FontStyleControls = ({
       <FontStyleControlButton
         label="I"
         ariaLabel="Toggle italic"
-        labelClassName="italic"
+        labelClassName={ITALIC_FONT_STYLE_LABEL_CLASS_NAME}
         labelStyle={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
         isActive={activeFontStyleTypes.includes('italic')}
         onClick={() => onToggleFontStyle('italic')}
@@ -228,10 +232,6 @@ const FontStyleControlButton = ({
   isActive,
   onClick,
 }: FontStyleControlButtonProps) => {
-  const stateClassName = isActive
-    ? 'rounded-sm bg-[#242526] text-[#D4D4D4]'
-    : 'rounded-sm text-[#8C8C8C]';
-
   return (
     <button
       type="button"
@@ -239,7 +239,7 @@ const FontStyleControlButton = ({
       aria-pressed={isActive}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className={`inline-flex h-7 w-6 items-center justify-center text-sm font-normal sm:w-7 ${stateClassName} hover:bg-[#242526] hover:text-[#D4D4D4] focus:outline-none focus-visible:bg-[#242526] focus-visible:text-[#D4D4D4]`}
+      className={getFontStyleControlButtonClassName(isActive)}
     >
       <span
         className={`relative inline-flex h-5 w-5 items-center justify-center leading-none ${labelClassName ?? ''}`}
