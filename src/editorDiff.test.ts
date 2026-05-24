@@ -1283,6 +1283,64 @@ describe('getLineDecorations', () => {
       ),
     ).toBe(false);
   });
+
+  it('pairs rewritten point-is paragraphs instead of rendering full inserted and deleted lines', () => {
+    const draftText =
+      'They have that same contorted painful look, but their begging is different. They’re begging you to end it.\n\n' +
+      'Point is, we stopped taking those jobs. Turned a new leaf, as some might say. Yea, we’re still mercenaries, but you could consider us peace keepers. We only take on protection jobs, ones where no one gets hurt. We keep people safe, and they pay us a fuck ton for doing our job. Normally it’s the suits we handle, but today we follow Pablo into this shithole.';
+    const editorText =
+      "They still have that same look, still begging. Only they're begging you to end it.\n\n" +
+      "Point is, we stopped taking hits. Not because we're the good guys, so don't get any ideas. We just got tired of seeing those fucked-up looks. Protection pays better anyway, and cleaner too. Stand near some rich prick, look dangerous, and get paid a fuck ton. Simple. Wives don't worry about us as much either. It's a win for everyone. On any normal day, we guarded the suits and got to see the sun. Today, they sent us down into this shithole with Pablo.";
+    const decorations = getLineDecorations(draftText, editorText);
+
+    expect(decorations.editorLineDecorations).not.toContainEqual({ lineNumber: 3 });
+    expect(decorations.draftLineDecorations).not.toContainEqual({
+      type: 'deletedDraftLine',
+      lineNumber: 3,
+      placement: 'before',
+    });
+  });
+
+  it('suppresses full inserted decoration for split-out airlock paragraph when nearby draft text matches', () => {
+    const draftText =
+      'I wouldn’t trust them though. There’s a reason they keep this room air tight. If there’s a fire, you open the escape hatch from the control panel and all the air shoots out. Instant fire extinguisher. The airlock slid open and led into a loading bay. This room separated the engine from the cockpit. It was a small ship, only 40 feet long, and every inch was optimized. I walked past two more airlocks on my way to navigation. I could hear the engine airlock seal behind me as the automatic cockpit door opened up.';
+    const editorText =
+      "I wouldn’t trust it though. Without me here, who knows how long that'll last. There’s a reason they keep engine rooms air tight. If there’s a fire, you can vent the air out into space. Instant fire extinguisher. Just make sure you're not inside unless you enjoy getting spaced.\n\n" +
+      'The airlock slid open, revelaing the loading bay, a storage room that separated the engine from the cockpit. On small ships like these, every centimeter is optimized. I walked past two side airlocks on my way to navigation.';
+    const decorations = getLineDecorations(draftText, editorText);
+
+    expect(decorations.editorLineDecorations).not.toContainEqual({ lineNumber: 3 });
+  });
+
+  it('keeps rewritten and split paragraphs from being decorated as full inserted and deleted lines', () => {
+    const draftText =
+      'They have that same contorted painful look, but their begging is different. They’re begging you to end it.\n\n' +
+      'Point is, we stopped taking those jobs. Turned a new leaf, as some might say. Yea, we’re still mercenaries, but you could consider us peace keepers. We only take on protection jobs, ones where no one gets hurt. We keep people safe, and they pay us a fuck ton for doing our job. Normally it’s the suits we handle, but today we follow Pablo into this shithole.\n\n' +
+      'I wouldn’t trust them though. There’s a reason they keep this room air tight. If there’s a fire, you open the escape hatch from the control panel and all the air shoots out. Instant fire extinguisher. The airlock slid open and led into a loading bay. This room separated the engine from the cockpit. It was a small ship, only 40 feet long, and every inch was optimized. I walked past two more airlocks on my way to navigation. I could hear the engine airlock seal behind me as the automatic cockpit door opened up.';
+    const editorText =
+      "They still have that same look, still begging. Only they're begging you to end it.\n\n" +
+      "Point is, we stopped taking hits. Not because we're the good guys, so don't get any ideas. We just got tired of seeing those fucked-up looks. Protection pays better anyway, and cleaner too. Stand near some rich prick, look dangerous, and get paid a fuck ton. Simple. Wives don't worry about us as much either. It's a win for everyone. On any normal day, we guarded the suits and got to see the sun. Today, they sent us down into this shithole with Pablo.\n\n" +
+      "I wouldn’t trust it though. Without me here, who knows how long that'll last. There’s a reason they keep engine rooms air tight. If there’s a fire, you can vent the air out into space. Instant fire extinguisher. Just make sure you're not inside unless you enjoy getting spaced.\n\n" +
+      'The airlock slid open, revelaing the loading bay, a storage room that separated the engine from the cockpit. On small ships like these, every centimeter is optimized. I walked past two side airlocks on my way to navigation.';
+    const decorations = getLineDecorations(draftText, editorText);
+
+    const editorDecoratedLines = decorations.editorLineDecorations.map(
+      ({ lineNumber }) => lineNumber,
+    );
+
+    expect(editorDecoratedLines).not.toContain(3);
+    expect(editorDecoratedLines).not.toContain(7);
+    expect(decorations.draftLineDecorations).not.toContainEqual({
+      type: 'deletedDraftLine',
+      lineNumber: 3,
+      placement: 'before',
+    });
+    expect(decorations.draftLineDecorations).not.toContainEqual({
+      type: 'deletedDraftLine',
+      lineNumber: 5,
+      placement: 'before',
+    });
+  });
 });
 
 describe('getDraftHighlightRanges', () => {

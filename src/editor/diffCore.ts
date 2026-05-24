@@ -105,6 +105,16 @@ type ReplacementRangePair = {
 };
 
 const FULL_WORD_MEANINGFUL_CHANGE_THRESHOLD = 2;
+const EXACT_LINE_MATCH_SCORE = 3;
+const STRONG_LINE_MATCH_SCORE = 2;
+const FUZZY_LINE_MATCH_SCORE = 1;
+const STRICT_SHARED_WORD_RATIO = 0.4;
+const LONG_REWRITE_MIN_WORD_COUNT = 20;
+const LONG_REWRITE_SHARED_WORD_RATIO = 0.28;
+const LONG_REWRITE_DICE_RATIO = 0.36;
+const SHARED_PREFIX_WORD_COUNT = 4;
+const SHARED_PREFIX_MIN_WORD_RATIO = 0.25;
+const MIN_SHARED_WORDS_FOR_EDITOR_SUPPRESSION = 3;
 
 export const getWordCount = (text: string): number => {
   const trimmedText = text.trim();
@@ -329,6 +339,9 @@ export const getLineDecorations = (
   for (let linePairIndex = 0; linePairIndex < linePairs.length; linePairIndex += 1) {
     const linePair = linePairs[linePairIndex];
     if (linePair.draftLine === null && linePair.editorLine !== null) {
+      if (isEditorLineTextPreservedNearPair(linePairs, linePairIndex)) {
+        continue;
+      }
       editorLineDecorations.push({ lineNumber: linePair.editorLineNumber });
       const draftLineNumber = getMissingEditorLineAnchor({
         linePairs,
@@ -1614,48 +1627,83 @@ const getDeletionBiasedReplacementHighlightOffsets = (
 };
 
 const getLineWords = (line: string): string[] => {
-  return line
-    .trim()
-    .split(/\s+/)
-    .filter((word) => word.length > 0);
+  return (
+    line
+      .toLowerCase()
+      .replace(/[’‘]/g, "'")
+      .replace(/[“”]/g, '"')
+      .match(/[a-z0-9]+(?:'[a-z0-9]+)?/g) ?? []
+  );
 };
 
-const getSharedWordRatio = (draftLine: string, editorLine: string): number => {
-  const draftWords = new Set(getLineWords(draftLine));
-  const editorWords = getLineWords(editorLine);
+const getSharedUniqueWordCount = (
+  draftWords: string[],
+  editorWords: string[],
+): number => {
+  const draftWordSet = new Set(draftWords);
+  const editorWordSet = new Set(editorWords);
+  let sharedWordCount = 0;
 
-  if (draftWords.size === 0 && editorWords.length === 0) {
+  for (const word of draftWordSet) {
+    if (editorWordSet.has(word)) {
+      sharedWordCount += 1;
+    }
+  }
+
+  return sharedWordCount;
+};
+
+const getSharedWordRatio = (draftWords: string[], editorWords: string[]): number => {
+  const draftWordSet = new Set(draftWords);
+  const editorWordSet = new Set(editorWords);
+
+  if (draftWordSet.size === 0 && editorWordSet.size === 0) {
     return 1;
   }
 
-  if (draftWords.size === 0 || editorWords.length === 0) {
+  if (draftWordSet.size === 0 || editorWordSet.size === 0) {
     return 0;
   }
 
-  const sharedWordCount = editorWords.filter((word) => draftWords.has(word)).length;
-  return sharedWordCount / Math.max(draftWords.size, editorWords.length);
+  const sharedWordCount = getSharedUniqueWordCount(draftWords, editorWords);
+  return sharedWordCount / Math.max(draftWordSet.size, editorWordSet.size);
+};
+
+const getLineDiceRatio = (draftWords: string[], editorWords: string[]): number => {
+  const draftWordSet = new Set(draftWords);
+  const editorWordSet = new Set(editorWords);
+
+  if (draftWordSet.size === 0 || editorWordSet.size === 0) {
+    return 0;
+  }
+
+  const sharedWordCount = getSharedUniqueWordCount(draftWords, editorWords);
+  return (2 * sharedWordCount) / (draftWordSet.size + editorWordSet.size);
+};
+
+const getSharedPrefixWordCount = (
+  draftWords: string[],
+  editorWords: string[],
+): number => {
+  const maxPrefixLength = Math.min(draftWords.length, editorWords.length);
+  let sharedPrefixWordCount = 0;
+
+  while (
+    sharedPrefixWordCount < maxPrefixLength &&
+    draftWords[sharedPrefixWordCount] === editorWords[sharedPrefixWordCount]
+  ) {
+    sharedPrefixWordCount += 1;
+  }
+
+  return sharedPrefixWordCount;
+};
+
+const getNormalizedLineMatchText = (line: string): string => {
+  return getLineWords(line).join('');
 };
 
 const areSimilarLines = (draftLine: string, editorLine: string): boolean => {
-  if (draftLine === editorLine) {
-    return true;
-  }
-
-  const normalizedDraftLine = draftLine.trim();
-  const normalizedEditorLine = editorLine.trim();
-
-  if (!normalizedDraftLine || !normalizedEditorLine) {
-    return false;
-  }
-
-  if (
-    normalizedDraftLine.includes(normalizedEditorLine) ||
-    normalizedEditorLine.includes(normalizedDraftLine)
-  ) {
-    return true;
-  }
-
-  return getSharedWordRatio(normalizedDraftLine, normalizedEditorLine) >= 0.4;
+  return getLineMatchScore(draftLine, editorLine) > 0;
 };
 
 const getLinePairs = (draftText: string, editorText: string): LinePair[] => {
@@ -1724,7 +1772,7 @@ const getLineAlignmentMatches = (
         ? matchScore + scores[draftIndex + 1][editorIndex + 1]
         : Number.NEGATIVE_INFINITY;
 
-    if (matchScore === 3 && withMatchScore >= currentScore) {
+    if (matchScore === EXACT_LINE_MATCH_SCORE && withMatchScore >= currentScore) {
       matches.push({ draftIndex, editorIndex });
       draftIndex += 1;
       editorIndex += 1;
@@ -1757,11 +1805,47 @@ const getLineMatchScore = (draftLine: string, editorLine: string): number => {
   }
 
   if (draftLine === editorLine) {
-    return 3;
+    return EXACT_LINE_MATCH_SCORE;
   }
 
-  if (areSimilarLines(draftLine, editorLine)) {
-    return 1;
+  const normalizedDraftMatchText = getNormalizedLineMatchText(draftLine);
+  const normalizedEditorMatchText = getNormalizedLineMatchText(editorLine);
+
+  if (!normalizedDraftMatchText || !normalizedEditorMatchText) {
+    return 0;
+  }
+
+  if (
+    normalizedDraftMatchText.includes(normalizedEditorMatchText) ||
+    normalizedEditorMatchText.includes(normalizedDraftMatchText)
+  ) {
+    return STRONG_LINE_MATCH_SCORE;
+  }
+
+  const draftWords = getLineWords(draftLine);
+  const editorWords = getLineWords(editorLine);
+  const sharedWordRatio = getSharedWordRatio(draftWords, editorWords);
+  const diceRatio = getLineDiceRatio(draftWords, editorWords);
+  const sharedPrefixWordCount = getSharedPrefixWordCount(draftWords, editorWords);
+  const maxWordCount = Math.max(draftWords.length, editorWords.length);
+
+  if (
+    sharedPrefixWordCount >= SHARED_PREFIX_WORD_COUNT &&
+    sharedWordRatio >= SHARED_PREFIX_MIN_WORD_RATIO
+  ) {
+    return STRONG_LINE_MATCH_SCORE;
+  }
+
+  if (sharedWordRatio >= STRICT_SHARED_WORD_RATIO) {
+    return FUZZY_LINE_MATCH_SCORE;
+  }
+
+  if (
+    maxWordCount >= LONG_REWRITE_MIN_WORD_COUNT &&
+    sharedWordRatio >= LONG_REWRITE_SHARED_WORD_RATIO &&
+    diceRatio >= LONG_REWRITE_DICE_RATIO
+  ) {
+    return FUZZY_LINE_MATCH_SCORE;
   }
 
   return 0;
@@ -1980,6 +2064,53 @@ const isDraftLineTextPreservedNearPair = (
       normalizedEditorLine.includes(normalizedDraftLine) ||
       hasSimilarVisibleToken(normalizedDraftLine, nearbyPair.editorLine)
     ) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+const isEditorLineTextPreservedNearPair = (
+  linePairs: LinePair[],
+  linePairIndex: number,
+): boolean => {
+  const linePair = linePairs[linePairIndex];
+  if (linePair.draftLine !== null || linePair.editorLine === null) {
+    return false;
+  }
+
+  const normalizedEditorLine = getNormalizedVisibleLineText(linePair.editorLine);
+  if (!normalizedEditorLine) {
+    return false;
+  }
+
+  for (let offset = -2; offset <= 2; offset += 1) {
+    if (offset === 0) {
+      continue;
+    }
+
+    const nearbyPair = linePairs[linePairIndex + offset];
+    if (!nearbyPair || nearbyPair.draftLine === null) {
+      continue;
+    }
+
+    const nearbyDraftWords = getLineWords(nearbyPair.draftLine);
+    const editorWords = getLineWords(linePair.editorLine);
+    const sharedUniqueWordCount = getSharedUniqueWordCount(
+      nearbyDraftWords,
+      editorWords,
+    );
+
+    if (
+      sharedUniqueWordCount >= MIN_SHARED_WORDS_FOR_EDITOR_SUPPRESSION &&
+      areSimilarLines(nearbyPair.draftLine, linePair.editorLine)
+    ) {
+      return true;
+    }
+
+    const normalizedNearbyDraftLine = getNormalizedVisibleLineText(nearbyPair.draftLine);
+    if (normalizedNearbyDraftLine.includes(normalizedEditorLine)) {
       return true;
     }
   }
