@@ -94,7 +94,7 @@ import type {
 } from './appTypes';
 
 const MENU_AUTO_HIDE_DELAY_MS = 2000;
-const EDITOR_DIFF_UPDATE_DELAY_MS = 150;
+const EDITOR_DIFF_UPDATE_DELAY_MS = 80;
 const STORED_TEXT_WRITE_DELAY_MS = 500;
 
 const App = () => {

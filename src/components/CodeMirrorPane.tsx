@@ -76,7 +76,7 @@ type CodeMirrorPaneProps = {
   onEditorViewChange?: (editorView: EditorView | null) => void;
 };
 
-const DOCUMENT_VALUE_COMMIT_DELAY_MS = 300;
+const DOCUMENT_VALUE_COMMIT_DELAY_MS = 120;
 
 export const CodeMirrorPane = ({
   value,

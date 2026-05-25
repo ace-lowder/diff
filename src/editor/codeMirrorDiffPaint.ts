@@ -1,4 +1,5 @@
 import {
+  type ChangeSet,
   EditorSelection,
   StateEffect,
   StateField,
@@ -117,7 +118,10 @@ export const diffPaintField = StateField.define<DiffPaintState>({
     }
 
     if (transaction.docChanged) {
-      return value;
+      return getOptimisticDiffPaintStateThroughChanges({
+        diffPaint: value,
+        changes: transaction.changes,
+      });
     }
 
     return value;
@@ -138,6 +142,54 @@ export const mapDiffPaintStateThroughChanges = (
     editorLineDecorations: diffPaint.editorLineDecorations,
     draftLineDecorations: diffPaint.draftLineDecorations,
     lowestEditedLine: diffPaint.lowestEditedLine,
+  };
+};
+
+export const getOptimisticDiffPaintStateThroughChanges = ({
+  diffPaint,
+  changes,
+}: {
+  diffPaint: DiffPaintState;
+  changes: ChangeSet;
+}): DiffPaintState => {
+  const mappedState = mapDiffPaintStateThroughChanges(diffPaint, changes);
+  const nextEditorHighlightRanges = [...mappedState.editorHighlightRanges];
+  const nextDraftHighlightRanges = [...mappedState.draftHighlightRanges];
+
+  changes.iterChanges((fromA, toA, fromB, toB) => {
+    if (toB > fromB) {
+      nextEditorHighlightRanges.push({
+        type: 'added',
+        from: fromB,
+        to: toB,
+      });
+      nextDraftHighlightRanges.push({
+        type: 'deleted',
+        from: fromB,
+        to: toB,
+      });
+    }
+
+    if (toA > fromA) {
+      nextEditorHighlightRanges.push({
+        type: 'deleted',
+        from: fromB,
+        to: fromB,
+      });
+      nextDraftHighlightRanges.push({
+        type: 'added',
+        from: fromB,
+        to: fromB,
+      });
+    }
+  });
+
+  return {
+    editorHighlightRanges: normalizeEditorHighlightRanges(nextEditorHighlightRanges),
+    draftHighlightRanges: normalizeDraftHighlightRanges(nextDraftHighlightRanges),
+    editorLineDecorations: mappedState.editorLineDecorations,
+    draftLineDecorations: mappedState.draftLineDecorations,
+    lowestEditedLine: mappedState.lowestEditedLine,
   };
 };
 
@@ -864,6 +916,72 @@ const mapHighlightRangeThroughChanges = <
     from,
     to,
   };
+};
+
+const normalizeEditorHighlightRanges = (
+  ranges: EditorHighlightRange[],
+): EditorHighlightRange[] => {
+  return normalizeHighlightRanges(
+    ranges,
+    (left, right) =>
+      compareRangeTypes(left.type, right.type) ||
+      left.from - right.from ||
+      left.to - right.to,
+  );
+};
+
+const normalizeDraftHighlightRanges = (
+  ranges: DraftHighlightRange[],
+): DraftHighlightRange[] => {
+  return normalizeHighlightRanges(
+    ranges,
+    (left, right) =>
+      compareRangeTypes(left.type, right.type) ||
+      left.from - right.from ||
+      left.to - right.to,
+  );
+};
+
+const normalizeHighlightRanges = <
+  T extends { from: number; to: number; type: string },
+>(
+  ranges: T[],
+  compare: (left: T, right: T) => number,
+): T[] => {
+  const validRanges = ranges
+    .filter((range) => {
+      return (
+        Number.isFinite(range.from) &&
+        Number.isFinite(range.to) &&
+        range.from >= 0 &&
+        range.to >= range.from
+      );
+    })
+    .sort(compare);
+  const normalizedRanges: T[] = [];
+
+  for (const range of validRanges) {
+    const previousRange = normalizedRanges[normalizedRanges.length - 1];
+    const isZeroWidthRange = range.from === range.to;
+    if (
+      !previousRange ||
+      range.type !== previousRange.type ||
+      isZeroWidthRange ||
+      previousRange.from === previousRange.to ||
+      range.from > previousRange.to
+    ) {
+      normalizedRanges.push({ ...range });
+      continue;
+    }
+
+    previousRange.to = Math.max(previousRange.to, range.to);
+  }
+
+  return normalizedRanges;
+};
+
+const compareRangeTypes = (leftType: string, rightType: string): number => {
+  return leftType.localeCompare(rightType);
 };
 
 const rangesOverlap = (
