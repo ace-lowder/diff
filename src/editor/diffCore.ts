@@ -87,6 +87,15 @@ type LineAlignmentMatch = {
   editorIndex: number;
 };
 
+type LineMatchProfile = {
+  line: string;
+  trimmedLine: string;
+  words: string[];
+  wordSet: Set<string>;
+  normalizedMatchText: string;
+  normalizedVisibleText: string;
+};
+
 type ReplacementToken = {
   value: string;
   from: number;
@@ -1637,11 +1646,9 @@ const getLineWords = (line: string): string[] => {
 };
 
 const getSharedUniqueWordCount = (
-  draftWords: string[],
-  editorWords: string[],
+  draftWordSet: Set<string>,
+  editorWordSet: Set<string>,
 ): number => {
-  const draftWordSet = new Set(draftWords);
-  const editorWordSet = new Set(editorWords);
   let sharedWordCount = 0;
 
   for (const word of draftWordSet) {
@@ -1653,10 +1660,10 @@ const getSharedUniqueWordCount = (
   return sharedWordCount;
 };
 
-const getSharedWordRatio = (draftWords: string[], editorWords: string[]): number => {
-  const draftWordSet = new Set(draftWords);
-  const editorWordSet = new Set(editorWords);
-
+const getSharedWordRatio = (
+  draftWordSet: Set<string>,
+  editorWordSet: Set<string>,
+): number => {
   if (draftWordSet.size === 0 && editorWordSet.size === 0) {
     return 1;
   }
@@ -1665,19 +1672,19 @@ const getSharedWordRatio = (draftWords: string[], editorWords: string[]): number
     return 0;
   }
 
-  const sharedWordCount = getSharedUniqueWordCount(draftWords, editorWords);
+  const sharedWordCount = getSharedUniqueWordCount(draftWordSet, editorWordSet);
   return sharedWordCount / Math.max(draftWordSet.size, editorWordSet.size);
 };
 
-const getLineDiceRatio = (draftWords: string[], editorWords: string[]): number => {
-  const draftWordSet = new Set(draftWords);
-  const editorWordSet = new Set(editorWords);
-
+const getLineDiceRatio = (
+  draftWordSet: Set<string>,
+  editorWordSet: Set<string>,
+): number => {
   if (draftWordSet.size === 0 || editorWordSet.size === 0) {
     return 0;
   }
 
-  const sharedWordCount = getSharedUniqueWordCount(draftWords, editorWords);
+  const sharedWordCount = getSharedUniqueWordCount(draftWordSet, editorWordSet);
   return (2 * sharedWordCount) / (draftWordSet.size + editorWordSet.size);
 };
 
@@ -1698,12 +1705,27 @@ const getSharedPrefixWordCount = (
   return sharedPrefixWordCount;
 };
 
-const getNormalizedLineMatchText = (line: string): string => {
-  return getLineWords(line).join('');
+const getLineMatchProfile = (line: string): LineMatchProfile => {
+  const words = getLineWords(line);
+  return {
+    line,
+    trimmedLine: line.trim(),
+    words,
+    wordSet: new Set(words),
+    normalizedMatchText: words.join(''),
+    normalizedVisibleText: getNormalizedVisibleLineText(line),
+  };
+};
+
+const getLineMatchScoreForLines = (draftLine: string, editorLine: string): number => {
+  return getLineMatchScore(
+    getLineMatchProfile(draftLine),
+    getLineMatchProfile(editorLine),
+  );
 };
 
 const areSimilarLines = (draftLine: string, editorLine: string): boolean => {
-  return getLineMatchScore(draftLine, editorLine) > 0;
+  return getLineMatchScoreForLines(draftLine, editorLine) > 0;
 };
 
 const getLinePairs = (draftText: string, editorText: string): LinePair[] => {
@@ -1721,6 +1743,8 @@ const getLineAlignmentMatches = (
   draftLines: string[],
   editorLines: string[],
 ): LineAlignmentMatch[] => {
+  const draftProfiles = draftLines.map(getLineMatchProfile);
+  const editorProfiles = editorLines.map(getLineMatchProfile);
   const draftCount = draftLines.length;
   const editorCount = editorLines.length;
   const scores: number[][] = Array.from({ length: draftCount + 1 }, () =>
@@ -1741,8 +1765,8 @@ const getLineAlignmentMatches = (
       const skipDraftScore = scores[draftIndex + 1][editorIndex] - skipPenalty;
       const skipEditorScore = scores[draftIndex][editorIndex + 1] - skipPenalty;
       const matchScore = getLineMatchScore(
-        draftLines[draftIndex],
-        editorLines[editorIndex],
+        draftProfiles[draftIndex],
+        editorProfiles[editorIndex],
       );
       const withMatchScore =
         matchScore > 0
@@ -1764,8 +1788,8 @@ const getLineAlignmentMatches = (
   while (draftIndex < draftCount && editorIndex < editorCount) {
     const currentScore = scores[draftIndex][editorIndex];
     const matchScore = getLineMatchScore(
-      draftLines[draftIndex],
-      editorLines[editorIndex],
+      draftProfiles[draftIndex],
+      editorProfiles[editorIndex],
     );
     const withMatchScore =
       matchScore > 0
@@ -1799,17 +1823,20 @@ const getLineAlignmentMatches = (
   return matches;
 };
 
-const getLineMatchScore = (draftLine: string, editorLine: string): number => {
-  if (!draftLine.trim() || !editorLine.trim()) {
+const getLineMatchScore = (
+  draftProfile: LineMatchProfile,
+  editorProfile: LineMatchProfile,
+): number => {
+  if (!draftProfile.trimmedLine || !editorProfile.trimmedLine) {
     return 0;
   }
 
-  if (draftLine === editorLine) {
+  if (draftProfile.line === editorProfile.line) {
     return EXACT_LINE_MATCH_SCORE;
   }
 
-  const normalizedDraftMatchText = getNormalizedLineMatchText(draftLine);
-  const normalizedEditorMatchText = getNormalizedLineMatchText(editorLine);
+  const normalizedDraftMatchText = draftProfile.normalizedMatchText;
+  const normalizedEditorMatchText = editorProfile.normalizedMatchText;
 
   if (!normalizedDraftMatchText || !normalizedEditorMatchText) {
     return 0;
@@ -1822,12 +1849,19 @@ const getLineMatchScore = (draftLine: string, editorLine: string): number => {
     return STRONG_LINE_MATCH_SCORE;
   }
 
-  const draftWords = getLineWords(draftLine);
-  const editorWords = getLineWords(editorLine);
-  const sharedWordRatio = getSharedWordRatio(draftWords, editorWords);
-  const diceRatio = getLineDiceRatio(draftWords, editorWords);
-  const sharedPrefixWordCount = getSharedPrefixWordCount(draftWords, editorWords);
-  const maxWordCount = Math.max(draftWords.length, editorWords.length);
+  const sharedWordRatio = getSharedWordRatio(
+    draftProfile.wordSet,
+    editorProfile.wordSet,
+  );
+  const diceRatio = getLineDiceRatio(draftProfile.wordSet, editorProfile.wordSet);
+  const sharedPrefixWordCount = getSharedPrefixWordCount(
+    draftProfile.words,
+    editorProfile.words,
+  );
+  const maxWordCount = Math.max(
+    draftProfile.words.length,
+    editorProfile.words.length,
+  );
 
   if (
     sharedPrefixWordCount >= SHARED_PREFIX_WORD_COUNT &&
@@ -2095,8 +2129,8 @@ const isEditorLineTextPreservedNearPair = (
       continue;
     }
 
-    const nearbyDraftWords = getLineWords(nearbyPair.draftLine);
-    const editorWords = getLineWords(linePair.editorLine);
+    const nearbyDraftWords = new Set(getLineWords(nearbyPair.draftLine));
+    const editorWords = new Set(getLineWords(linePair.editorLine));
     const sharedUniqueWordCount = getSharedUniqueWordCount(
       nearbyDraftWords,
       editorWords,

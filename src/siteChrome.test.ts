@@ -16,6 +16,14 @@ describe('site chrome metadata', () => {
   it('declares dark theme color in index.html', () => {
     expect(indexHtml).toContain('<meta name="theme-color" content="#121314" />');
   });
+
+  it('sets viewport maximum scale in index.html', () => {
+    expect(indexHtml).toContain('maximum-scale=1.0');
+  });
+
+  it('sets viewport fit cover in index.html', () => {
+    expect(indexHtml).toContain('viewport-fit=cover');
+  });
 });
 
 describe('site chrome base styles', () => {

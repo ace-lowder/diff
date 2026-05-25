@@ -10,14 +10,12 @@ import {
 import { EditorView } from '@codemirror/view';
 
 import {
-  getDraftHighlightRanges,
-  getDisplayChanges,
-  getEditorHighlightRanges,
-  getEditorStats,
-  getLineDecorations,
-  getLowestEditedLine,
   type StatsMode,
 } from './editorDiff';
+import {
+  getEditorDiffState,
+  type EditorDiffState,
+} from './editorDiffState';
 import type {
   ConsoleCommandLineContext,
   RunConsoleCommand,
@@ -37,6 +35,8 @@ import {
   type ClipboardHighlightRange,
 } from './clipboardExport';
 import {
+  areFontStyleRangesEqual,
+  areTextSelectionRangesEqual,
   getActiveFontStyleTypesForSelections,
   getInsertedFontStyleRanges,
   mapFontStyleRangesThroughChanges,
@@ -94,6 +94,8 @@ import type {
 } from './appTypes';
 
 const MENU_AUTO_HIDE_DELAY_MS = 2000;
+const EDITOR_DIFF_UPDATE_DELAY_MS = 150;
+const STORED_TEXT_WRITE_DELAY_MS = 500;
 
 const App = () => {
   const initialDocumentText = useMemo(() => getStoredDocumentText(), []);
@@ -163,6 +165,16 @@ const App = () => {
   const [editorScrollbarWidthPx, setEditorScrollbarWidthPx] = useState(0);
   const [editorLineNumberGutterWidthPx, setEditorLineNumberGutterWidthPx] =
     useState(0);
+  const initialEditorDiffState = useMemo(
+    () =>
+      getEditorDiffState({
+        draftText: initialDocumentText.draftText,
+        editorText: initialDocumentText.editorText,
+      }),
+    [initialDocumentText],
+  );
+  const [editorDiffState, setEditorDiffState] =
+    useState<EditorDiffState>(initialEditorDiffState);
 
   const draftEditorViewRef = useRef<EditorView | null>(null);
   const editorEditorViewRef = useRef<EditorView | null>(null);
@@ -181,43 +193,119 @@ const App = () => {
   const lineNumberHideTimeoutRef = useRef<number | null>(null);
   const draftActiveFontStyleTypesRef = useRef<FontStyleType[]>([]);
   const editorActiveFontStyleTypesRef = useRef<FontStyleType[]>([]);
+  const pendingDiffTimeoutRef = useRef<number | null>(null);
+  const latestTextRef = useRef({ draftText, editorText });
+  const editorDiffStateRef = useRef(editorDiffState);
+  const storedTextTimeoutRef = useRef<number | null>(null);
+  const pendingStoredTextRef = useRef<
+    Partial<Record<'draftText' | 'editorText', string>>
+  >({});
 
-  const displayChanges = useMemo(() => {
-    return getDisplayChanges(draftText, editorText);
-  }, [draftText, editorText]);
-
-  const editorHighlightRanges = useMemo(() => {
-    return getEditorHighlightRanges(displayChanges);
-  }, [displayChanges]);
-
-  const draftHighlightRanges = useMemo(() => {
-    return getDraftHighlightRanges(displayChanges);
-  }, [displayChanges]);
-
-  const lineDecorations = useMemo(() => {
-    return getLineDecorations(draftText, editorText);
-  }, [draftText, editorText]);
-
-  const lowestEditedLine = useMemo(() => {
-    return getLowestEditedLine(displayChanges);
-  }, [displayChanges]);
-
-  const editorStats = useMemo(() => {
-    return getEditorStats(editorText, displayChanges);
-  }, [editorText, displayChanges]);
+  const {
+    editorHighlightRanges,
+    draftHighlightRanges,
+    lineDecorations,
+    lowestEditedLine,
+    editorStats,
+  } = editorDiffState;
   const shouldShowDraftDiff = editorText.length > 0;
   const fontSizeStyle = useMemo(
     () => getFontSizeCssVariables(fontSizeMode),
     [fontSizeMode],
   );
 
-  useEffect(() => {
-    setStoredText(storageKeys.draftText, draftText);
-  }, [draftText]);
+  const clearPendingDiffUpdate = () => {
+    if (pendingDiffTimeoutRef.current !== null) {
+      window.clearTimeout(pendingDiffTimeoutRef.current);
+      pendingDiffTimeoutRef.current = null;
+    }
+  };
+
+  const computeEditorDiffState = () => {
+    return getEditorDiffState(latestTextRef.current);
+  };
+
+  const setCurrentEditorDiffState = (nextState: EditorDiffState) => {
+    editorDiffStateRef.current = nextState;
+    setEditorDiffState(nextState);
+  };
+
+  const flushEditorDiffState = () => {
+    clearPendingDiffUpdate();
+    const nextState = computeEditorDiffState();
+    setCurrentEditorDiffState(nextState);
+    return nextState;
+  };
+
+  const scheduleEditorDiffStateUpdate = () => {
+    clearPendingDiffUpdate();
+    pendingDiffTimeoutRef.current = window.setTimeout(() => {
+      pendingDiffTimeoutRef.current = null;
+      setCurrentEditorDiffState(computeEditorDiffState());
+    }, EDITOR_DIFF_UPDATE_DELAY_MS);
+  };
+
+  const clearStoredTextTimeout = () => {
+    if (storedTextTimeoutRef.current !== null) {
+      window.clearTimeout(storedTextTimeoutRef.current);
+      storedTextTimeoutRef.current = null;
+    }
+  };
+
+  const flushStoredText = useCallback(() => {
+    clearStoredTextTimeout();
+
+    if (pendingStoredTextRef.current.draftText !== undefined) {
+      setStoredText(storageKeys.draftText, pendingStoredTextRef.current.draftText);
+    }
+
+    if (pendingStoredTextRef.current.editorText !== undefined) {
+      setStoredText(storageKeys.editorText, pendingStoredTextRef.current.editorText);
+    }
+
+    pendingStoredTextRef.current = {};
+  }, []);
+
+  const scheduleStoredTextWrite = useCallback(
+    (key: 'draftText' | 'editorText', value: string) => {
+      pendingStoredTextRef.current = {
+        ...pendingStoredTextRef.current,
+        [key]: value,
+      };
+
+      clearStoredTextTimeout();
+      storedTextTimeoutRef.current = window.setTimeout(() => {
+        flushStoredText();
+      }, STORED_TEXT_WRITE_DELAY_MS);
+    },
+    [flushStoredText],
+  );
 
   useEffect(() => {
-    setStoredText(storageKeys.editorText, editorText);
-  }, [editorText]);
+    latestTextRef.current = { draftText, editorText };
+    scheduleEditorDiffStateUpdate();
+  }, [draftText, editorText]);
+
+  useEffect(() => {
+    editorDiffStateRef.current = editorDiffState;
+  }, [editorDiffState]);
+
+  useEffect(() => {
+    scheduleStoredTextWrite('draftText', draftText);
+  }, [draftText, scheduleStoredTextWrite]);
+
+  useEffect(() => {
+    scheduleStoredTextWrite('editorText', editorText);
+  }, [editorText, scheduleStoredTextWrite]);
+
+  useEffect(() => {
+    window.addEventListener('pagehide', flushStoredText);
+
+    return () => {
+      window.removeEventListener('pagehide', flushStoredText);
+      flushStoredText();
+    };
+  }, [flushStoredText]);
 
   useEffect(() => {
     setStoredFontStyleRanges(storageKeys.draftFontStyleRanges, draftFontStyleRanges);
@@ -251,6 +339,12 @@ const App = () => {
       }
       if (lineNumberHideTimeoutRef.current !== null) {
         window.clearTimeout(lineNumberHideTimeoutRef.current);
+      }
+      if (pendingDiffTimeoutRef.current !== null) {
+        window.clearTimeout(pendingDiffTimeoutRef.current);
+      }
+      if (storedTextTimeoutRef.current !== null) {
+        window.clearTimeout(storedTextTimeoutRef.current);
       }
       if (editorMeasureFrameRef.current !== null) {
         window.cancelAnimationFrame(editorMeasureFrameRef.current);
@@ -394,6 +488,7 @@ const App = () => {
   };
 
   const handleCopyText = async () => {
+    const nextDiffState = flushEditorDiffState();
     const copyText = mode === 'draft' ? draftText : editorText;
     await copyDocumentText({
       copyText,
@@ -401,7 +496,7 @@ const App = () => {
         mode === 'draft'
           ? getDraftClipboardHighlightRanges({
               text: draftText,
-              highlightRanges: draftHighlightRanges
+              highlightRanges: nextDiffState.draftHighlightRanges
                 .filter((range) => range.type === 'deleted')
                 .map((range) => ({
                   type: 'deleted',
@@ -409,7 +504,7 @@ const App = () => {
                   to: range.to,
                 })),
             })
-          : editorHighlightRanges,
+          : nextDiffState.editorHighlightRanges,
       fontStyleRanges: mode === 'draft' ? draftFontStyleRanges : editorFontStyleRanges,
     });
   };
@@ -424,12 +519,13 @@ const App = () => {
   };
 
   const writeEditorLineText = async (line: TextLineContext) => {
+    const nextDiffState = flushEditorDiffState();
     const htmlText = getClipboardHtml({
       text: line.text,
       highlightRanges: getClipboardHighlightRangesForLine({
         lineFrom: line.from,
         lineTo: line.to,
-        highlightRanges: editorHighlightRanges,
+        highlightRanges: nextDiffState.editorHighlightRanges,
       }),
       fontStyleRanges: getClipboardFontStyleRangesForLine({
         lineFrom: line.from,
@@ -839,6 +935,28 @@ const App = () => {
     requestEditorMeasure();
   };
 
+  const setDraftSelectionsIfChanged = useCallback(
+    (nextSelections: TextSelectionRange[]) => {
+      setDraftSelections((currentSelections) =>
+        areTextSelectionRangesEqual(currentSelections, nextSelections)
+          ? currentSelections
+          : nextSelections,
+      );
+    },
+    [],
+  );
+
+  const setEditorSelectionsIfChanged = useCallback(
+    (nextSelections: TextSelectionRange[]) => {
+      setEditorSelections((currentSelections) =>
+        areTextSelectionRangesEqual(currentSelections, nextSelections)
+          ? currentSelections
+          : nextSelections,
+      );
+    },
+    [],
+  );
+
   const getTargetPane = (): PaneId => {
     if (mode === 'draft') {
       return 'draft';
@@ -972,8 +1090,8 @@ const App = () => {
                 value={draftText}
                 onDocumentChange={({ value, changes }) => {
                   setDraftText(value);
-                  setDraftFontStyleRanges((currentRanges) =>
-                    normalizeFontStyleRanges([
+                  setDraftFontStyleRanges((currentRanges) => {
+                    const nextRanges = normalizeFontStyleRanges([
                       ...mapFontStyleRangesThroughChanges({
                         ranges: currentRanges,
                         changes,
@@ -982,8 +1100,12 @@ const App = () => {
                         changes,
                         activeTypes: draftActiveFontStyleTypesRef.current,
                       }),
-                    ]),
-                  );
+                    ]);
+
+                    return areFontStyleRangesEqual(currentRanges, nextRanges)
+                      ? currentRanges
+                      : nextRanges;
+                  });
                 }}
                 onFocusPane={() => setActivePane('draft')}
                 onToggleFontStyle={(fontStyleType) =>
@@ -991,7 +1113,7 @@ const App = () => {
                 }
                 onRunConsoleCommand={handleRunConsoleCommand}
                 onCopyLine={handleCopyLine}
-                onSelectionChange={setDraftSelections}
+                onSelectionChange={setDraftSelectionsIfChanged}
                 lineNumberPosition={lineNumberPosition}
                 lineNumberVisibilityMode={lineNumberVisibilityMode}
                 areLineNumbersVisible={areLineNumbersVisible}
@@ -1025,8 +1147,8 @@ const App = () => {
                 value={editorText}
                 onDocumentChange={({ value, changes }) => {
                   setEditorText(value);
-                  setEditorFontStyleRanges((currentRanges) =>
-                    normalizeFontStyleRanges([
+                  setEditorFontStyleRanges((currentRanges) => {
+                    const nextRanges = normalizeFontStyleRanges([
                       ...mapFontStyleRangesThroughChanges({
                         ranges: currentRanges,
                         changes,
@@ -1035,8 +1157,12 @@ const App = () => {
                         changes,
                         activeTypes: editorActiveFontStyleTypesRef.current,
                       }),
-                    ]),
-                  );
+                    ]);
+
+                    return areFontStyleRangesEqual(currentRanges, nextRanges)
+                      ? currentRanges
+                      : nextRanges;
+                  });
                 }}
                 onFocusPane={() => setActivePane('editor')}
                 onToggleFontStyle={(fontStyleType) =>
@@ -1044,7 +1170,7 @@ const App = () => {
                 }
                 onRunConsoleCommand={handleRunConsoleCommand}
                 onCopyLine={handleCopyLine}
-                onSelectionChange={setEditorSelections}
+                onSelectionChange={setEditorSelectionsIfChanged}
                 lineNumberPosition={lineNumberPosition}
                 lineNumberVisibilityMode={lineNumberVisibilityMode}
                 areLineNumbersVisible={areLineNumbersVisible}
@@ -1082,8 +1208,8 @@ const App = () => {
                     value={draftText}
                     onDocumentChange={({ value, changes }) => {
                       setDraftText(value);
-                      setDraftFontStyleRanges((currentRanges) =>
-                        normalizeFontStyleRanges([
+                      setDraftFontStyleRanges((currentRanges) => {
+                        const nextRanges = normalizeFontStyleRanges([
                           ...mapFontStyleRangesThroughChanges({
                             ranges: currentRanges,
                             changes,
@@ -1092,8 +1218,12 @@ const App = () => {
                             changes,
                             activeTypes: draftActiveFontStyleTypesRef.current,
                           }),
-                        ]),
-                      );
+                        ]);
+
+                        return areFontStyleRangesEqual(currentRanges, nextRanges)
+                          ? currentRanges
+                          : nextRanges;
+                      });
                     }}
                     onFocusPane={() => setActivePane('draft')}
                     onToggleFontStyle={(fontStyleType) =>
@@ -1101,7 +1231,7 @@ const App = () => {
                     }
                     onRunConsoleCommand={handleRunConsoleCommand}
                     onCopyLine={handleCopyLine}
-                    onSelectionChange={setDraftSelections}
+                    onSelectionChange={setDraftSelectionsIfChanged}
                     lineNumberPosition={lineNumberPosition}
                     lineNumberVisibilityMode={lineNumberVisibilityMode}
                     areLineNumbersVisible={areLineNumbersVisible}
@@ -1151,8 +1281,8 @@ const App = () => {
                     value={editorText}
                     onDocumentChange={({ value, changes }) => {
                       setEditorText(value);
-                      setEditorFontStyleRanges((currentRanges) =>
-                        normalizeFontStyleRanges([
+                      setEditorFontStyleRanges((currentRanges) => {
+                        const nextRanges = normalizeFontStyleRanges([
                           ...mapFontStyleRangesThroughChanges({
                             ranges: currentRanges,
                             changes,
@@ -1161,8 +1291,12 @@ const App = () => {
                             changes,
                             activeTypes: editorActiveFontStyleTypesRef.current,
                           }),
-                        ]),
-                      );
+                        ]);
+
+                        return areFontStyleRangesEqual(currentRanges, nextRanges)
+                          ? currentRanges
+                          : nextRanges;
+                      });
                     }}
                     onFocusPane={() => setActivePane('editor')}
                     onToggleFontStyle={(fontStyleType) =>
@@ -1170,7 +1304,7 @@ const App = () => {
                     }
                     onRunConsoleCommand={handleRunConsoleCommand}
                     onCopyLine={handleCopyLine}
-                    onSelectionChange={setEditorSelections}
+                    onSelectionChange={setEditorSelectionsIfChanged}
                     lineNumberPosition={lineNumberPosition}
                     lineNumberVisibilityMode={lineNumberVisibilityMode}
                     areLineNumbersVisible={areLineNumbersVisible}

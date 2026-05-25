@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  areFontStyleRangesEqual,
+  areTextSelectionRangesEqual,
   getActiveFontStyleTypesForSelections,
   getInsertedFontStyleRanges,
   mapFontStyleRangesThroughChanges,
@@ -21,6 +23,91 @@ describe('normalizeFontStyleRanges', () => {
       { type: 'bold', from: 0, to: 4 },
       { type: 'italic', from: 1, to: 3 },
     ]);
+  });
+});
+
+describe('areFontStyleRangesEqual', () => {
+  it('returns true for equal normalized ranges', () => {
+    expect(
+      areFontStyleRangesEqual(
+        [
+          { type: 'bold', from: 0, to: 2 },
+          { type: 'bold', from: 2, to: 4 },
+        ],
+        [{ type: 'bold', from: 0, to: 4 }],
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false for different range fields', () => {
+    expect(
+      areFontStyleRangesEqual(
+        [{ type: 'bold', from: 0, to: 4 }],
+        [{ type: 'italic', from: 0, to: 4 }],
+      ),
+    ).toBe(false);
+  });
+
+  it('returns true for unsorted equivalent ranges', () => {
+    expect(
+      areFontStyleRangesEqual(
+        [
+          { type: 'underline', from: 8, to: 10 },
+          { type: 'bold', from: 1, to: 3 },
+        ],
+        [
+          { type: 'bold', from: 1, to: 3 },
+          { type: 'underline', from: 8, to: 10 },
+        ],
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('areTextSelectionRangesEqual', () => {
+  it('returns true for equal ranges', () => {
+    expect(
+      areTextSelectionRangesEqual(
+        [{ from: 1, to: 4 }],
+        [{ from: 1, to: 4 }],
+      ),
+    ).toBe(true);
+  });
+
+  it('returns true for unsorted equivalent ranges', () => {
+    expect(
+      areTextSelectionRangesEqual(
+        [
+          { from: 5, to: 6 },
+          { from: 1, to: 2 },
+        ],
+        [
+          { from: 1, to: 2 },
+          { from: 5, to: 6 },
+        ],
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false for different ranges', () => {
+    expect(
+      areTextSelectionRangesEqual(
+        [{ from: 1, to: 2 }],
+        [{ from: 1, to: 3 }],
+      ),
+    ).toBe(false);
+  });
+
+  it('ignores invalid empty ranges consistently', () => {
+    expect(
+      areTextSelectionRangesEqual(
+        [
+          { from: 0, to: 0 },
+          { from: 2, to: 4 },
+        ],
+        [{ from: 2, to: 4 }],
+      ),
+    ).toBe(true);
   });
 });
 

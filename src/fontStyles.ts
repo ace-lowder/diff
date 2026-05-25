@@ -58,6 +58,49 @@ export const normalizeFontStyleRanges = (
   return mergedRanges;
 };
 
+export const areFontStyleRangesEqual = (
+  leftRanges: FontStyleRange[],
+  rightRanges: FontStyleRange[],
+): boolean => {
+  const left = normalizeFontStyleRanges(leftRanges);
+  const right = normalizeFontStyleRanges(rightRanges);
+
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((leftRange, index) => {
+    const rightRange = right[index];
+    return (
+      rightRange !== undefined &&
+      leftRange.type === rightRange.type &&
+      leftRange.from === rightRange.from &&
+      leftRange.to === rightRange.to
+    );
+  });
+};
+
+export const areTextSelectionRangesEqual = (
+  leftRanges: TextSelectionRange[],
+  rightRanges: TextSelectionRange[],
+): boolean => {
+  const left = normalizeSelections(leftRanges);
+  const right = normalizeSelections(rightRanges);
+
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((leftRange, index) => {
+    const rightRange = right[index];
+    return (
+      rightRange !== undefined &&
+      leftRange.from === rightRange.from &&
+      leftRange.to === rightRange.to
+    );
+  });
+};
+
 export const toggleFontStyleRanges = ({
   ranges,
   type,
