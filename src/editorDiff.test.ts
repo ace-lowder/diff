@@ -7,6 +7,7 @@ import {
   getDisplayChanges,
   getEditorHighlightRanges,
   getEditorStats,
+  getLineAnchoredDiffResult,
   getLineAnchoredEditorHighlightRanges,
   getLineAnchoredDraftHighlightRanges,
   getLineDecorations,
@@ -1617,6 +1618,58 @@ describe('getLineAnchoredEditorHighlightRanges', () => {
 
     expect(
       ranges.some((range) => range.type === 'deleted' && range.from === range.to),
+    ).toBe(true);
+  });
+});
+
+describe('getLineAnchoredDiffResult', () => {
+  it('returns component results consistent with line-anchored helpers', () => {
+    const draftText = 'alpha\nbeta\ngamma';
+    const editorText = 'alpha\nbeta changed\ngamma';
+
+    const result = getLineAnchoredDiffResult({ draftText, editorText });
+
+    expect(result.editorHighlightRanges).toEqual(
+      getLineAnchoredEditorHighlightRanges({ draftText, editorText }),
+    );
+    expect(result.draftHighlightRanges).toEqual(
+      getLineAnchoredDraftHighlightRanges({ draftText, editorText }),
+    );
+    expect(result.lineDecorations).toEqual(getLineDecorations(draftText, editorText));
+    expect(result.editorStats.wordCount).toBe(4);
+    expect(result.editorStats.characterCount).toBe(editorText.length);
+    expect(result.lowestEditedLine).toEqual({ lineNumber: 2 });
+  });
+
+  it('keeps lower repeated-paragraph highlights in intended lines', () => {
+    const draftText = [
+      'Foreman said they never surfaced. Guess they got lost.',
+      '',
+      'Foreman said they never surfaced. Guess they got lost.',
+      '',
+      'Foreman said they never surfaced. Guess they got lost.',
+    ].join('\n');
+    const editorText = [
+      'Foreman said they never surfaced. Guess they got lost.',
+      '',
+      'Foreman said they never surfaced. Said they must have gotten lost.',
+      '',
+      'Foreman said they never surfaced. Guess they got lost.',
+    ].join('\n');
+
+    const result = getLineAnchoredDiffResult({ draftText, editorText });
+    const editedLineStart = editorText.indexOf('Said they must have gotten lost');
+    const draftEditedLineStart = draftText.indexOf('Guess they got lost.', draftText.indexOf('Guess they got lost.') + 1);
+
+    expect(
+      result.editorHighlightRanges.some(
+        (range) => range.from >= editedLineStart && range.from < editedLineStart + 40,
+      ),
+    ).toBe(true);
+    expect(
+      result.draftHighlightRanges.some(
+        (range) => range.from >= draftEditedLineStart && range.from < draftEditedLineStart + 20,
+      ),
     ).toBe(true);
   });
 });

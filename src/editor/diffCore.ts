@@ -67,6 +67,17 @@ export type LowestEditedLine = {
   lineNumber: number;
 };
 
+export type LineAnchoredDiffResult = {
+  editorHighlightRanges: EditorHighlightRange[];
+  draftHighlightRanges: DraftHighlightRange[];
+  lineDecorations: {
+    editorLineDecorations: EditorLineDecoration[];
+    draftLineDecorations: DraftLineDecoration[];
+  };
+  lowestEditedLine: LowestEditedLine | null;
+  editorStats: EditorStats;
+};
+
 type RawChangeType = 'equal' | 'inserted' | 'deleted';
 
 type RawChange = {
@@ -85,6 +96,12 @@ type LinePair = {
 type LineAlignmentMatch = {
   draftIndex: number;
   editorIndex: number;
+};
+
+type MatchedLineDiff = {
+  linePairIndex: number;
+  linePair: LinePair;
+  displayChanges: DisplayChange[];
 };
 
 type LineMatchProfile = {
@@ -265,22 +282,137 @@ export const getLineAnchoredDraftHighlightRanges = ({
   editorText: string;
 }): DraftHighlightRange[] => {
   const linePairs = getLinePairs(draftText, editorText);
-  const draftLineStartOffsets = getLineStartOffsets(draftText);
-  const draftLines = draftText.split('\n');
-  const ranges: DraftHighlightRange[] = [];
+  return getLineAnchoredDraftHighlightRangesForPairs({
+    linePairs,
+    draftText,
+    draftLineStartOffsets: getLineStartOffsets(draftText),
+    draftLines: draftText.split('\n'),
+    matchedLineDiffs: getMatchedLineDiffs(linePairs),
+  });
+};
 
-  for (const linePair of linePairs) {
-    if (linePair.draftLine !== null && linePair.editorLine !== null) {
+export const getLineAnchoredEditorHighlightRanges = ({
+  draftText,
+  editorText,
+}: {
+  draftText: string;
+  editorText: string;
+}): EditorHighlightRange[] => {
+  const linePairs = getLinePairs(draftText, editorText);
+  return getLineAnchoredEditorHighlightRangesForPairs({
+    linePairs,
+    editorText,
+    editorLineStartOffsets: getLineStartOffsets(editorText),
+    editorLines: editorText.split('\n'),
+    matchedLineDiffs: getMatchedLineDiffs(linePairs),
+  });
+};
+
+export const getLineAnchoredDiffResult = ({
+  draftText,
+  editorText,
+}: {
+  draftText: string;
+  editorText: string;
+}): LineAnchoredDiffResult => {
+  const linePairs = getLinePairs(draftText, editorText);
+  const draftLines = draftText.split('\n');
+  const editorLines = editorText.split('\n');
+  const matchedLineDiffs = getMatchedLineDiffs(linePairs);
+  const lineDecorations = getLineDecorationsForPairs({
+    linePairs,
+    draftLines,
+  });
+  const editorHighlightRanges = getLineAnchoredEditorHighlightRangesForPairs({
+    linePairs,
+    editorText,
+    editorLineStartOffsets: getLineStartOffsets(editorText),
+    editorLines,
+    matchedLineDiffs,
+  });
+  const draftHighlightRanges = getLineAnchoredDraftHighlightRangesForPairs({
+    linePairs,
+    draftText,
+    draftLineStartOffsets: getLineStartOffsets(draftText),
+    draftLines,
+    matchedLineDiffs,
+  });
+  const { editorStats, lowestEditedLine } = getLineAnchoredStatsAndLowestEditedLine({
+    linePairs,
+    editorText,
+    editorLineCount: editorLines.length,
+    matchedLineDiffs,
+  });
+
+  return {
+    editorHighlightRanges,
+    draftHighlightRanges,
+    lineDecorations,
+    lowestEditedLine,
+    editorStats,
+  };
+};
+
+export const getEditorStats = (
+  editorText: string,
+  displayChanges: DisplayChange[],
+): EditorStats => {
+  const addedTextParts: string[] = [];
+  const deletedTextParts: string[] = [];
+
+  for (const displayChange of displayChanges) {
+    if (displayChange.type === 'inserted' || displayChange.type === 'replaced') {
+      addedTextParts.push(displayChange.editorValue);
+    }
+
+    if (displayChange.type === 'deleted' || displayChange.type === 'replaced') {
+      deletedTextParts.push(displayChange.draftValue);
+    }
+  }
+
+  const addedText = addedTextParts.join('');
+  const deletedText = deletedTextParts.join('');
+
+  return {
+    wordCount: getWordCount(editorText),
+    characterCount: editorText.length,
+    addedWordCount: getWordCount(addedTextParts.join(' ')),
+    deletedWordCount: getWordCount(deletedTextParts.join(' ')),
+    addedCharacterCount: addedText.length,
+    deletedCharacterCount: deletedText.length,
+  };
+};
+
+const getLineAnchoredDraftHighlightRangesForPairs = ({
+  linePairs,
+  draftText,
+  draftLineStartOffsets,
+  draftLines,
+  matchedLineDiffs,
+}: {
+  linePairs: LinePair[];
+  draftText: string;
+  draftLineStartOffsets: number[];
+  draftLines: string[];
+  matchedLineDiffs: MatchedLineDiff[];
+}): DraftHighlightRange[] => {
+  const ranges: DraftHighlightRange[] = [];
+  const matchedLineDiffMap = getMatchedLineDiffMap(matchedLineDiffs);
+
+  for (let linePairIndex = 0; linePairIndex < linePairs.length; linePairIndex += 1) {
+    const linePair = linePairs[linePairIndex];
+    if (!linePair) {
+      continue;
+    }
+
+    const matchedLineDiff = matchedLineDiffMap.get(linePairIndex);
+    if (matchedLineDiff) {
       const lineStartOffset = draftLineStartOffsets[linePair.draftLineNumber - 1];
       if (lineStartOffset === undefined) {
         continue;
       }
 
-      const lineDisplayChanges = getInlineDisplayChanges(
-        linePair.draftLine,
-        linePair.editorLine,
-      );
-      const lineRanges = getDraftHighlightRanges(lineDisplayChanges);
+      const lineRanges = getDraftHighlightRanges(matchedLineDiff.displayChanges);
       for (const lineRange of lineRanges) {
         const from = Math.min(draftText.length, lineStartOffset + lineRange.from);
         const to = Math.min(draftText.length, lineStartOffset + lineRange.to);
@@ -338,30 +470,36 @@ export const getLineAnchoredDraftHighlightRanges = ({
   );
 };
 
-export const getLineAnchoredEditorHighlightRanges = ({
-  draftText,
+const getLineAnchoredEditorHighlightRangesForPairs = ({
+  linePairs,
   editorText,
+  editorLineStartOffsets,
+  editorLines,
+  matchedLineDiffs,
 }: {
-  draftText: string;
+  linePairs: LinePair[];
   editorText: string;
+  editorLineStartOffsets: number[];
+  editorLines: string[];
+  matchedLineDiffs: MatchedLineDiff[];
 }): EditorHighlightRange[] => {
-  const linePairs = getLinePairs(draftText, editorText);
-  const editorLineStartOffsets = getLineStartOffsets(editorText);
-  const editorLines = editorText.split('\n');
   const ranges: EditorHighlightRange[] = [];
+  const matchedLineDiffMap = getMatchedLineDiffMap(matchedLineDiffs);
 
-  for (const linePair of linePairs) {
-    if (linePair.draftLine !== null && linePair.editorLine !== null) {
+  for (let linePairIndex = 0; linePairIndex < linePairs.length; linePairIndex += 1) {
+    const linePair = linePairs[linePairIndex];
+    if (!linePair) {
+      continue;
+    }
+
+    const matchedLineDiff = matchedLineDiffMap.get(linePairIndex);
+    if (matchedLineDiff) {
       const lineStartOffset = editorLineStartOffsets[linePair.editorLineNumber - 1];
       if (lineStartOffset === undefined) {
         continue;
       }
 
-      const lineDisplayChanges = getInlineDisplayChanges(
-        linePair.draftLine,
-        linePair.editorLine,
-      );
-      const lineRanges = getEditorHighlightRanges(lineDisplayChanges);
+      const lineRanges = getEditorHighlightRanges(matchedLineDiff.displayChanges);
       for (const lineRange of lineRanges) {
         const from = Math.min(editorText.length, lineStartOffset + lineRange.from);
         const to = Math.min(editorText.length, lineStartOffset + lineRange.to);
@@ -417,36 +555,6 @@ export const getLineAnchoredEditorHighlightRanges = ({
     getVisibleEditorRanges(ranges, editorText),
     editorText,
   );
-};
-
-export const getEditorStats = (
-  editorText: string,
-  displayChanges: DisplayChange[],
-): EditorStats => {
-  const addedTextParts: string[] = [];
-  const deletedTextParts: string[] = [];
-
-  for (const displayChange of displayChanges) {
-    if (displayChange.type === 'inserted' || displayChange.type === 'replaced') {
-      addedTextParts.push(displayChange.editorValue);
-    }
-
-    if (displayChange.type === 'deleted' || displayChange.type === 'replaced') {
-      deletedTextParts.push(displayChange.draftValue);
-    }
-  }
-
-  const addedText = addedTextParts.join('');
-  const deletedText = deletedTextParts.join('');
-
-  return {
-    wordCount: getWordCount(editorText),
-    characterCount: editorText.length,
-    addedWordCount: getWordCount(addedTextParts.join(' ')),
-    deletedWordCount: getWordCount(deletedTextParts.join(' ')),
-    addedCharacterCount: addedText.length,
-    deletedCharacterCount: deletedText.length,
-  };
 };
 
 export const getEditorHighlightRanges = (
@@ -508,7 +616,22 @@ export const getLineDecorations = (
   draftLineDecorations: DraftLineDecoration[];
 } => {
   const linePairs = getLinePairs(draftText, editorText);
-  const draftLines = draftText.split('\n');
+  return getLineDecorationsForPairs({
+    linePairs,
+    draftLines: draftText.split('\n'),
+  });
+};
+
+const getLineDecorationsForPairs = ({
+  linePairs,
+  draftLines,
+}: {
+  linePairs: LinePair[];
+  draftLines: string[];
+}): {
+  editorLineDecorations: EditorLineDecoration[];
+  draftLineDecorations: DraftLineDecoration[];
+} => {
   const editorLineDecorations: EditorLineDecoration[] = [];
   const draftLineDecorations: DraftLineDecoration[] = [];
   const missingEditorLineIndexes = new Map<string, number>();
@@ -775,6 +898,89 @@ export const getLowestEditedLine = (
   }
 
   return { lineNumber: lowestEditedLineNumber };
+};
+
+const getLineAnchoredStatsAndLowestEditedLine = ({
+  linePairs,
+  editorText,
+  editorLineCount,
+  matchedLineDiffs,
+}: {
+  linePairs: LinePair[];
+  editorText: string;
+  editorLineCount: number;
+  matchedLineDiffs: MatchedLineDiff[];
+}): {
+  editorStats: EditorStats;
+  lowestEditedLine: LowestEditedLine | null;
+} => {
+  const addedTextParts: string[] = [];
+  const deletedTextParts: string[] = [];
+  let lowestEditedLineNumber: number | null = null;
+  const matchedLineDiffMap = getMatchedLineDiffMap(matchedLineDiffs);
+
+  for (let linePairIndex = 0; linePairIndex < linePairs.length; linePairIndex += 1) {
+    const linePair = linePairs[linePairIndex];
+    if (!linePair) {
+      continue;
+    }
+
+    const matchedLineDiff = matchedLineDiffMap.get(linePairIndex);
+    if (matchedLineDiff) {
+      let hasChange = false;
+      for (const displayChange of matchedLineDiff.displayChanges) {
+        if (displayChange.type === 'inserted' || displayChange.type === 'replaced') {
+          addedTextParts.push(displayChange.editorValue);
+        }
+
+        if (displayChange.type === 'deleted' || displayChange.type === 'replaced') {
+          deletedTextParts.push(displayChange.draftValue);
+        }
+
+        if (displayChange.type !== 'equal') {
+          hasChange = true;
+        }
+      }
+
+      if (hasChange) {
+        lowestEditedLineNumber = linePair.editorLineNumber;
+      }
+      continue;
+    }
+
+    if (linePair.draftLine === null && linePair.editorLine !== null) {
+      if (linePair.editorLine.trim()) {
+        addedTextParts.push(linePair.editorLine);
+      }
+      lowestEditedLineNumber = linePair.editorLineNumber;
+      continue;
+    }
+
+    if (linePair.draftLine !== null && linePair.editorLine === null) {
+      if (linePair.draftLine.trim()) {
+        deletedTextParts.push(linePair.draftLine);
+      }
+      lowestEditedLineNumber = Math.max(
+        1,
+        Math.min(editorLineCount, linePair.editorLineNumber),
+      );
+    }
+  }
+
+  return {
+    editorStats: {
+      wordCount: getWordCount(editorText),
+      characterCount: editorText.length,
+      addedWordCount: getWordCount(addedTextParts.join(' ')),
+      deletedWordCount: getWordCount(deletedTextParts.join(' ')),
+      addedCharacterCount: addedTextParts.join('').length,
+      deletedCharacterCount: deletedTextParts.join('').length,
+    },
+    lowestEditedLine:
+      lowestEditedLineNumber === null
+        ? null
+        : { lineNumber: lowestEditedLineNumber },
+  };
 };
 
 const getReplacementEditorRanges = ({
@@ -1919,6 +2125,37 @@ const getLinePairs = (draftText: string, editorText: string): LinePair[] => {
     editorLines,
     matches,
   });
+};
+
+const getMatchedLineDiffs = (linePairs: LinePair[]): MatchedLineDiff[] => {
+  const matchedLineDiffs: MatchedLineDiff[] = [];
+
+  for (let linePairIndex = 0; linePairIndex < linePairs.length; linePairIndex += 1) {
+    const linePair = linePairs[linePairIndex];
+    if (!linePair || linePair.draftLine === null || linePair.editorLine === null) {
+      continue;
+    }
+
+    matchedLineDiffs.push({
+      linePairIndex,
+      linePair,
+      displayChanges: getInlineDisplayChanges(linePair.draftLine, linePair.editorLine),
+    });
+  }
+
+  return matchedLineDiffs;
+};
+
+const getMatchedLineDiffMap = (
+  matchedLineDiffs: MatchedLineDiff[],
+): Map<number, MatchedLineDiff> => {
+  const matchedLineDiffMap = new Map<number, MatchedLineDiff>();
+
+  for (const matchedLineDiff of matchedLineDiffs) {
+    matchedLineDiffMap.set(matchedLineDiff.linePairIndex, matchedLineDiff);
+  }
+
+  return matchedLineDiffMap;
 };
 
 const getLineAlignmentMatches = (

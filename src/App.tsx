@@ -96,7 +96,7 @@ import type {
 } from './appTypes';
 
 const MENU_AUTO_HIDE_DELAY_MS = 2000;
-const EDITOR_DIFF_UPDATE_DELAY_MS = 40;
+const EDITOR_DIFF_UPDATE_DELAY_MS = 20;
 const STORED_TEXT_WRITE_DELAY_MS = 500;
 
 const App = () => {
@@ -198,6 +198,11 @@ const App = () => {
   const pendingDiffTimeoutRef = useRef<number | null>(null);
   const editorDiffWorkerRef = useRef<Worker | null>(null);
   const latestEditorDiffRequestIdRef = useRef(0);
+  const isEditorDiffWorkerBusyRef = useRef(false);
+  const queuedEditorDiffTextRef = useRef<{
+    draftText: string;
+    editorText: string;
+  } | null>(null);
   const latestTextRef = useRef({ draftText, editorText });
   const draftTextRef = useRef(draftText);
   const editorTextRef = useRef(editorText);
@@ -259,7 +264,7 @@ const App = () => {
     setEditorDiffState(nextState);
   };
 
-  const requestEditorDiffStateFromWorker = ({
+  const startEditorDiffWorkerRequest = ({
     draftText: nextDraftText,
     editorText: nextEditorText,
   }: {
@@ -278,11 +283,34 @@ const App = () => {
           editorText: nextEditorText,
         }),
       );
+      isEditorDiffWorkerBusyRef.current = false;
       return;
     }
 
+    isEditorDiffWorkerBusyRef.current = true;
     worker.postMessage({
       requestId,
+      draftText: nextDraftText,
+      editorText: nextEditorText,
+    });
+  };
+
+  const requestEditorDiffStateFromWorker = ({
+    draftText: nextDraftText,
+    editorText: nextEditorText,
+  }: {
+    draftText: string;
+    editorText: string;
+  }) => {
+    if (isEditorDiffWorkerBusyRef.current) {
+      queuedEditorDiffTextRef.current = {
+        draftText: nextDraftText,
+        editorText: nextEditorText,
+      };
+      return;
+    }
+
+    startEditorDiffWorkerRequest({
       draftText: nextDraftText,
       editorText: nextEditorText,
     });
@@ -293,6 +321,7 @@ const App = () => {
     const nextText = getCurrentDocumentTextSnapshot();
     latestTextRef.current = nextText;
     syncCommittedDocumentText(nextText);
+    queuedEditorDiffTextRef.current = null;
     latestEditorDiffRequestIdRef.current += 1;
     const nextState = getEditorDiffState(nextText);
     setCurrentEditorDiffState(nextState);
@@ -372,6 +401,17 @@ const App = () => {
     editorDiffWorkerRef.current = worker;
 
     worker.onmessage = (event: MessageEvent<EditorDiffWorkerResponse>) => {
+      const queuedText = queuedEditorDiffTextRef.current;
+      if (queuedText !== null) {
+        queuedEditorDiffTextRef.current = null;
+      }
+      isEditorDiffWorkerBusyRef.current = false;
+
+      if (queuedText !== null) {
+        startEditorDiffWorkerRequest(queuedText);
+        return;
+      }
+
       if (event.data.requestId !== latestEditorDiffRequestIdRef.current) {
         return;
       }
@@ -382,6 +422,8 @@ const App = () => {
     return () => {
       worker.terminate();
       editorDiffWorkerRef.current = null;
+      isEditorDiffWorkerBusyRef.current = false;
+      queuedEditorDiffTextRef.current = null;
     };
   }, []);
 

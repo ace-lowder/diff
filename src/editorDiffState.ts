@@ -1,11 +1,5 @@
 import {
-  getDisplayChanges,
-  getLineAnchoredEditorHighlightRanges,
-  getEditorStats,
-  getLineAnchoredDraftHighlightRanges,
-  getLineDecorations,
-  getLowestEditedLine,
-  type DisplayChange,
+  getLineAnchoredDiffResult,
   type DraftHighlightRange,
   type DraftLineDecoration,
   type EditorHighlightRange,
@@ -15,7 +9,6 @@ import {
 } from './editorDiff';
 
 export type EditorDiffState = {
-  displayChanges: DisplayChange[];
   editorHighlightRanges: EditorHighlightRange[];
   draftHighlightRanges: DraftHighlightRange[];
   lineDecorations: {
@@ -33,20 +26,5 @@ export const getEditorDiffState = ({
   draftText: string;
   editorText: string;
 }): EditorDiffState => {
-  const displayChanges = getDisplayChanges(draftText, editorText);
-
-  return {
-    displayChanges,
-    editorHighlightRanges: getLineAnchoredEditorHighlightRanges({
-      draftText,
-      editorText,
-    }),
-    draftHighlightRanges: getLineAnchoredDraftHighlightRanges({
-      draftText,
-      editorText,
-    }),
-    lineDecorations: getLineDecorations(draftText, editorText),
-    lowestEditedLine: getLowestEditedLine(displayChanges),
-    editorStats: getEditorStats(editorText, displayChanges),
-  };
+  return getLineAnchoredDiffResult({ draftText, editorText });
 };
