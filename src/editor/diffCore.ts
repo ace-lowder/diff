@@ -338,6 +338,87 @@ export const getLineAnchoredDraftHighlightRanges = ({
   );
 };
 
+export const getLineAnchoredEditorHighlightRanges = ({
+  draftText,
+  editorText,
+}: {
+  draftText: string;
+  editorText: string;
+}): EditorHighlightRange[] => {
+  const linePairs = getLinePairs(draftText, editorText);
+  const editorLineStartOffsets = getLineStartOffsets(editorText);
+  const editorLines = editorText.split('\n');
+  const ranges: EditorHighlightRange[] = [];
+
+  for (const linePair of linePairs) {
+    if (linePair.draftLine !== null && linePair.editorLine !== null) {
+      const lineStartOffset = editorLineStartOffsets[linePair.editorLineNumber - 1];
+      if (lineStartOffset === undefined) {
+        continue;
+      }
+
+      const lineDisplayChanges = getInlineDisplayChanges(
+        linePair.draftLine,
+        linePair.editorLine,
+      );
+      const lineRanges = getEditorHighlightRanges(lineDisplayChanges);
+      for (const lineRange of lineRanges) {
+        const from = Math.min(editorText.length, lineStartOffset + lineRange.from);
+        const to = Math.min(editorText.length, lineStartOffset + lineRange.to);
+        if (to < from) {
+          continue;
+        }
+        ranges.push({
+          type: lineRange.type,
+          from,
+          to,
+        });
+      }
+      continue;
+    }
+
+    if (linePair.draftLine === null && linePair.editorLine !== null) {
+      const lineStartOffset = editorLineStartOffsets[linePair.editorLineNumber - 1];
+      const lineLength = linePair.editorLine.length;
+      if (lineStartOffset === undefined || lineLength === 0) {
+        continue;
+      }
+
+      ranges.push({
+        type: 'added',
+        from: lineStartOffset,
+        to: Math.min(editorText.length, lineStartOffset + lineLength),
+      });
+      continue;
+    }
+
+    if (
+      linePair.draftLine !== null &&
+      linePair.editorLine === null &&
+      shouldRenderEditorDeletedMarker(linePair.draftLine)
+    ) {
+      const editorLineCount = Math.max(1, editorLines.length);
+      const editorLineNumber = Math.min(
+        editorLineCount,
+        Math.max(1, linePair.editorLineNumber),
+      );
+      const lineStartOffset = editorLineStartOffsets[editorLineNumber - 1] ?? 0;
+      const anchorPosition = Math.min(editorText.length, Math.max(0, lineStartOffset));
+
+      ranges.push({
+        type: 'deleted',
+        from: anchorPosition,
+        to: anchorPosition,
+      });
+    }
+  }
+
+  return mergeAddedRangesAcrossInlineGaps(
+    getVisibleEditorRanges(ranges, editorText),
+    editorText,
+  );
+};
+
 export const getEditorStats = (
   editorText: string,
   displayChanges: DisplayChange[],

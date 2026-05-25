@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getDisplayChanges,
-  getEditorHighlightRanges,
+  getLineAnchoredEditorHighlightRanges,
   getEditorStats,
   getLineAnchoredDraftHighlightRanges,
   getLineDecorations,
@@ -18,7 +18,10 @@ describe('getEditorDiffState', () => {
 
     expect(getEditorDiffState({ draftText, editorText })).toEqual({
       displayChanges,
-      editorHighlightRanges: getEditorHighlightRanges(displayChanges),
+      editorHighlightRanges: getLineAnchoredEditorHighlightRanges({
+        draftText,
+        editorText,
+      }),
       draftHighlightRanges: getLineAnchoredDraftHighlightRanges({
         draftText,
         editorText,

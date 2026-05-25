@@ -16,6 +16,8 @@ import {
   getEditorDiffState,
   type EditorDiffState,
 } from './editorDiffState';
+import { createEditorDiffWorker } from './editorDiffWorkerClient';
+import type { EditorDiffWorkerResponse } from './editorDiffWorkerProtocol';
 import type {
   ConsoleCommandLineContext,
   RunConsoleCommand,
@@ -94,7 +96,7 @@ import type {
 } from './appTypes';
 
 const MENU_AUTO_HIDE_DELAY_MS = 2000;
-const EDITOR_DIFF_UPDATE_DELAY_MS = 80;
+const EDITOR_DIFF_UPDATE_DELAY_MS = 40;
 const STORED_TEXT_WRITE_DELAY_MS = 500;
 
 const App = () => {
@@ -194,6 +196,8 @@ const App = () => {
   const draftActiveFontStyleTypesRef = useRef<FontStyleType[]>([]);
   const editorActiveFontStyleTypesRef = useRef<FontStyleType[]>([]);
   const pendingDiffTimeoutRef = useRef<number | null>(null);
+  const editorDiffWorkerRef = useRef<Worker | null>(null);
+  const latestEditorDiffRequestIdRef = useRef(0);
   const latestTextRef = useRef({ draftText, editorText });
   const draftTextRef = useRef(draftText);
   const editorTextRef = useRef(editorText);
@@ -221,10 +225,6 @@ const App = () => {
       window.clearTimeout(pendingDiffTimeoutRef.current);
       pendingDiffTimeoutRef.current = null;
     }
-  };
-
-  const computeEditorDiffState = () => {
-    return getEditorDiffState(latestTextRef.current);
   };
 
   const getCurrentDocumentTextSnapshot = useCallback(() => {
@@ -259,11 +259,41 @@ const App = () => {
     setEditorDiffState(nextState);
   };
 
+  const requestEditorDiffStateFromWorker = ({
+    draftText: nextDraftText,
+    editorText: nextEditorText,
+  }: {
+    draftText: string;
+    editorText: string;
+  }) => {
+    const requestId = latestEditorDiffRequestIdRef.current + 1;
+    latestEditorDiffRequestIdRef.current = requestId;
+
+    const worker = editorDiffWorkerRef.current;
+
+    if (!worker) {
+      setCurrentEditorDiffState(
+        getEditorDiffState({
+          draftText: nextDraftText,
+          editorText: nextEditorText,
+        }),
+      );
+      return;
+    }
+
+    worker.postMessage({
+      requestId,
+      draftText: nextDraftText,
+      editorText: nextEditorText,
+    });
+  };
+
   const flushEditorDiffState = () => {
     clearPendingDiffUpdate();
     const nextText = getCurrentDocumentTextSnapshot();
     latestTextRef.current = nextText;
     syncCommittedDocumentText(nextText);
+    latestEditorDiffRequestIdRef.current += 1;
     const nextState = getEditorDiffState(nextText);
     setCurrentEditorDiffState(nextState);
     return nextState;
@@ -273,7 +303,7 @@ const App = () => {
     clearPendingDiffUpdate();
     pendingDiffTimeoutRef.current = window.setTimeout(() => {
       pendingDiffTimeoutRef.current = null;
-      setCurrentEditorDiffState(computeEditorDiffState());
+      requestEditorDiffStateFromWorker(latestTextRef.current);
     }, EDITOR_DIFF_UPDATE_DELAY_MS);
   };
 
@@ -336,6 +366,24 @@ const App = () => {
   useEffect(() => {
     editorDiffStateRef.current = editorDiffState;
   }, [editorDiffState]);
+
+  useEffect(() => {
+    const worker = createEditorDiffWorker();
+    editorDiffWorkerRef.current = worker;
+
+    worker.onmessage = (event: MessageEvent<EditorDiffWorkerResponse>) => {
+      if (event.data.requestId !== latestEditorDiffRequestIdRef.current) {
+        return;
+      }
+
+      setCurrentEditorDiffState(event.data.editorDiffState);
+    };
+
+    return () => {
+      worker.terminate();
+      editorDiffWorkerRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     scheduleStoredTextWrite('draftText', draftText);

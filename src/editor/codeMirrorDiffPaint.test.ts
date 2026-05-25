@@ -5,7 +5,7 @@ import type { DraftHighlightRange, DraftLineDecoration, EditorHighlightRange } f
 import {
   diffPaintField,
   getDiffPaintEffectValue,
-  getOptimisticDiffPaintStateThroughChanges,
+  getMappedDiffPaintStateThroughChanges,
   getDiffPaintTargets,
   getLineBoundedRangeSegments,
   getMarkerTargetsOutsideInlineRangeInteriors,
@@ -406,7 +406,7 @@ describe('getDiffPaintEffectValue', () => {
 });
 
 describe('diffPaintField', () => {
-  it('maps doc changes optimistically and is replaced by explicit effect updates', () => {
+  it('maps existing ranges through doc changes and is replaced by explicit effect updates', () => {
     const initialState = EditorState.create({
       doc: 'one',
       extensions: [diffPaintField],
@@ -430,7 +430,7 @@ describe('diffPaintField', () => {
 
     expect(afterDocChange.field(diffPaintField)).toEqual({
       editorHighlightRanges: [{ type: 'added', from: 0, to: 3 }],
-      draftHighlightRanges: [{ type: 'deleted', from: 0, to: 2 }],
+      draftHighlightRanges: [{ type: 'deleted', from: 0, to: 1 }],
       editorLineDecorations: [{ lineNumber: 1 }],
       draftLineDecorations: [],
       lowestEditedLine: { lineNumber: 1 },
@@ -458,10 +458,10 @@ describe('diffPaintField', () => {
   });
 });
 
-describe('getOptimisticDiffPaintStateThroughChanges', () => {
-  it('maps existing editor ranges and adds optimistic inserted editor ranges', () => {
+describe('getMappedDiffPaintStateThroughChanges', () => {
+  it('maps existing editor ranges through insertion', () => {
     const changes = ChangeSet.of([{ from: 0, insert: '123 ' }], 3);
-    const next = getOptimisticDiffPaintStateThroughChanges({
+    const next = getMappedDiffPaintStateThroughChanges({
       diffPaint: {
         editorHighlightRanges: [{ type: 'added', from: 2, to: 3 }],
         draftHighlightRanges: [],
@@ -472,15 +472,12 @@ describe('getOptimisticDiffPaintStateThroughChanges', () => {
       changes,
     });
 
-    expect(next.editorHighlightRanges).toEqual([
-      { type: 'added', from: 0, to: 4 },
-      { type: 'added', from: 6, to: 7 },
-    ]);
+    expect(next.editorHighlightRanges).toEqual([{ type: 'added', from: 6, to: 7 }]);
   });
 
-  it('maps existing draft deleted ranges and adds optimistic inserted draft ranges', () => {
+  it('maps existing draft deleted ranges through insertion', () => {
     const changes = ChangeSet.of([{ from: 0, insert: '123 ' }], 3);
-    const next = getOptimisticDiffPaintStateThroughChanges({
+    const next = getMappedDiffPaintStateThroughChanges({
       diffPaint: {
         editorHighlightRanges: [],
         draftHighlightRanges: [{ type: 'deleted', from: 2, to: 3 }],
@@ -491,31 +488,12 @@ describe('getOptimisticDiffPaintStateThroughChanges', () => {
       changes,
     });
 
-    expect(next.draftHighlightRanges).toEqual([
-      { type: 'deleted', from: 0, to: 4 },
-      { type: 'deleted', from: 6, to: 7 },
-    ]);
+    expect(next.draftHighlightRanges).toEqual([{ type: 'deleted', from: 6, to: 7 }]);
   });
 
-  it('merges adjacent optimistic inserted ranges', () => {
+  it('maps zero-width markers without adding guessed inserted ranges', () => {
     const changes = ChangeSet.of([{ from: 2, insert: 'x' }], 4);
-    const next = getOptimisticDiffPaintStateThroughChanges({
-      diffPaint: {
-        editorHighlightRanges: [{ type: 'added', from: 0, to: 2 }],
-        draftHighlightRanges: [],
-        editorLineDecorations: [],
-        draftLineDecorations: [],
-        lowestEditedLine: null,
-      },
-      changes,
-    });
-
-    expect(next.editorHighlightRanges).toEqual([{ type: 'added', from: 0, to: 3 }]);
-  });
-
-  it('keeps zero-width markers separate from non-zero ranges', () => {
-    const changes = ChangeSet.of([{ from: 2, insert: 'x' }], 4);
-    const next = getOptimisticDiffPaintStateThroughChanges({
+    const next = getMappedDiffPaintStateThroughChanges({
       diffPaint: {
         editorHighlightRanges: [{ type: 'deleted', from: 2, to: 2 }],
         draftHighlightRanges: [],
@@ -526,10 +504,7 @@ describe('getOptimisticDiffPaintStateThroughChanges', () => {
       changes,
     });
 
-    expect(next.editorHighlightRanges).toEqual([
-      { type: 'added', from: 2, to: 3 },
-      { type: 'deleted', from: 3, to: 3 },
-    ]);
+    expect(next.editorHighlightRanges).toEqual([{ type: 'deleted', from: 3, to: 3 }]);
   });
 });
 
