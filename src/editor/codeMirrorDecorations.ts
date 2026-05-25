@@ -41,9 +41,7 @@ export const editorDecorationsField = StateField.define<DecorationSet>({
     }
 
     if (transaction.docChanged) {
-      // Decorations are recomputed from React state, so stale sets are cleared on
-      // edits instead of mapped through document changes.
-      return Decoration.none;
+      return decorations.map(transaction.changes);
     }
 
     return decorations;

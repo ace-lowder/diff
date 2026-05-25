@@ -7,6 +7,7 @@ import {
   getDisplayChanges,
   getEditorHighlightRanges,
   getEditorStats,
+  getLineAnchoredDraftHighlightRanges,
   getLineDecorations,
   getLowestEditedLine,
   getWordCount,
@@ -1494,5 +1495,66 @@ describe('getLowestEditedLine', () => {
     const changes = getDisplayChanges('one\nthree', 'one\ntwo\nthree');
 
     expect(getLowestEditedLine(changes)).toEqual({ lineNumber: 2 });
+  });
+});
+
+describe('getLineAnchoredDraftHighlightRanges', () => {
+  it('keeps lower-paragraph highlights anchored to intended lines in long text', () => {
+    const draftText = [
+      'That’s where we were now. The walls were covered in ropes and caribeaners, winding down the jagged rock walls.',
+      '',
+      'Pablo thinks they got mixed up here. Tunnels branched off from the cylindrical room above and below us. I suggested calling out, but Pablo said we shouldn’t disturb the rock in case there was a cave in. That’s why he’s our guide.',
+      '',
+      'A few more miles and we hit our first descent, just as expected. Pablo knew the mine inside and out. We had him draw up a map, but he was more of an abstract artist. From what I could tell, there’s an active site 17 miles down, and the workers would have to repel to get there.',
+    ].join('\n');
+
+    const editorText = [
+      'That’s where we were now. The walls were covered in ropes and carabiners, winding down the jagged rock walls.',
+      '',
+      'Pablo thinks they got mixed up here. Tunnels branched off from the cylindrical room above and below us. I suggested calling out, but Pablo said we should not disturb the rock in case there was a cave-in. That’s why he’s our guide.',
+      '',
+      'A few more miles and we hit our first descent, just as expected. Pablo knew the mine inside and out. We had him draw up a map, but he was more of an abstract artist. From what I could tell, there is an active site 17 miles down, and the workers would have to rappel to get there.',
+    ].join('\n');
+
+    const ranges = getLineAnchoredDraftHighlightRanges({ draftText, editorText });
+    const caribeanersStart = draftText.indexOf('caribeaners');
+    const repelStart = draftText.indexOf('repel');
+
+    expect(
+      ranges.some((range) => range.from >= caribeanersStart && range.from < caribeanersStart + 'caribeaners'.length),
+    ).toBe(true);
+    expect(
+      ranges.some((range) => range.from >= repelStart && range.from < repelStart + 'repel'.length),
+    ).toBe(true);
+    expect(
+      ranges.every(
+        (range) =>
+          range.from >= 0 &&
+          range.to >= range.from &&
+          range.to <= draftText.length,
+      ),
+    ).toBe(true);
+  });
+
+  it('returns deleted range for draft-only line', () => {
+    const draftText = 'keep\nremove me\nkeep';
+    const editorText = 'keep\nkeep';
+
+    const ranges = getLineAnchoredDraftHighlightRanges({ draftText, editorText });
+
+    expect(
+      ranges.some((range) => range.type === 'deleted' && draftText.slice(range.from, range.to).includes('remove me')),
+    ).toBe(true);
+  });
+
+  it('returns draft added marker for editor-only inserted line', () => {
+    const draftText = 'one\nthree';
+    const editorText = 'one\ntwo\nthree';
+
+    const ranges = getLineAnchoredDraftHighlightRanges({ draftText, editorText });
+
+    expect(
+      ranges.some((range) => range.type === 'added' && range.from === range.to),
+    ).toBe(true);
   });
 });

@@ -1,8 +1,8 @@
 import {
-  getDraftHighlightRanges,
   getDisplayChanges,
   getEditorHighlightRanges,
   getEditorStats,
+  getLineAnchoredDraftHighlightRanges,
   getLineDecorations,
   getLowestEditedLine,
   type DisplayChange,
@@ -38,7 +38,10 @@ export const getEditorDiffState = ({
   return {
     displayChanges,
     editorHighlightRanges: getEditorHighlightRanges(displayChanges),
-    draftHighlightRanges: getDraftHighlightRanges(displayChanges),
+    draftHighlightRanges: getLineAnchoredDraftHighlightRanges({
+      draftText,
+      editorText,
+    }),
     lineDecorations: getLineDecorations(draftText, editorText),
     lowestEditedLine: getLowestEditedLine(displayChanges),
     editorStats: getEditorStats(editorText, displayChanges),

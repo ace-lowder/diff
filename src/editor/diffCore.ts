@@ -139,6 +139,13 @@ export const getDisplayChanges = (
   draftText: string,
   editorText: string,
 ): DisplayChange[] => {
+  return getInlineDisplayChanges(draftText, editorText);
+};
+
+const getInlineDisplayChanges = (
+  draftText: string,
+  editorText: string,
+): DisplayChange[] => {
   const rawChanges = mergeRawChanges(
     diffWordsWithSpace(draftText, editorText).map((part) => {
       if (part.added) {
@@ -247,6 +254,87 @@ export const getDisplayChanges = (
         normalizeInsertedWhitespace(normalizeReplacementWhitespace(combinedChanges)),
       ),
     ),
+  );
+};
+
+export const getLineAnchoredDraftHighlightRanges = ({
+  draftText,
+  editorText,
+}: {
+  draftText: string;
+  editorText: string;
+}): DraftHighlightRange[] => {
+  const linePairs = getLinePairs(draftText, editorText);
+  const draftLineStartOffsets = getLineStartOffsets(draftText);
+  const draftLines = draftText.split('\n');
+  const ranges: DraftHighlightRange[] = [];
+
+  for (const linePair of linePairs) {
+    if (linePair.draftLine !== null && linePair.editorLine !== null) {
+      const lineStartOffset = draftLineStartOffsets[linePair.draftLineNumber - 1];
+      if (lineStartOffset === undefined) {
+        continue;
+      }
+
+      const lineDisplayChanges = getInlineDisplayChanges(
+        linePair.draftLine,
+        linePair.editorLine,
+      );
+      const lineRanges = getDraftHighlightRanges(lineDisplayChanges);
+      for (const lineRange of lineRanges) {
+        const from = Math.min(draftText.length, lineStartOffset + lineRange.from);
+        const to = Math.min(draftText.length, lineStartOffset + lineRange.to);
+        if (to < from) {
+          continue;
+        }
+        ranges.push({
+          type: lineRange.type,
+          from,
+          to,
+        });
+      }
+      continue;
+    }
+
+    if (linePair.draftLine !== null && linePair.editorLine === null) {
+      const lineStartOffset = draftLineStartOffsets[linePair.draftLineNumber - 1];
+      const lineLength = linePair.draftLine.length;
+      if (lineStartOffset === undefined || lineLength === 0) {
+        continue;
+      }
+
+      ranges.push({
+        type: 'deleted',
+        from: lineStartOffset,
+        to: Math.min(draftText.length, lineStartOffset + lineLength),
+      });
+      continue;
+    }
+
+    if (
+      linePair.draftLine === null &&
+      linePair.editorLine !== null &&
+      shouldRenderDraftAddedMarker(linePair.editorLine)
+    ) {
+      const draftLineCount = Math.max(1, draftLines.length);
+      const draftLineNumber = Math.min(
+        draftLineCount,
+        Math.max(1, linePair.draftLineNumber),
+      );
+      const lineStartOffset = draftLineStartOffsets[draftLineNumber - 1] ?? 0;
+      const anchorPosition = Math.min(draftText.length, Math.max(0, lineStartOffset));
+
+      ranges.push({
+        type: 'added',
+        from: anchorPosition,
+        to: anchorPosition,
+      });
+    }
+  }
+
+  return filterVisibleDraftDeletedRanges(
+    mergeDeletedRangesAcrossInlineGaps(ranges, draftText),
+    draftText,
   );
 };
 
@@ -1643,6 +1731,19 @@ const getLineWords = (line: string): string[] => {
       .replace(/[“”]/g, '"')
       .match(/[a-z0-9]+(?:'[a-z0-9]+)?/g) ?? []
   );
+};
+
+const getLineStartOffsets = (text: string): number[] => {
+  const lines = text.split('\n');
+  const offsets: number[] = [];
+  let offset = 0;
+
+  for (const line of lines) {
+    offsets.push(offset);
+    offset += line.length + 1;
+  }
+
+  return offsets;
 };
 
 const getSharedUniqueWordCount = (

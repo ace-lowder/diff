@@ -1,3 +1,4 @@
+import { ChangeSet } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
 
 import type { DraftHighlightRange, DraftLineDecoration, EditorHighlightRange } from '../editorDiff';
@@ -7,7 +8,9 @@ import {
   getLineBoundedRangeSegments,
   getMarkerTargetsOutsideInlineRangeInteriors,
   getNonWidgetTextBlocks,
+  getVisibleDiffPaintTargets,
   isMarkerInsideInlineRange,
+  mapDiffPaintStateThroughChanges,
   getVisualRowRangeSegments,
   getVisualLineBox,
   type DiffPaintState,
@@ -396,6 +399,186 @@ describe('getDiffPaintEffectValue', () => {
       draftLineDecorations: [],
       lowestEditedLine: { lineNumber: 8 },
     });
+  });
+});
+
+describe('mapDiffPaintStateThroughChanges', () => {
+  it('maps non-empty editor ranges forward after insert before range', () => {
+    const changes = ChangeSet.of([{ from: 1, insert: 'x' }], 6);
+    const next = mapDiffPaintStateThroughChanges(
+      {
+        editorHighlightRanges: [{ type: 'added', from: 2, to: 4 }],
+        draftHighlightRanges: [],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+      },
+      changes,
+    );
+
+    expect(next.editorHighlightRanges).toEqual([{ type: 'added', from: 3, to: 5 }]);
+  });
+
+  it('maps non-empty draft ranges forward after insert before range', () => {
+    const changes = ChangeSet.of([{ from: 0, insert: 'zz' }], 6);
+    const next = mapDiffPaintStateThroughChanges(
+      {
+        editorHighlightRanges: [],
+        draftHighlightRanges: [{ type: 'deleted', from: 2, to: 4 }],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+      },
+      changes,
+    );
+
+    expect(next.draftHighlightRanges).toEqual([{ type: 'deleted', from: 4, to: 6 }]);
+  });
+
+  it('maps zero-width marker ranges', () => {
+    const changes = ChangeSet.of([{ from: 2, insert: 'x' }], 6);
+    const next = mapDiffPaintStateThroughChanges(
+      {
+        editorHighlightRanges: [{ type: 'deleted', from: 2, to: 2 }],
+        draftHighlightRanges: [{ type: 'added', from: 2, to: 2 }],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+      },
+      changes,
+    );
+
+    expect(next.editorHighlightRanges).toEqual([{ type: 'deleted', from: 3, to: 3 }]);
+    expect(next.draftHighlightRanges).toEqual([{ type: 'added', from: 3, to: 3 }]);
+  });
+
+  it('keeps line decorations and lowest edited line unchanged', () => {
+    const changes = ChangeSet.of([{ from: 0, insert: 'x' }], 4);
+    const next = mapDiffPaintStateThroughChanges(
+      {
+        editorHighlightRanges: [],
+        draftHighlightRanges: [],
+        editorLineDecorations: [{ lineNumber: 2 }],
+        draftLineDecorations: [
+          { type: 'deletedDraftLine', lineNumber: 3, placement: 'before' },
+        ],
+        lowestEditedLine: { lineNumber: 5 },
+      },
+      changes,
+    );
+
+    expect(next.editorLineDecorations).toEqual([{ lineNumber: 2 }]);
+    expect(next.draftLineDecorations).toEqual([
+      { type: 'deletedDraftLine', lineNumber: 3, placement: 'before' },
+    ]);
+    expect(next.lowestEditedLine).toEqual({ lineNumber: 5 });
+  });
+});
+
+describe('getVisibleDiffPaintTargets', () => {
+  const lineRangeByLineNumber = {
+    1: { from: 0, to: 3 },
+    2: { from: 4, to: 7 },
+    3: { from: 8, to: 12 },
+  } as const;
+
+  const getLineRange = (lineNumber: number) => {
+    return lineRangeByLineNumber[lineNumber as 1 | 2 | 3] ?? null;
+  };
+
+  it('includes range targets overlapping visible ranges', () => {
+    const targets = getVisibleDiffPaintTargets({
+      targets: [
+        {
+          type: 'range',
+          className: 'byline-diff-added',
+          from: 5,
+          to: 6,
+          geometryRole: 'inlineText',
+        },
+      ],
+      visibleRanges: [{ from: 4, to: 8 }],
+      docLineCount: 3,
+      getLineRange,
+    });
+
+    expect(targets).toHaveLength(1);
+  });
+
+  it('excludes range targets far outside visible ranges', () => {
+    const targets = getVisibleDiffPaintTargets({
+      targets: [
+        {
+          type: 'range',
+          className: 'byline-diff-added',
+          from: 10000,
+          to: 10010,
+          geometryRole: 'inlineText',
+        },
+      ],
+      visibleRanges: [{ from: 4, to: 8 }],
+      docLineCount: 3,
+      getLineRange,
+    });
+
+    expect(targets).toEqual([]);
+  });
+
+  it('includes marker targets overlapping visible ranges', () => {
+    const targets = getVisibleDiffPaintTargets({
+      targets: [
+        {
+          type: 'marker',
+          className: 'byline-diff-deleted',
+          from: 4,
+          to: 5,
+          side: 'left',
+          position: 4,
+          geometryRole: 'tick',
+        },
+      ],
+      visibleRanges: [{ from: 2, to: 6 }],
+      docLineCount: 3,
+      getLineRange,
+    });
+
+    expect(targets).toHaveLength(1);
+  });
+
+  it('includes line targets whose line range overlaps visible ranges', () => {
+    const targets = getVisibleDiffPaintTargets({
+      targets: [
+        {
+          type: 'line',
+          className: 'byline-diff-active-line',
+          lineNumber: 2,
+          geometryRole: 'activeLine',
+        },
+      ],
+      visibleRanges: [{ from: 4, to: 8 }],
+      docLineCount: 3,
+      getLineRange,
+    });
+
+    expect(targets).toHaveLength(1);
+  });
+
+  it('excludes line targets outside visible ranges', () => {
+    const targets = getVisibleDiffPaintTargets({
+      targets: [
+        {
+          type: 'line',
+          className: 'byline-diff-active-line',
+          lineNumber: 3,
+          geometryRole: 'activeLine',
+        },
+      ],
+      visibleRanges: [{ from: 0, to: 2 }],
+      docLineCount: 3,
+      getLineRange: () => ({ from: 2000, to: 2005 }),
+    });
+
+    expect(targets).toEqual([]);
   });
 });
 

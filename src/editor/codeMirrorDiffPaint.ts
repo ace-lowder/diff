@@ -1,4 +1,10 @@
-import { EditorSelection, StateEffect, StateField, type Extension } from '@codemirror/state';
+import {
+  EditorSelection,
+  StateEffect,
+  StateField,
+  type ChangeDesc,
+  type Extension,
+} from '@codemirror/state';
 import { EditorView, RectangleMarker, layer, type LayerMarker } from '@codemirror/view';
 
 import type { CodeMirrorTheme } from '../appTypes';
@@ -78,11 +84,18 @@ export type VisualLineBox = {
   height: number;
 };
 
+export type VisibleTextRange = {
+  from: number;
+  to: number;
+};
+
 type PaintBlock = {
   top: number;
   height: number;
   widget: unknown | null;
 };
+
+const VISIBLE_RANGE_BUFFER_CHARS = 500;
 
 export const setDiffPaintEffect = StateEffect.define<DiffPaintState>();
 
@@ -104,18 +117,29 @@ export const diffPaintField = StateField.define<DiffPaintState>({
     }
 
     if (transaction.docChanged) {
-      return {
-        editorHighlightRanges: [],
-        draftHighlightRanges: [],
-        editorLineDecorations: [],
-        draftLineDecorations: [],
-        lowestEditedLine: null,
-      };
+      return mapDiffPaintStateThroughChanges(value, transaction.changes);
     }
 
     return value;
   },
 });
+
+export const mapDiffPaintStateThroughChanges = (
+  diffPaint: DiffPaintState,
+  changes: ChangeDesc,
+): DiffPaintState => {
+  return {
+    editorHighlightRanges: diffPaint.editorHighlightRanges
+      .map((range) => mapHighlightRangeThroughChanges(range, changes))
+      .filter((range): range is EditorHighlightRange => range !== null),
+    draftHighlightRanges: diffPaint.draftHighlightRanges
+      .map((range) => mapHighlightRangeThroughChanges(range, changes))
+      .filter((range): range is DraftHighlightRange => range !== null),
+    editorLineDecorations: diffPaint.editorLineDecorations,
+    draftLineDecorations: diffPaint.draftLineDecorations,
+    lowestEditedLine: diffPaint.lowestEditedLine,
+  };
+};
 
 export const getDiffPaintEffectValue = (
   decorations: CodeMirrorDecorations,
@@ -414,6 +438,56 @@ export const getMarkerTargetsOutsideInlineRangeInteriors = ({
   });
 };
 
+export const getVisibleDiffPaintTargets = ({
+  targets,
+  visibleRanges,
+  docLineCount,
+  getLineRange,
+}: {
+  targets: DiffPaintTarget[];
+  visibleRanges: readonly VisibleTextRange[];
+  docLineCount: number;
+  getLineRange: (lineNumber: number) => VisibleTextRange | null;
+}): DiffPaintTarget[] => {
+  const bufferedVisibleRanges = visibleRanges
+    .map((range) => {
+      if (range.to < range.from) {
+        return null;
+      }
+
+      return {
+        from: Math.max(0, range.from - VISIBLE_RANGE_BUFFER_CHARS),
+        to: range.to + VISIBLE_RANGE_BUFFER_CHARS,
+      };
+    })
+    .filter((range): range is VisibleTextRange => range !== null);
+
+  if (bufferedVisibleRanges.length === 0) {
+    return [];
+  }
+
+  return targets.filter((target) => {
+    if (target.type === 'line') {
+      if (!isValidLineNumber(target.lineNumber, docLineCount)) {
+        return false;
+      }
+
+      const lineRange = getLineRange(target.lineNumber);
+      if (!lineRange) {
+        return false;
+      }
+
+      return bufferedVisibleRanges.some((visibleRange) =>
+        rangesOverlap(lineRange, visibleRange),
+      );
+    }
+
+    return bufferedVisibleRanges.some((visibleRange) =>
+      rangesOverlap({ from: target.from, to: target.to }, visibleRange),
+    );
+  });
+};
+
 // === Helpers ===
 
 const getDiffPaintMarkers = (
@@ -428,23 +502,36 @@ const getDiffPaintMarkers = (
     activeLineNumber: view.state.doc.lineAt(view.state.selection.main.head).number,
     diffPaint,
   });
+  const visibleTargets = getVisibleDiffPaintTargets({
+    targets,
+    visibleRanges: view.visibleRanges,
+    docLineCount: view.state.doc.lines,
+    getLineRange: (lineNumber) => {
+      if (!isValidLineNumber(lineNumber, view.state.doc.lines)) {
+        return null;
+      }
 
-  const activeLineTargets = targets.filter(
+      const line = view.state.doc.line(lineNumber);
+      return { from: line.from, to: line.to };
+    },
+  });
+
+  const activeLineTargets = visibleTargets.filter(
     (target): target is Extract<DiffPaintTarget, { type: 'line' }> => {
       return target.type === 'line' && target.className === 'byline-diff-active-line';
     },
   );
-  const lineTargets = targets.filter(
+  const lineTargets = visibleTargets.filter(
     (target): target is Extract<DiffPaintTarget, { type: 'line' }> => {
       return target.type === 'line' && target.className !== 'byline-diff-active-line';
     },
   );
-  const rangeTargets = targets.filter(
+  const rangeTargets = visibleTargets.filter(
     (target): target is Extract<DiffPaintTarget, { type: 'range' }> => {
       return target.type === 'range';
     },
   );
-  const markerTargets = targets.filter(
+  const markerTargets = visibleTargets.filter(
     (target): target is Extract<DiffPaintTarget, { type: 'marker' }> => {
       return target.type === 'marker';
     },
@@ -751,6 +838,41 @@ const getDraftLineTargets = (
   }
 
   return targets;
+};
+
+const mapHighlightRangeThroughChanges = <
+  T extends EditorHighlightRange | DraftHighlightRange,
+>(
+  range: T,
+  changes: ChangeDesc,
+): T | null => {
+  if (range.from === range.to) {
+    const mappedPosition = changes.mapPos(range.from, 1);
+    return {
+      ...range,
+      from: mappedPosition,
+      to: mappedPosition,
+    };
+  }
+
+  const from = changes.mapPos(range.from, 1);
+  const to = changes.mapPos(range.to, -1);
+  if (to < from) {
+    return null;
+  }
+
+  return {
+    ...range,
+    from,
+    to,
+  };
+};
+
+const rangesOverlap = (
+  left: VisibleTextRange,
+  right: VisibleTextRange,
+): boolean => {
+  return left.from <= right.to && right.from <= left.to;
 };
 
 const isValidLineNumber = (lineNumber: number, docLineCount: number): boolean => {
