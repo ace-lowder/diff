@@ -1,8 +1,9 @@
-import { ChangeSet } from '@codemirror/state';
+import { ChangeSet, EditorState } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
 
 import type { DraftHighlightRange, DraftLineDecoration, EditorHighlightRange } from '../editorDiff';
 import {
+  diffPaintField,
   getDiffPaintEffectValue,
   getDiffPaintTargets,
   getLineBoundedRangeSegments,
@@ -11,6 +12,7 @@ import {
   getVisibleDiffPaintTargets,
   isMarkerInsideInlineRange,
   mapDiffPaintStateThroughChanges,
+  setDiffPaintEffect,
   getVisualRowRangeSegments,
   getVisualLineBox,
   type DiffPaintState,
@@ -399,6 +401,35 @@ describe('getDiffPaintEffectValue', () => {
       draftLineDecorations: [],
       lowestEditedLine: { lineNumber: 8 },
     });
+  });
+});
+
+describe('diffPaintField', () => {
+  it('preserves diff paint state through doc changes until explicit effect update', () => {
+    const initialState = EditorState.create({
+      doc: 'one',
+      extensions: [diffPaintField],
+    });
+
+    const seededState = initialState.update({
+      effects: [
+        setDiffPaintEffect.of({
+          editorHighlightRanges: [{ type: 'added', from: 0, to: 2 }],
+          draftHighlightRanges: [{ type: 'deleted', from: 0, to: 1 }],
+          editorLineDecorations: [{ lineNumber: 1 }],
+          draftLineDecorations: [],
+          lowestEditedLine: { lineNumber: 1 },
+        }),
+      ],
+    }).state;
+
+    const afterDocChange = seededState.update({
+      changes: { from: 1, insert: 'x' },
+    }).state;
+
+    expect(afterDocChange.field(diffPaintField)).toEqual(
+      seededState.field(diffPaintField),
+    );
   });
 });
 

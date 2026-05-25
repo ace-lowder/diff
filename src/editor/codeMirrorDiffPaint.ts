@@ -117,7 +117,7 @@ export const diffPaintField = StateField.define<DiffPaintState>({
     }
 
     if (transaction.docChanged) {
-      return mapDiffPaintStateThroughChanges(value, transaction.changes);
+      return value;
     }
 
     return value;
@@ -208,7 +208,6 @@ export const getCodeMirrorDiffPaintExtension = (
       class: 'byline-diff-layer',
       update(update) {
         return (
-          update.docChanged ||
           update.selectionSet ||
           update.viewportChanged ||
           update.geometryChanged ||
@@ -224,7 +223,6 @@ export const getCodeMirrorDiffPaintExtension = (
       class: 'byline-diff-rule-layer',
       update(update) {
         return (
-          update.docChanged ||
           update.viewportChanged ||
           update.geometryChanged ||
           update.startState.field(diffPaintField) !== update.state.field(diffPaintField)

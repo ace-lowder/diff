@@ -195,6 +195,8 @@ const App = () => {
   const editorActiveFontStyleTypesRef = useRef<FontStyleType[]>([]);
   const pendingDiffTimeoutRef = useRef<number | null>(null);
   const latestTextRef = useRef({ draftText, editorText });
+  const draftTextRef = useRef(draftText);
+  const editorTextRef = useRef(editorText);
   const editorDiffStateRef = useRef(editorDiffState);
   const storedTextTimeoutRef = useRef<number | null>(null);
   const pendingStoredTextRef = useRef<
@@ -225,6 +227,33 @@ const App = () => {
     return getEditorDiffState(latestTextRef.current);
   };
 
+  const getCurrentDocumentTextSnapshot = useCallback(() => {
+    return {
+      draftText:
+        draftEditorViewRef.current?.state.doc.toString() ?? draftTextRef.current,
+      editorText:
+        editorEditorViewRef.current?.state.doc.toString() ?? editorTextRef.current,
+    };
+  }, []);
+
+  const syncCommittedDocumentText = useCallback(({
+    draftText: nextDraftText,
+    editorText: nextEditorText,
+  }: {
+    draftText: string;
+    editorText: string;
+  }) => {
+    draftTextRef.current = nextDraftText;
+    editorTextRef.current = nextEditorText;
+
+    setDraftText((currentText) =>
+      currentText === nextDraftText ? currentText : nextDraftText,
+    );
+    setEditorText((currentText) =>
+      currentText === nextEditorText ? currentText : nextEditorText,
+    );
+  }, []);
+
   const setCurrentEditorDiffState = (nextState: EditorDiffState) => {
     editorDiffStateRef.current = nextState;
     setEditorDiffState(nextState);
@@ -232,7 +261,10 @@ const App = () => {
 
   const flushEditorDiffState = () => {
     clearPendingDiffUpdate();
-    const nextState = computeEditorDiffState();
+    const nextText = getCurrentDocumentTextSnapshot();
+    latestTextRef.current = nextText;
+    syncCommittedDocumentText(nextText);
+    const nextState = getEditorDiffState(nextText);
     setCurrentEditorDiffState(nextState);
     return nextState;
   };
@@ -266,6 +298,13 @@ const App = () => {
     pendingStoredTextRef.current = {};
   }, []);
 
+  const flushCurrentDocumentTextToStorage = useCallback(() => {
+    const nextText = getCurrentDocumentTextSnapshot();
+    setStoredText(storageKeys.draftText, nextText.draftText);
+    setStoredText(storageKeys.editorText, nextText.editorText);
+    pendingStoredTextRef.current = {};
+  }, [getCurrentDocumentTextSnapshot]);
+
   const scheduleStoredTextWrite = useCallback(
     (key: 'draftText' | 'editorText', value: string) => {
       pendingStoredTextRef.current = {
@@ -280,6 +319,14 @@ const App = () => {
     },
     [flushStoredText],
   );
+
+  useEffect(() => {
+    draftTextRef.current = draftText;
+  }, [draftText]);
+
+  useEffect(() => {
+    editorTextRef.current = editorText;
+  }, [editorText]);
 
   useEffect(() => {
     latestTextRef.current = { draftText, editorText };
@@ -299,13 +346,14 @@ const App = () => {
   }, [editorText, scheduleStoredTextWrite]);
 
   useEffect(() => {
-    window.addEventListener('pagehide', flushStoredText);
+    window.addEventListener('pagehide', flushCurrentDocumentTextToStorage);
 
     return () => {
-      window.removeEventListener('pagehide', flushStoredText);
+      window.removeEventListener('pagehide', flushCurrentDocumentTextToStorage);
+      flushCurrentDocumentTextToStorage();
       flushStoredText();
     };
-  }, [flushStoredText]);
+  }, [flushCurrentDocumentTextToStorage, flushStoredText]);
 
   useEffect(() => {
     setStoredFontStyleRanges(storageKeys.draftFontStyleRanges, draftFontStyleRanges);
@@ -488,14 +536,15 @@ const App = () => {
   };
 
   const handleCopyText = async () => {
+    const snapshot = getCurrentDocumentTextSnapshot();
     const nextDiffState = flushEditorDiffState();
-    const copyText = mode === 'draft' ? draftText : editorText;
+    const copyText = mode === 'draft' ? snapshot.draftText : snapshot.editorText;
     await copyDocumentText({
       copyText,
       clipboardHighlightRanges:
         mode === 'draft'
           ? getDraftClipboardHighlightRanges({
-              text: draftText,
+              text: snapshot.draftText,
               highlightRanges: nextDiffState.draftHighlightRanges
                 .filter((range) => range.type === 'deleted')
                 .map((range) => ({
@@ -957,6 +1006,28 @@ const App = () => {
     [],
   );
 
+  const setDraftTextIfChanged = useCallback((nextText: string) => {
+    setDraftText((currentText) => {
+      if (currentText === nextText) {
+        return currentText;
+      }
+
+      draftTextRef.current = nextText;
+      return nextText;
+    });
+  }, []);
+
+  const setEditorTextIfChanged = useCallback((nextText: string) => {
+    setEditorText((currentText) => {
+      if (currentText === nextText) {
+        return currentText;
+      }
+
+      editorTextRef.current = nextText;
+      return nextText;
+    });
+  }, []);
+
   const getTargetPane = (): PaneId => {
     if (mode === 'draft') {
       return 'draft';
@@ -1088,8 +1159,7 @@ const App = () => {
             {mode === 'draft' && (
               <CodeMirrorPane
                 value={draftText}
-                onDocumentChange={({ value, changes }) => {
-                  setDraftText(value);
+                onDocumentChange={({ changes }) => {
                   setDraftFontStyleRanges((currentRanges) => {
                     const nextRanges = normalizeFontStyleRanges([
                       ...mapFontStyleRangesThroughChanges({
@@ -1107,6 +1177,7 @@ const App = () => {
                       : nextRanges;
                   });
                 }}
+                onCommittedValueChange={setDraftTextIfChanged}
                 onFocusPane={() => setActivePane('draft')}
                 onToggleFontStyle={(fontStyleType) =>
                   handleToggleFontStyleForPane('draft', fontStyleType)
@@ -1145,8 +1216,7 @@ const App = () => {
             {mode === 'editor' && (
               <CodeMirrorPane
                 value={editorText}
-                onDocumentChange={({ value, changes }) => {
-                  setEditorText(value);
+                onDocumentChange={({ changes }) => {
                   setEditorFontStyleRanges((currentRanges) => {
                     const nextRanges = normalizeFontStyleRanges([
                       ...mapFontStyleRangesThroughChanges({
@@ -1164,6 +1234,7 @@ const App = () => {
                       : nextRanges;
                   });
                 }}
+                onCommittedValueChange={setEditorTextIfChanged}
                 onFocusPane={() => setActivePane('editor')}
                 onToggleFontStyle={(fontStyleType) =>
                   handleToggleFontStyleForPane('editor', fontStyleType)
@@ -1206,8 +1277,7 @@ const App = () => {
                 >
                   <CodeMirrorPane
                     value={draftText}
-                    onDocumentChange={({ value, changes }) => {
-                      setDraftText(value);
+                    onDocumentChange={({ changes }) => {
                       setDraftFontStyleRanges((currentRanges) => {
                         const nextRanges = normalizeFontStyleRanges([
                           ...mapFontStyleRangesThroughChanges({
@@ -1225,6 +1295,7 @@ const App = () => {
                           : nextRanges;
                       });
                     }}
+                    onCommittedValueChange={setDraftTextIfChanged}
                     onFocusPane={() => setActivePane('draft')}
                     onToggleFontStyle={(fontStyleType) =>
                       handleToggleFontStyleForPane('draft', fontStyleType)
@@ -1279,8 +1350,7 @@ const App = () => {
                 <div className="min-h-0 flex-1">
                   <CodeMirrorPane
                     value={editorText}
-                    onDocumentChange={({ value, changes }) => {
-                      setEditorText(value);
+                    onDocumentChange={({ changes }) => {
                       setEditorFontStyleRanges((currentRanges) => {
                         const nextRanges = normalizeFontStyleRanges([
                           ...mapFontStyleRangesThroughChanges({
@@ -1298,6 +1368,7 @@ const App = () => {
                           : nextRanges;
                       });
                     }}
+                    onCommittedValueChange={setEditorTextIfChanged}
                     onFocusPane={() => setActivePane('editor')}
                     onToggleFontStyle={(fontStyleType) =>
                       handleToggleFontStyleForPane('editor', fontStyleType)

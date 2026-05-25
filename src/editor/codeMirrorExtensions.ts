@@ -47,13 +47,7 @@ type CodeMirrorExtensionOptions = {
   pane: PaneId;
   theme: CodeMirrorTheme;
   onRunConsoleCommand: RunConsoleCommand;
-  onDocumentChange: ({
-    value,
-    changes,
-  }: {
-    value: string;
-    changes: TextChange[];
-  }) => void;
+  onDocumentChange: ({ changes }: { changes: TextChange[] }) => void;
   onFocusPane: () => void;
   onToggleFontStyle: (fontStyleType: FontStyleType) => void;
   onScroll: (scrollOffset: ScrollOffset, topVisibleLineNumber: number) => void;
@@ -111,7 +105,7 @@ export const getCodeMirrorExtensions = ({
         update.changes.iterChanges((fromA, toA, fromB, toB) => {
           changes.push({ fromA, toA, fromB, toB });
         });
-        onDocumentChange({ value: update.state.doc.toString(), changes });
+        onDocumentChange({ changes });
         onContentLayoutChange();
       }
 

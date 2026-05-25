@@ -45,13 +45,8 @@ import { shouldRevealAutoHiddenControls } from '../pointerEvents';
 
 type CodeMirrorPaneProps = {
   value: string;
-  onDocumentChange: ({
-    value,
-    changes,
-  }: {
-    value: string;
-    changes: TextChange[];
-  }) => void;
+  onDocumentChange: ({ changes }: { changes: TextChange[] }) => void;
+  onCommittedValueChange: (value: string) => void;
   onFocusPane?: () => void;
   onToggleFontStyle: (fontStyleType: FontStyleType) => void;
   onRunConsoleCommand: RunConsoleCommand;
@@ -81,9 +76,12 @@ type CodeMirrorPaneProps = {
   onEditorViewChange?: (editorView: EditorView | null) => void;
 };
 
+const DOCUMENT_VALUE_COMMIT_DELAY_MS = 300;
+
 export const CodeMirrorPane = ({
   value,
   onDocumentChange,
+  onCommittedValueChange,
   onFocusPane,
   onToggleFontStyle,
   onRunConsoleCommand,
@@ -112,6 +110,7 @@ export const CodeMirrorPane = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorViewRef = useRef<EditorView | null>(null);
   const onDocumentChangeRef = useRef(onDocumentChange);
+  const onCommittedValueChangeRef = useRef(onCommittedValueChange);
   const onScrollOffsetChangeRef = useRef(onScrollOffsetChange);
   const onContentLayoutChangeRef = useRef(onContentLayoutChange);
   const onSelectionChangeRef = useRef(onSelectionChange);
@@ -126,9 +125,9 @@ export const CodeMirrorPane = ({
   const lineNumberPositionRef = useRef(lineNumberPosition);
   const areLineNumbersVisibleRef = useRef(true);
   const initialValueRef = useRef(value);
-  const lastPropValueRef = useRef(value);
-  const lastLocalValueRef = useRef(value);
+  const lastCommittedValueRef = useRef(value);
   const isApplyingExternalValueRef = useRef(false);
+  const valueCommitTimeoutRef = useRef<number | null>(null);
   const initialLineNumberRef = useRef(initialLineNumber);
   const initialScrollOffsetRef = useRef(savedScrollOffset);
   const decorationsRef = useRef(
@@ -145,6 +144,10 @@ export const CodeMirrorPane = ({
   useEffect(() => {
     onDocumentChangeRef.current = onDocumentChange;
   }, [onDocumentChange]);
+
+  useEffect(() => {
+    onCommittedValueChangeRef.current = onCommittedValueChange;
+  }, [onCommittedValueChange]);
 
   useEffect(() => {
     onScrollOffsetChangeRef.current = onScrollOffsetChange;
@@ -220,6 +223,38 @@ export const CodeMirrorPane = ({
     editorView.requestMeasure();
   };
 
+  const clearValueCommitTimeout = () => {
+    if (valueCommitTimeoutRef.current !== null) {
+      window.clearTimeout(valueCommitTimeoutRef.current);
+      valueCommitTimeoutRef.current = null;
+    }
+  };
+
+  const getCurrentEditorValue = (): string => {
+    const editorView = editorViewRef.current;
+    return editorView ? editorView.state.doc.toString() : lastCommittedValueRef.current;
+  };
+
+  const commitCurrentEditorValue = () => {
+    clearValueCommitTimeout();
+
+    const nextValue = getCurrentEditorValue();
+    if (nextValue === lastCommittedValueRef.current) {
+      return;
+    }
+
+    lastCommittedValueRef.current = nextValue;
+    onCommittedValueChangeRef.current(nextValue);
+  };
+
+  const scheduleCurrentEditorValueCommit = () => {
+    clearValueCommitTimeout();
+    valueCommitTimeoutRef.current = window.setTimeout(() => {
+      valueCommitTimeoutRef.current = null;
+      commitCurrentEditorValue();
+    }, DOCUMENT_VALUE_COMMIT_DELAY_MS);
+  };
+
   useEffect(() => {
     decorationsRef.current = getCodeMirrorDecorationsInput({
       editorHighlightRanges,
@@ -263,12 +298,12 @@ export const CodeMirrorPane = ({
           theme,
           onRunConsoleCommand: (command, context) =>
             onRunConsoleCommandRef.current(command, context),
-          onDocumentChange: ({ value: nextValue, changes }) => {
+          onDocumentChange: ({ changes }) => {
             if (!isApplyingExternalValueRef.current) {
-              lastLocalValueRef.current = nextValue;
+              scheduleCurrentEditorValueCommit();
             }
 
-            onDocumentChangeRef.current({ value: nextValue, changes });
+            onDocumentChangeRef.current({ changes });
           },
           onFocusPane: () => onFocusPaneRef.current?.(),
           onToggleFontStyle: (fontStyleType) =>
@@ -300,6 +335,8 @@ export const CodeMirrorPane = ({
     });
 
     return () => {
+      commitCurrentEditorValue();
+      clearValueCommitTimeout();
       onSelectionChangeRef.current?.([]);
       editorView.destroy();
       editorViewRef.current = null;
@@ -314,23 +351,15 @@ export const CodeMirrorPane = ({
       return;
     }
 
-    const previousPropValue = lastPropValueRef.current;
-    lastPropValueRef.current = value;
+    if (value === lastCommittedValueRef.current) {
+      return;
+    }
+
+    lastCommittedValueRef.current = value;
 
     const currentValue = editorView.state.doc.toString();
 
     if (currentValue === value) {
-      return;
-    }
-
-    if (lastLocalValueRef.current === value) {
-      return;
-    }
-
-    const hasUncommittedLocalEdit =
-      value === previousPropValue && currentValue === lastLocalValueRef.current;
-
-    if (hasUncommittedLocalEdit) {
       return;
     }
 
@@ -344,7 +373,6 @@ export const CodeMirrorPane = ({
           insert: value,
         },
       });
-      lastLocalValueRef.current = value;
     } finally {
       isApplyingExternalValueRef.current = false;
     }
