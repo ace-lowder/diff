@@ -245,26 +245,28 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     },
     ".byline-typing-diff-added": {
       backgroundColor: "#2A4C2C",
-      boxShadow: "0 0 0 2px #2A4C2C",
+      boxShadow: "0 0 0 1px #2A4C2C",
     },
     ".byline-typing-diff-deleted": {
       backgroundColor: "#693330",
-      boxShadow: "0 0 0 2px #693330",
+      boxShadow: "0 0 0 1px #693330",
     },
     ".byline-typing-diff-tick": {
       position: "relative",
       display: "inline-block",
       width: "0",
-      height: "0",
+      height: "var(--byline-line-height)",
+      lineHeight: "var(--byline-line-height)",
+      verticalAlign: "top",
       pointerEvents: "none",
     },
     ".byline-typing-diff-tick::after": {
       content: '""',
       position: "absolute",
       left: "0",
-      top: "calc(var(--byline-line-height) / -2)",
+      top: "0",
       width: `${DIFF_TICK_WIDTH_PX}px`,
-      height: "var(--byline-line-height)",
+      height: "100%",
       pointerEvents: "none",
     },
     ".byline-typing-diff-tick-added::after": {

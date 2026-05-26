@@ -47,7 +47,26 @@ describe('typing diff styles', () => {
     expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff-added');
     expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff-deleted');
     expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff-tick');
-    expect(codeMirrorExtensionsSource).toContain('boxShadow');
+    expect(codeMirrorExtensionsSource).toContain('boxShadow: "0 0 0 1px #2A4C2C"');
+    expect(codeMirrorExtensionsSource).toContain('boxShadow: "0 0 0 1px #693330"');
+    expect(codeMirrorExtensionsSource).not.toContain(
+      'boxShadow: "0 0 0 2px #2A4C2C"',
+    );
+    expect(codeMirrorExtensionsSource).not.toContain(
+      'boxShadow: "0 0 0 2px #693330"',
+    );
+    expect(codeMirrorExtensionsSource).toContain(
+      'height: "var(--byline-line-height)"',
+    );
+    expect(codeMirrorExtensionsSource).toContain(
+      'lineHeight: "var(--byline-line-height)"',
+    );
+    expect(codeMirrorExtensionsSource).toContain('verticalAlign: "top"');
+    expect(codeMirrorExtensionsSource).toContain('top: "0"');
+    expect(codeMirrorExtensionsSource).toContain('height: "100%"');
+    expect(codeMirrorExtensionsSource).not.toContain(
+      'top: "calc(var(--byline-line-height) / -2)"',
+    );
     expect(codeMirrorExtensionsSource).toContain('DIFF_TICK_WIDTH_PX');
   });
 });
