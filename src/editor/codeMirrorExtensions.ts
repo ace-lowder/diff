@@ -22,7 +22,6 @@ import {
   CODE_MIRROR_LINE_NUMBER_GUTTER_PADDING_RIGHT,
   CODE_MIRROR_LINE_NUMBER_GUTTER_WIDTH,
 } from "./codeMirrorThemeConstants";
-import { DIFF_TICK_WIDTH_PX } from "./codeMirrorDiffPaintGeometry";
 import type {
   CodeMirrorTheme,
   CopyLineHandler,
@@ -38,8 +37,6 @@ import {
   RIGHT_LINE_NUMBER_TEXT_NUDGE,
   TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX,
   TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX,
-  TYPING_DIFF_TICK_HORIZONTAL_NUDGE_PX,
-  TYPING_DIFF_TICK_VERTICAL_NUDGE_PX,
 } from '../layoutTuning';
 
 const RIGHT_LINE_NUMBER_PADDING_LEFT = "1ch";
@@ -258,33 +255,6 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     ".byline-typing-diff-deleted": {
       backgroundColor: "#693330",
       boxShadow: `0 0 0 ${TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX}px #693330`,
-    },
-    ".byline-typing-diff-tick": {
-      position: "relative",
-      display: "inline-block",
-      width: "0",
-      height: "var(--byline-line-height)",
-      lineHeight: "var(--byline-line-height)",
-      verticalAlign: "top",
-      transform: `translateY(${TYPING_DIFF_TICK_VERTICAL_NUDGE_PX}px)`,
-      zIndex: "0",
-      pointerEvents: "none",
-    },
-    ".byline-typing-diff-tick::after": {
-      content: '""',
-      position: "absolute",
-      left: `${TYPING_DIFF_TICK_HORIZONTAL_NUDGE_PX - DIFF_TICK_WIDTH_PX}px`,
-      top: "0",
-      width: `${DIFF_TICK_WIDTH_PX}px`,
-      height: "100%",
-      zIndex: "-1",
-      pointerEvents: "none",
-    },
-    ".byline-typing-diff-tick-added::after": {
-      backgroundColor: "#2A4C2C",
-    },
-    ".byline-typing-diff-tick-deleted::after": {
-      backgroundColor: "#693330",
     },
     ".byline-missing-line": {
       display: "block",

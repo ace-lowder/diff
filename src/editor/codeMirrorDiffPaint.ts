@@ -3,6 +3,7 @@ import {
   EditorSelection,
   StateEffect,
   StateField,
+  type Text,
   type ChangeDesc,
   type Extension,
 } from '@codemirror/state';
@@ -11,7 +12,6 @@ import {
   type DecorationSet,
   EditorView,
   RectangleMarker,
-  WidgetType,
   layer,
   type LayerMarker,
 } from '@codemirror/view';
@@ -52,10 +52,6 @@ export const TYPING_DIFF_ADDED_CLASS_NAME =
   'byline-typing-diff byline-typing-diff-added';
 export const TYPING_DIFF_DELETED_CLASS_NAME =
   'byline-typing-diff byline-typing-diff-deleted';
-export const TYPING_DIFF_ADDED_TICK_CLASS_NAME =
-  'byline-typing-diff-tick byline-typing-diff-tick-added';
-export const TYPING_DIFF_DELETED_TICK_CLASS_NAME =
-  'byline-typing-diff-tick byline-typing-diff-tick-deleted';
 
 export type DiffPaintTarget =
   | {
@@ -92,7 +88,18 @@ export type DiffPaintState = {
 
 type TypingDiffDecorationsState = {
   decorations: DecorationSet;
+  tickMarkers: TypingDiffTickMarker[];
   isTyping: boolean;
+};
+
+type TypingDiffTickMarker = {
+  position: number;
+  className: 'byline-diff-added' | 'byline-diff-deleted';
+};
+
+type TypingDiffDecorationsValue = {
+  decorations: DecorationSet;
+  tickMarkers: TypingDiffTickMarker[];
 };
 
 export type VisualLineBoxInput = {
@@ -126,29 +133,10 @@ type TypingInlineRange = {
 
 const VISIBLE_RANGE_BUFFER_CHARS = 500;
 
-export class TypingDiffTickWidget extends WidgetType {
-  private readonly className: string;
-
-  constructor(className: string) {
-    super();
-    this.className = className;
-  }
-
-  toDOM() {
-    const element = document.createElement('span');
-    element.className = this.className;
-    element.setAttribute('aria-hidden', 'true');
-    return element;
-  }
-
-  eq(other: TypingDiffTickWidget) {
-    return other.className === this.className;
-  }
-}
-
 export const setDiffPaintEffect = StateEffect.define<DiffPaintState>();
 export const setDiffPaintTypingEffect = StateEffect.define<boolean>();
-export const setTypingDiffDecorationsEffect = StateEffect.define<DecorationSet>();
+export const setTypingDiffDecorationsEffect =
+  StateEffect.define<TypingDiffDecorationsValue>();
 
 export const diffPaintField = StateField.define<DiffPaintState>({
   create() {
@@ -193,6 +181,7 @@ export const typingDiffDecorationsField = StateField.define<TypingDiffDecoration
     create() {
       return {
         decorations: Decoration.none,
+        tickMarkers: [],
         isTyping: false,
       };
     },
@@ -200,7 +189,8 @@ export const typingDiffDecorationsField = StateField.define<TypingDiffDecoration
       for (const effect of transaction.effects) {
         if (effect.is(setTypingDiffDecorationsEffect)) {
           return {
-            decorations: effect.value,
+            decorations: effect.value.decorations,
+            tickMarkers: effect.value.tickMarkers,
             isTyping: false,
           };
         }
@@ -212,6 +202,7 @@ export const typingDiffDecorationsField = StateField.define<TypingDiffDecoration
 
           return {
             decorations: value.decorations,
+            tickMarkers: value.tickMarkers,
             isTyping: effect.value,
           };
         }
@@ -220,6 +211,19 @@ export const typingDiffDecorationsField = StateField.define<TypingDiffDecoration
       if (transaction.docChanged) {
         return {
           decorations: value.decorations.map(transaction.changes),
+          tickMarkers: value.tickMarkers
+            .map((marker) => {
+              return {
+                ...marker,
+                position: transaction.changes.mapPos(marker.position, 1),
+              };
+            })
+            .filter((marker) => {
+              return (
+                marker.position >= 0 &&
+                marker.position <= transaction.newDoc.length
+              );
+            }),
           isTyping: true,
         };
       }
@@ -331,11 +335,14 @@ export const getTypingDiffDecorations = ({
   theme: CodeMirrorTheme;
   docLength: number;
   diffPaint: DiffPaintState;
-}): DecorationSet => {
+}): TypingDiffDecorationsValue => {
   if (docLength < 0) {
-    return Decoration.none;
+    return {
+      decorations: Decoration.none,
+      tickMarkers: [],
+    };
   }
-  const ranges =
+  const typingDecorations =
     theme === 'editor'
       ? getEditorTypingDecorations({
           ranges: diffPaint.editorHighlightRanges,
@@ -345,12 +352,13 @@ export const getTypingDiffDecorations = ({
           ranges: diffPaint.draftHighlightRanges,
           docLength,
         });
-
-  if (ranges.length === 0) {
-    return Decoration.none;
-  }
-
-  return Decoration.set(ranges, true);
+  return {
+    decorations:
+      typingDecorations.marks.length === 0
+        ? Decoration.none
+        : Decoration.set(typingDecorations.marks, true),
+    tickMarkers: typingDecorations.tickMarkers,
+  };
 };
 
 export const getCodeMirrorDiffPaintExtension = (
@@ -650,12 +658,22 @@ const getDiffPaintMarkers = (
 ): readonly LayerMarker[] => {
   const diffPaint = view.state.field(diffPaintField);
   if (diffPaint.isTyping) {
-    return getLineMarkers(
+    const typingDiff = view.state.field(typingDiffDecorationsField);
+    const activeLineMarkers = getLineMarkers(
       view,
       getActiveLineDiffPaintTargets(
         view.state.doc.lineAt(view.state.selection.main.head).number,
       ),
     );
+    const tickMarkers = getMarkerTickMarkers(
+      view,
+      getTypingTickTargets({
+        doc: view.state.doc,
+        tickMarkers: typingDiff.tickMarkers,
+      }),
+    );
+
+    return [...activeLineMarkers, ...tickMarkers];
   }
 
   const targets = getDiffPaintTargets({
@@ -838,6 +856,72 @@ const getMarkerTickMarkers = (
   }
 
   return markers;
+};
+
+const getMarkerRangeInDoc = ({
+  doc,
+  position,
+}: {
+  doc: Text;
+  position: number;
+}): { from: number; to: number; side: MarkerSide } | null => {
+  if (!Number.isInteger(position) || position < 0 || position > doc.length) {
+    return null;
+  }
+
+  const clampedPosition = Math.max(0, Math.min(doc.length, position));
+  const line = doc.lineAt(clampedPosition);
+  if (line.from === line.to) {
+    return null;
+  }
+
+  if (clampedPosition < line.to) {
+    return {
+      from: clampedPosition,
+      to: clampedPosition + 1,
+      side: 'left',
+    };
+  }
+
+  if (clampedPosition > line.from) {
+    return {
+      from: clampedPosition - 1,
+      to: clampedPosition,
+      side: 'right',
+    };
+  }
+
+  return null;
+};
+
+const getTypingTickTargets = ({
+  doc,
+  tickMarkers,
+}: {
+  doc: Text;
+  tickMarkers: TypingDiffTickMarker[];
+}): Array<Extract<DiffPaintTarget, { type: 'marker' }>> => {
+  return tickMarkers.flatMap((marker) => {
+    const markerRange = getMarkerRangeInDoc({
+      doc,
+      position: marker.position,
+    });
+    if (!markerRange) {
+      return [];
+    }
+
+    return [
+      {
+        type: 'marker',
+        className: marker.className,
+        from: markerRange.from,
+        to: markerRange.to,
+        side: markerRange.side,
+        position: marker.position,
+        geometryRole: 'tick',
+      },
+    ];
+  });
 };
 
 const getEditorRangeTargets = (
@@ -1148,7 +1232,7 @@ const getEditorTypingDecorations = ({
       range.to,
     ),
   );
-  const ticks = ranges.flatMap((range) => {
+  const tickMarkers = ranges.flatMap((range) => {
     if (range.type !== 'deleted' || range.from !== range.to) {
       return [];
     }
@@ -1171,14 +1255,17 @@ const getEditorTypingDecorations = ({
     }
 
     return [
-      Decoration.widget({
-        widget: new TypingDiffTickWidget(TYPING_DIFF_DELETED_TICK_CLASS_NAME),
-        side: 1,
-      }).range(validPosition),
+      {
+        className: 'byline-diff-deleted' as const,
+        position: validPosition,
+      },
     ];
   });
 
-  return [...marks, ...ticks];
+  return {
+    marks,
+    tickMarkers,
+  };
 };
 
 const getDraftTypingDecorations = ({
@@ -1206,7 +1293,7 @@ const getDraftTypingDecorations = ({
       range.to,
     ),
   );
-  const ticks = ranges.flatMap((range) => {
+  const tickMarkers = ranges.flatMap((range) => {
     if (range.type !== 'added' || range.from !== range.to) {
       return [];
     }
@@ -1229,14 +1316,17 @@ const getDraftTypingDecorations = ({
     }
 
     return [
-      Decoration.widget({
-        widget: new TypingDiffTickWidget(TYPING_DIFF_ADDED_TICK_CLASS_NAME),
-        side: 1,
-      }).range(validPosition),
+      {
+        className: 'byline-diff-added' as const,
+        position: validPosition,
+      },
     ];
   });
 
-  return [...marks, ...ticks];
+  return {
+    marks,
+    tickMarkers,
+  };
 };
 
 const isTypingTickInsideInlineRange = ({

@@ -14,11 +14,6 @@ const codeMirrorExtensionsSource = readFileSync(
   resolve(sourceDirectory, './codeMirrorExtensions.ts'),
   'utf8',
 );
-const typingTickAfterBlock = (() => {
-  const parts = codeMirrorExtensionsSource.split('".byline-typing-diff-tick::after":');
-  const block = parts[1];
-  return block ? block.slice(0, 300) : '';
-})();
 
 describe('line number text offsets', () => {
   it('uses tuned left and right line number text offsets', () => {
@@ -47,11 +42,10 @@ describe('document change callback payload', () => {
 });
 
 describe('typing diff styles', () => {
-  it('includes typing diff mark and tick styles', () => {
+  it('includes typing diff mark styles', () => {
     expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff');
     expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff-added');
     expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff-deleted');
-    expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff-tick');
     expect(codeMirrorExtensionsSource).toContain(
       'paddingTop: `${TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX}px`',
     );
@@ -83,36 +77,12 @@ describe('typing diff styles', () => {
       'boxShadow: "0 0 0 2px #693330"',
     );
     expect(codeMirrorExtensionsSource).toContain(
-      'height: "var(--byline-line-height)"',
-    );
-    expect(codeMirrorExtensionsSource).toContain(
-      'lineHeight: "var(--byline-line-height)"',
-    );
-    expect(codeMirrorExtensionsSource).toContain('verticalAlign: "top"');
-    expect(codeMirrorExtensionsSource).toContain(
-      'transform: `translateY(${TYPING_DIFF_TICK_VERTICAL_NUDGE_PX}px)`',
-    );
-    expect(codeMirrorExtensionsSource).toContain('zIndex: "0"');
-    expect(codeMirrorExtensionsSource).toContain(
-      'left: `${TYPING_DIFF_TICK_HORIZONTAL_NUDGE_PX - DIFF_TICK_WIDTH_PX}px`',
-    );
-    expect(typingTickAfterBlock).not.toContain('left: "0"');
-    expect(codeMirrorExtensionsSource).toContain('top: "0"');
-    expect(codeMirrorExtensionsSource).toContain('height: "100%"');
-    expect(codeMirrorExtensionsSource).toContain('zIndex: "-1"');
-    expect(codeMirrorExtensionsSource).not.toContain(
-      'top: "calc(var(--byline-line-height) / -2)"',
-    );
-    expect(codeMirrorExtensionsSource).toContain('DIFF_TICK_WIDTH_PX');
-    expect(codeMirrorExtensionsSource).toContain(
       'TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX',
     );
     expect(codeMirrorExtensionsSource).toContain(
       'TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX',
     );
-    expect(codeMirrorExtensionsSource).toContain(
-      'TYPING_DIFF_TICK_HORIZONTAL_NUDGE_PX',
-    );
-    expect(codeMirrorExtensionsSource).toContain('TYPING_DIFF_TICK_VERTICAL_NUDGE_PX');
+    expect(codeMirrorExtensionsSource).not.toContain('.byline-typing-diff-tick');
+    expect(codeMirrorExtensionsSource).not.toContain('DIFF_TICK_WIDTH_PX');
   });
 });

@@ -1,5 +1,5 @@
 import { ChangeSet, EditorState } from '@codemirror/state';
-import { Decoration } from '@codemirror/view';
+import { Decoration, type DecorationSet } from '@codemirror/view';
 import { describe, expect, it } from 'vitest';
 
 import type { DraftHighlightRange, DraftLineDecoration, EditorHighlightRange } from '../editorDiff';
@@ -7,9 +7,6 @@ import {
   getActiveLineDiffPaintTargets,
   TYPING_DIFF_ADDED_CLASS_NAME,
   TYPING_DIFF_DELETED_CLASS_NAME,
-  TYPING_DIFF_ADDED_TICK_CLASS_NAME,
-  TYPING_DIFF_DELETED_TICK_CLASS_NAME,
-  TypingDiffTickWidget,
   diffPaintField,
   getDiffPaintEffectValue,
   getMappedDiffPaintStateThroughChanges,
@@ -78,12 +75,15 @@ const getTargets = ({
 };
 
 const getDecorationRanges = (
-  set: ReturnType<typeof getTypingDiffDecorations>,
+  value: ReturnType<typeof getTypingDiffDecorations> | DecorationSet,
 ): Array<{ from: number; to: number; className: string | undefined }> => {
+  const set = 'decorations' in value ? value.decorations : value;
   const ranges: Array<{ from: number; to: number; className: string | undefined }> = [];
-  set.between(0, Number.MAX_SAFE_INTEGER, (from, to, value) => {
+  set.between(0, Number.MAX_SAFE_INTEGER, (from, to, rangeValue) => {
     const className =
-      typeof value.spec.class === 'string' ? value.spec.class : undefined;
+      typeof rangeValue.spec.class === 'string'
+        ? rangeValue.spec.class
+        : undefined;
     if (!className) {
       return;
     }
@@ -93,23 +93,9 @@ const getDecorationRanges = (
 };
 
 const getWidgetDecorationPositions = (
-  set: ReturnType<typeof getTypingDiffDecorations>,
-): Array<{ from: number; to: number; widgetClassName: string | undefined }> => {
-  const positions: Array<{ from: number; to: number; widgetClassName: string | undefined }> =
-    [];
-  set.between(0, Number.MAX_SAFE_INTEGER, (from, to, value) => {
-    const widget = value.spec.widget;
-    if (!(widget instanceof TypingDiffTickWidget)) {
-      return;
-    }
-
-    positions.push({
-      from,
-      to,
-      widgetClassName: (widget as unknown as { className?: string }).className,
-    });
-  });
-  return positions;
+  value: ReturnType<typeof getTypingDiffDecorations>,
+): Array<{ position: number; className: 'byline-diff-added' | 'byline-diff-deleted' }> => {
+  return value.tickMarkers;
 };
 
 describe('getDiffPaintTargets', () => {
@@ -460,49 +446,6 @@ describe('typing diff class names', () => {
     expect(TYPING_DIFF_DELETED_CLASS_NAME).toBe(
       'byline-typing-diff byline-typing-diff-deleted',
     );
-    expect(TYPING_DIFF_ADDED_TICK_CLASS_NAME).toBe(
-      'byline-typing-diff-tick byline-typing-diff-tick-added',
-    );
-    expect(TYPING_DIFF_DELETED_TICK_CLASS_NAME).toBe(
-      'byline-typing-diff-tick byline-typing-diff-tick-deleted',
-    );
-  });
-});
-
-describe('TypingDiffTickWidget', () => {
-  it('renders a span with class and aria-hidden', () => {
-    const widget = new TypingDiffTickWidget(TYPING_DIFF_ADDED_TICK_CLASS_NAME);
-    const originalDocument = globalThis.document;
-    const attributes: Record<string, string> = {};
-    const fakeElement = {
-      tagName: 'SPAN',
-      className: '',
-      setAttribute(name: string, value: string) {
-        attributes[name] = value;
-      },
-      getAttribute(name: string) {
-        return attributes[name];
-      },
-    };
-    (globalThis as { document?: unknown }).document = {
-      createElement: () => fakeElement,
-    };
-
-    const element = widget.toDOM();
-    (globalThis as { document?: unknown }).document = originalDocument;
-
-    expect(element.tagName).toBe('SPAN');
-    expect(element.className).toBe(TYPING_DIFF_ADDED_TICK_CLASS_NAME);
-    expect(element.getAttribute('aria-hidden')).toBe('true');
-  });
-
-  it('compares by class name', () => {
-    const left = new TypingDiffTickWidget(TYPING_DIFF_ADDED_TICK_CLASS_NAME);
-    const same = new TypingDiffTickWidget(TYPING_DIFF_ADDED_TICK_CLASS_NAME);
-    const different = new TypingDiffTickWidget(TYPING_DIFF_DELETED_TICK_CLASS_NAME);
-
-    expect(left.eq(same)).toBe(true);
-    expect(left.eq(different)).toBe(false);
   });
 });
 
@@ -590,7 +533,7 @@ describe('getTypingDiffDecorations', () => {
     });
 
     expect(getWidgetDecorationPositions(decorations)).toEqual([
-      { from: 4, to: 4, widgetClassName: TYPING_DIFF_DELETED_TICK_CLASS_NAME },
+      { position: 4, className: 'byline-diff-deleted' },
     ]);
   });
 
@@ -609,7 +552,7 @@ describe('getTypingDiffDecorations', () => {
     });
 
     expect(getWidgetDecorationPositions(decorations)).toEqual([
-      { from: 6, to: 6, widgetClassName: TYPING_DIFF_ADDED_TICK_CLASS_NAME },
+      { position: 6, className: 'byline-diff-added' },
     ]);
   });
 
@@ -687,7 +630,7 @@ describe('getTypingDiffDecorations', () => {
       { from: 1, to: 3, className: TYPING_DIFF_ADDED_CLASS_NAME },
     ]);
     expect(getWidgetDecorationPositions(decorations)).toEqual([
-      { from: 4, to: 4, widgetClassName: TYPING_DIFF_DELETED_TICK_CLASS_NAME },
+      { position: 4, className: 'byline-diff-deleted' },
     ]);
   });
 
@@ -747,10 +690,10 @@ describe('getTypingDiffDecorations', () => {
     });
 
     expect(getWidgetDecorationPositions(startBoundary)).toEqual([
-      { from: 1, to: 1, widgetClassName: TYPING_DIFF_DELETED_TICK_CLASS_NAME },
+      { position: 1, className: 'byline-diff-deleted' },
     ]);
     expect(getWidgetDecorationPositions(endBoundary)).toEqual([
-      { from: 6, to: 6, widgetClassName: TYPING_DIFF_DELETED_TICK_CLASS_NAME },
+      { position: 6, className: 'byline-diff-deleted' },
     ]);
   });
 
@@ -809,7 +752,7 @@ describe('getTypingDiffDecorations', () => {
 
     expect(getWidgetDecorationPositions(interior)).toEqual([]);
     expect(getWidgetDecorationPositions(boundary)).toEqual([
-      { from: 6, to: 6, widgetClassName: TYPING_DIFF_ADDED_TICK_CLASS_NAME },
+      { position: 6, className: 'byline-diff-added' },
     ]);
   });
 });
@@ -949,6 +892,7 @@ describe('typingDiffDecorationsField', () => {
     const fieldValue = state.field(typingDiffDecorationsField);
     expect(fieldValue.isTyping).toBe(false);
     expect(getDecorationRanges(fieldValue.decorations)).toEqual([]);
+    expect(fieldValue.tickMarkers).toEqual([]);
   });
 
   it('stores decorations and shows them only while typing', () => {
@@ -961,13 +905,21 @@ describe('typingDiffDecorationsField', () => {
       Decoration.mark({ class: 'byline-diff-added' }).range(1, 3),
     ]);
     const seededState = state.update({
-      effects: [setTypingDiffDecorationsEffect.of(seededDecorations)],
+      effects: [
+        setTypingDiffDecorationsEffect.of({
+          decorations: seededDecorations,
+          tickMarkers: [{ className: 'byline-diff-deleted', position: 4 }],
+        }),
+      ],
     }).state;
 
     expect(seededState.field(typingDiffDecorationsField).isTyping).toBe(false);
     expect(
       getDecorationRanges(seededState.field(typingDiffDecorationsField).decorations),
     ).toEqual([{ from: 1, to: 3, className: 'byline-diff-added' }]);
+    expect(seededState.field(typingDiffDecorationsField).tickMarkers).toEqual([
+      { className: 'byline-diff-deleted', position: 4 },
+    ]);
 
     const typingState = seededState.update({
       effects: [setDiffPaintTypingEffect.of(true)],
@@ -987,7 +939,10 @@ describe('typingDiffDecorationsField', () => {
     ]);
     const seededState = state.update({
       effects: [
-        setTypingDiffDecorationsEffect.of(seededDecorations),
+        setTypingDiffDecorationsEffect.of({
+          decorations: seededDecorations,
+          tickMarkers: [{ className: 'byline-diff-added', position: 3 }],
+        }),
         setDiffPaintTypingEffect.of(true),
       ],
     }).state;
@@ -1000,6 +955,9 @@ describe('typingDiffDecorationsField', () => {
     expect(fieldValue.isTyping).toBe(true);
     expect(getDecorationRanges(fieldValue.decorations)).toEqual([
       { from: 4, to: 6, className: 'byline-diff-added' },
+    ]);
+    expect(fieldValue.tickMarkers).toEqual([
+      { className: 'byline-diff-added', position: 5 },
     ]);
   });
 
@@ -1016,13 +974,21 @@ describe('typingDiffDecorationsField', () => {
       Decoration.mark({ class: 'byline-diff-deleted' }).range(0, 2),
     ]);
     const replacedState = typingState.update({
-      effects: [setTypingDiffDecorationsEffect.of(replacement)],
+      effects: [
+        setTypingDiffDecorationsEffect.of({
+          decorations: replacement,
+          tickMarkers: [{ className: 'byline-diff-added', position: 1 }],
+        }),
+      ],
     }).state;
 
     const fieldValue = replacedState.field(typingDiffDecorationsField);
     expect(fieldValue.isTyping).toBe(false);
     expect(getDecorationRanges(fieldValue.decorations)).toEqual([
       { from: 0, to: 2, className: 'byline-diff-deleted' },
+    ]);
+    expect(fieldValue.tickMarkers).toEqual([
+      { className: 'byline-diff-added', position: 1 },
     ]);
   });
 });
