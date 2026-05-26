@@ -36,7 +36,7 @@ describe("layout tuning constants", () => {
     expect(FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX).toBe(0);
     expect(TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX).toBe(2);
     expect(TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX).toBe(0);
-    expect(TYPING_DIFF_TICK_HORIZONTAL_NUDGE_PX).toBe(0);
+    expect(TYPING_DIFF_TICK_HORIZONTAL_NUDGE_PX).toBe(3);
     expect(TYPING_DIFF_TICK_VERTICAL_NUDGE_PX).toBe(0);
     expect(FONT_SIZE_ICON_SMALL_T_CLASS_NAME).toBe("text-[0.72em] font-bold");
     expect(UNDERLINE_FONT_STYLE_LABEL_CLASS_NAME).toBe("text-[0.92em]");

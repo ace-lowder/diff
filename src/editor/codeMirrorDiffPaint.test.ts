@@ -690,6 +690,128 @@ describe('getTypingDiffDecorations', () => {
       { from: 4, to: 4, widgetClassName: TYPING_DIFF_DELETED_TICK_CLASS_NAME },
     ]);
   });
+
+  it('editor skips deleted tick inside an added inline range', () => {
+    const decorations = getTypingDiffDecorations({
+      theme: 'editor',
+      docLength: 10,
+      diffPaint: {
+        editorHighlightRanges: [
+          { type: 'added', from: 1, to: 6 },
+          { type: 'deleted', from: 3, to: 3 },
+        ],
+        draftHighlightRanges: [],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+        isTyping: false,
+      },
+    });
+
+    expect(getDecorationRanges(decorations)).toEqual([
+      { from: 1, to: 6, className: TYPING_DIFF_ADDED_CLASS_NAME },
+    ]);
+    expect(getWidgetDecorationPositions(decorations)).toEqual([]);
+  });
+
+  it('editor keeps deleted tick at added range boundaries', () => {
+    const startBoundary = getTypingDiffDecorations({
+      theme: 'editor',
+      docLength: 10,
+      diffPaint: {
+        editorHighlightRanges: [
+          { type: 'added', from: 1, to: 6 },
+          { type: 'deleted', from: 1, to: 1 },
+        ],
+        draftHighlightRanges: [],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+        isTyping: false,
+      },
+    });
+    const endBoundary = getTypingDiffDecorations({
+      theme: 'editor',
+      docLength: 10,
+      diffPaint: {
+        editorHighlightRanges: [
+          { type: 'added', from: 1, to: 6 },
+          { type: 'deleted', from: 6, to: 6 },
+        ],
+        draftHighlightRanges: [],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+        isTyping: false,
+      },
+    });
+
+    expect(getWidgetDecorationPositions(startBoundary)).toEqual([
+      { from: 1, to: 1, widgetClassName: TYPING_DIFF_DELETED_TICK_CLASS_NAME },
+    ]);
+    expect(getWidgetDecorationPositions(endBoundary)).toEqual([
+      { from: 6, to: 6, widgetClassName: TYPING_DIFF_DELETED_TICK_CLASS_NAME },
+    ]);
+  });
+
+  it('editor skips deleted tick between adjacent added ranges after merge', () => {
+    const decorations = getTypingDiffDecorations({
+      theme: 'editor',
+      docLength: 10,
+      diffPaint: {
+        editorHighlightRanges: [
+          { type: 'added', from: 1, to: 3 },
+          { type: 'added', from: 3, to: 6 },
+          { type: 'deleted', from: 3, to: 3 },
+        ],
+        draftHighlightRanges: [],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+        isTyping: false,
+      },
+    });
+
+    expect(getWidgetDecorationPositions(decorations)).toEqual([]);
+  });
+
+  it('draft skips added tick inside a deleted inline range and keeps boundaries', () => {
+    const interior = getTypingDiffDecorations({
+      theme: 'draft',
+      docLength: 10,
+      diffPaint: {
+        editorHighlightRanges: [],
+        draftHighlightRanges: [
+          { type: 'deleted', from: 1, to: 6 },
+          { type: 'added', from: 3, to: 3 },
+        ],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+        isTyping: false,
+      },
+    });
+    const boundary = getTypingDiffDecorations({
+      theme: 'draft',
+      docLength: 10,
+      diffPaint: {
+        editorHighlightRanges: [],
+        draftHighlightRanges: [
+          { type: 'deleted', from: 1, to: 6 },
+          { type: 'added', from: 6, to: 6 },
+        ],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+        isTyping: false,
+      },
+    });
+
+    expect(getWidgetDecorationPositions(interior)).toEqual([]);
+    expect(getWidgetDecorationPositions(boundary)).toEqual([
+      { from: 6, to: 6, widgetClassName: TYPING_DIFF_ADDED_TICK_CLASS_NAME },
+    ]);
+  });
 });
 
 describe('getDiffPaintEffectValue', () => {

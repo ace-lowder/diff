@@ -267,6 +267,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       lineHeight: "var(--byline-line-height)",
       verticalAlign: "top",
       transform: `translateY(${TYPING_DIFF_TICK_VERTICAL_NUDGE_PX}px)`,
+      zIndex: "0",
       pointerEvents: "none",
     },
     ".byline-typing-diff-tick::after": {
@@ -276,6 +277,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       top: "0",
       width: `${DIFF_TICK_WIDTH_PX}px`,
       height: "100%",
+      zIndex: "-1",
       pointerEvents: "none",
     },
     ".byline-typing-diff-tick-added::after": {

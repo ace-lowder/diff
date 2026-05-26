@@ -119,6 +119,11 @@ type PaintBlock = {
   widget: unknown | null;
 };
 
+type TypingInlineRange = {
+  from: number;
+  to: number;
+};
+
 const VISIBLE_RANGE_BUFFER_CHARS = 500;
 
 export class TypingDiffTickWidget extends WidgetType {
@@ -330,86 +335,15 @@ export const getTypingDiffDecorations = ({
   if (docLength < 0) {
     return Decoration.none;
   }
-
   const ranges =
     theme === 'editor'
-      ? diffPaint.editorHighlightRanges.flatMap((range) => {
-          if (range.type === 'deleted') {
-            const validPosition = getValidTypingDiffPosition({
-              position: range.from,
-              docLength,
-            });
-            if (validPosition === null || range.to !== range.from) {
-              return [];
-            }
-
-            return [
-              Decoration.widget({
-                widget: new TypingDiffTickWidget(
-                  TYPING_DIFF_DELETED_TICK_CLASS_NAME,
-                ),
-                side: 1,
-              }).range(validPosition),
-            ];
-          }
-
-          if (range.type !== 'added') {
-            return [];
-          }
-
-          const validRange = getValidTypingDiffRange({
-            from: range.from,
-            to: range.to,
-            docLength,
-          });
-          if (!validRange) {
-            return [];
-          }
-
-          return [
-            Decoration.mark({ class: TYPING_DIFF_ADDED_CLASS_NAME }).range(
-              validRange.from,
-              validRange.to,
-            ),
-          ];
+      ? getEditorTypingDecorations({
+          ranges: diffPaint.editorHighlightRanges,
+          docLength,
         })
-      : diffPaint.draftHighlightRanges.flatMap((range) => {
-          if (range.type === 'added') {
-            const validPosition = getValidTypingDiffPosition({
-              position: range.from,
-              docLength,
-            });
-            if (validPosition === null || range.to !== range.from) {
-              return [];
-            }
-
-            return [
-              Decoration.widget({
-                widget: new TypingDiffTickWidget(TYPING_DIFF_ADDED_TICK_CLASS_NAME),
-                side: 1,
-              }).range(validPosition),
-            ];
-          }
-
-          if (range.type !== 'deleted') {
-            return [];
-          }
-
-          const validRange = getValidTypingDiffRange({
-            from: range.from,
-            to: range.to,
-            docLength,
-          });
-          if (!validRange) {
-            return [];
-          }
-
-          return [
-            Decoration.mark({ class: TYPING_DIFF_DELETED_CLASS_NAME }).range(
-              validRange.from,
-              validRange.to,
-            ),
-          ];
+      : getDraftTypingDecorations({
+          ranges: diffPaint.draftHighlightRanges,
+          docLength,
         });
 
   if (ranges.length === 0) {
@@ -1187,6 +1121,169 @@ const getValidTypingDiffPosition = ({
   }
 
   return position;
+};
+
+const getEditorTypingDecorations = ({
+  ranges,
+  docLength,
+}: {
+  ranges: EditorHighlightRange[];
+  docLength: number;
+}) => {
+  const inlineRanges = getMergedTypingInlineRanges(
+    ranges
+      .filter((range) => range.type === 'added')
+      .map((range) =>
+        getValidTypingDiffRange({
+          from: range.from,
+          to: range.to,
+          docLength,
+        }),
+      )
+      .filter((range): range is TypingInlineRange => range !== null),
+  );
+  const marks = inlineRanges.map((range) =>
+    Decoration.mark({ class: TYPING_DIFF_ADDED_CLASS_NAME }).range(
+      range.from,
+      range.to,
+    ),
+  );
+  const ticks = ranges.flatMap((range) => {
+    if (range.type !== 'deleted' || range.from !== range.to) {
+      return [];
+    }
+
+    const validPosition = getValidTypingDiffPosition({
+      position: range.from,
+      docLength,
+    });
+    if (validPosition === null) {
+      return [];
+    }
+
+    if (
+      isTypingTickInsideInlineRange({
+        position: validPosition,
+        inlineRanges,
+      })
+    ) {
+      return [];
+    }
+
+    return [
+      Decoration.widget({
+        widget: new TypingDiffTickWidget(TYPING_DIFF_DELETED_TICK_CLASS_NAME),
+        side: 1,
+      }).range(validPosition),
+    ];
+  });
+
+  return [...marks, ...ticks];
+};
+
+const getDraftTypingDecorations = ({
+  ranges,
+  docLength,
+}: {
+  ranges: DraftHighlightRange[];
+  docLength: number;
+}) => {
+  const inlineRanges = getMergedTypingInlineRanges(
+    ranges
+      .filter((range) => range.type === 'deleted')
+      .map((range) =>
+        getValidTypingDiffRange({
+          from: range.from,
+          to: range.to,
+          docLength,
+        }),
+      )
+      .filter((range): range is TypingInlineRange => range !== null),
+  );
+  const marks = inlineRanges.map((range) =>
+    Decoration.mark({ class: TYPING_DIFF_DELETED_CLASS_NAME }).range(
+      range.from,
+      range.to,
+    ),
+  );
+  const ticks = ranges.flatMap((range) => {
+    if (range.type !== 'added' || range.from !== range.to) {
+      return [];
+    }
+
+    const validPosition = getValidTypingDiffPosition({
+      position: range.from,
+      docLength,
+    });
+    if (validPosition === null) {
+      return [];
+    }
+
+    if (
+      isTypingTickInsideInlineRange({
+        position: validPosition,
+        inlineRanges,
+      })
+    ) {
+      return [];
+    }
+
+    return [
+      Decoration.widget({
+        widget: new TypingDiffTickWidget(TYPING_DIFF_ADDED_TICK_CLASS_NAME),
+        side: 1,
+      }).range(validPosition),
+    ];
+  });
+
+  return [...marks, ...ticks];
+};
+
+const isTypingTickInsideInlineRange = ({
+  position,
+  inlineRanges,
+}: {
+  position: number;
+  inlineRanges: TypingInlineRange[];
+}): boolean => {
+  return inlineRanges.some((range) => {
+    return range.from < position && position < range.to;
+  });
+};
+
+const getMergedTypingInlineRanges = (ranges: TypingInlineRange[]): TypingInlineRange[] => {
+  const sortedRanges = ranges
+    .filter((range) => range.to > range.from)
+    .slice()
+    .sort((left, right) => {
+      if (left.from !== right.from) {
+        return left.from - right.from;
+      }
+
+      return left.to - right.to;
+    });
+  if (sortedRanges.length === 0) {
+    return [];
+  }
+
+  const mergedRanges: TypingInlineRange[] = [];
+  let currentRange = sortedRanges[0];
+  for (let index = 1; index < sortedRanges.length; index += 1) {
+    const nextRange = sortedRanges[index];
+    if (nextRange.from <= currentRange.to) {
+      currentRange = {
+        from: currentRange.from,
+        to: Math.max(currentRange.to, nextRange.to),
+      };
+      continue;
+    }
+
+    mergedRanges.push(currentRange);
+    currentRange = nextRange;
+  }
+
+  mergedRanges.push(currentRange);
+  return mergedRanges;
 };
 
 const getContentWidth = (view: EditorView): number => {

@@ -92,12 +92,14 @@ describe('typing diff styles', () => {
     expect(codeMirrorExtensionsSource).toContain(
       'transform: `translateY(${TYPING_DIFF_TICK_VERTICAL_NUDGE_PX}px)`',
     );
+    expect(codeMirrorExtensionsSource).toContain('zIndex: "0"');
     expect(codeMirrorExtensionsSource).toContain(
       'left: `${TYPING_DIFF_TICK_HORIZONTAL_NUDGE_PX - DIFF_TICK_WIDTH_PX}px`',
     );
     expect(typingTickAfterBlock).not.toContain('left: "0"');
     expect(codeMirrorExtensionsSource).toContain('top: "0"');
     expect(codeMirrorExtensionsSource).toContain('height: "100%"');
+    expect(codeMirrorExtensionsSource).toContain('zIndex: "-1"');
     expect(codeMirrorExtensionsSource).not.toContain(
       'top: "calc(var(--byline-line-height) / -2)"',
     );
