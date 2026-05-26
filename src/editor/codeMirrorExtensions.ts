@@ -38,6 +38,7 @@ import {
   RIGHT_LINE_NUMBER_TEXT_NUDGE,
   TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX,
   TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX,
+  TYPING_DIFF_TICK_HORIZONTAL_NUDGE_PX,
   TYPING_DIFF_TICK_VERTICAL_NUDGE_PX,
 } from '../layoutTuning';
 
@@ -271,7 +272,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     ".byline-typing-diff-tick::after": {
       content: '""',
       position: "absolute",
-      left: `-${DIFF_TICK_WIDTH_PX}px`,
+      left: `${TYPING_DIFF_TICK_HORIZONTAL_NUDGE_PX - DIFF_TICK_WIDTH_PX}px`,
       top: "0",
       width: `${DIFF_TICK_WIDTH_PX}px`,
       height: "100%",
