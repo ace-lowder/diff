@@ -10,6 +10,9 @@ export type ConsoleCommandViewMode = 'draft' | 'editor' | 'split';
 
 export type ConsoleCommand =
   | {
+      type: 'select';
+    }
+  | {
       type: 'view';
       mode: ConsoleCommandViewMode | 'next';
     }
@@ -79,6 +82,7 @@ const UNKNOWN_COMMAND_SUFFIX = ' - unknown command';
 const NO_LINE_ABOVE_SUFFIX = ' - no line above to copy';
 
 const ROOT_OPTIONS = [
+  'select',
   'view',
   'copy',
   'count',
@@ -114,6 +118,20 @@ export const parseConsoleCommandLine = (
 
   if (!ROOT_OPTIONS.includes(root as (typeof ROOT_OPTIONS)[number])) {
     return { kind: 'unknown-root' };
+  }
+
+  if (root === 'select') {
+    if (parts.length === 1) {
+      return {
+        kind: 'valid',
+        command: { type: 'select' },
+      };
+    }
+
+    return {
+      kind: 'unknown-command',
+      message: `${trimmedLineText}${UNKNOWN_COMMAND_SUFFIX}`,
+    };
   }
 
   if (root === 'view') {
@@ -354,6 +372,7 @@ export const getConsoleCommandMenu = ({
     }
 
     if (
+      currentTokenText === '/select' ||
       currentTokenText === '/view' ||
       currentTokenText === '/copy' ||
       currentTokenText === '/count' ||

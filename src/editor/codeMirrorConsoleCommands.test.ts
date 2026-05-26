@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 import {
   getCommandLineRemovalEdit,
   getCommandPanelPlacement,
+  getSelectCommandEdit,
 } from './codeMirrorConsoleCommands';
 
 const sourceDirectory = resolve(new URL('.', import.meta.url).pathname);
@@ -131,6 +132,72 @@ describe('getCommandLineRemovalEdit', () => {
   });
 });
 
+describe('getSelectCommandEdit', () => {
+  it('removes only-line select command and leaves empty selection', () => {
+    expect(
+      getSelectCommandEdit({
+        commandLine: { text: '/select', from: 0, to: 7, number: 1 },
+        previousLine: null,
+        nextLine: null,
+        documentLength: 7,
+      }),
+    ).toEqual({
+      from: 0,
+      to: 7,
+      selectionAnchor: 0,
+      selectionHead: 0,
+    });
+  });
+
+  it('removes first-line select command including trailing newline', () => {
+    expect(
+      getSelectCommandEdit({
+        commandLine: { text: '/select', from: 0, to: 7, number: 1 },
+        previousLine: null,
+        nextLine: { text: 'One', from: 8, to: 11, number: 2 },
+        documentLength: 11,
+      }),
+    ).toEqual({
+      from: 0,
+      to: 8,
+      selectionAnchor: 0,
+      selectionHead: 3,
+    });
+  });
+
+  it('removes trailing select command with previous-line newline', () => {
+    expect(
+      getSelectCommandEdit({
+        commandLine: { text: '/select', from: 4, to: 11, number: 2 },
+        previousLine: { text: 'One', from: 0, to: 3, number: 1 },
+        nextLine: null,
+        documentLength: 11,
+      }),
+    ).toEqual({
+      from: 3,
+      to: 11,
+      selectionAnchor: 0,
+      selectionHead: 3,
+    });
+  });
+
+  it('removes middle-line select command and selects merged text', () => {
+    expect(
+      getSelectCommandEdit({
+        commandLine: { text: '/select', from: 4, to: 11, number: 2 },
+        previousLine: { text: 'One', from: 0, to: 3, number: 1 },
+        nextLine: { text: 'Two', from: 12, to: 15, number: 3 },
+        documentLength: 15,
+      }),
+    ).toEqual({
+      from: 3,
+      to: 11,
+      selectionAnchor: 0,
+      selectionHead: 7,
+    });
+  });
+});
+
 describe('autocomplete pointer interactions', () => {
   it('includes pointer hover/click selection wiring without enter execution', () => {
     expect(codeMirrorConsoleCommandsSource).toContain('pointerenter');
@@ -160,5 +227,27 @@ describe('autocomplete pointer interactions', () => {
       clickHandlerEnd,
     );
     expect(clickHandlerSource).not.toContain('executeOrHandleEnter');
+  });
+});
+
+describe('select command plugin handling', () => {
+  it('executes /select in plugin without onRunConsoleCommand callback', () => {
+    expect(codeMirrorConsoleCommandsSource).toContain("command.type === 'select'");
+    expect(codeMirrorConsoleCommandsSource).toContain('EditorSelection.range(');
+
+    const selectBranchStart = codeMirrorConsoleCommandsSource.indexOf(
+      "if (parseResult.command.type === 'select') {",
+    );
+    expect(selectBranchStart).toBeGreaterThanOrEqual(0);
+
+    const selectBranchEnd = codeMirrorConsoleCommandsSource.indexOf(
+      'if (',
+      selectBranchStart + 1,
+    );
+    const selectBranchSource = codeMirrorConsoleCommandsSource.slice(
+      selectBranchStart,
+      selectBranchEnd,
+    );
+    expect(selectBranchSource).not.toContain('onRunConsoleCommand');
   });
 });

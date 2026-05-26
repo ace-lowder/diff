@@ -15,6 +15,10 @@ describe('parseConsoleCommandLine', () => {
       kind: 'valid',
       command: { type: 'view', mode: 'next' },
     });
+    expect(parseConsoleCommandLine('/select')).toEqual({
+      kind: 'valid',
+      command: { type: 'select' },
+    });
     expect(parseConsoleCommandLine('/view draft')).toEqual({
       kind: 'valid',
       command: { type: 'view', mode: 'draft' },
@@ -107,6 +111,10 @@ describe('parseConsoleCommandLine', () => {
       kind: 'unknown-command',
       message: '/menu - unknown command',
     });
+    expect(parseConsoleCommandLine('/select all')).toEqual({
+      kind: 'unknown-command',
+      message: '/select all - unknown command',
+    });
     expect(parseConsoleCommandLine('/menu test')).toEqual({
       kind: 'unknown-command',
       message: '/menu test - unknown command',
@@ -150,6 +158,7 @@ describe('getConsoleCommandMenu', () => {
   it('returns root options', () => {
     expect(getConsoleCommandMenu({ lineText: '/', cursorOffset: 1 })).toEqual({
       options: [
+        { label: 'select' },
         { label: 'view' },
         { label: 'copy' },
         { label: 'count' },
@@ -191,6 +200,12 @@ describe('getConsoleCommandMenu', () => {
       options: [{ label: 'fontsize' }],
       tokenFrom: 1,
       tokenTo: 5,
+    });
+
+    expect(getConsoleCommandMenu({ lineText: '/s', cursorOffset: 2 })).toEqual({
+      options: [{ label: 'select' }],
+      tokenFrom: 1,
+      tokenTo: 2,
     });
   });
 
@@ -276,6 +291,7 @@ describe('getConsoleCommandMenu', () => {
 
   it('does not show menu for complete subcommands', () => {
     expect(getConsoleCommandMenu({ lineText: '/view draft', cursorOffset: 11 })).toBeNull();
+    expect(getConsoleCommandMenu({ lineText: '/select', cursorOffset: 7 })).toBeNull();
     expect(getConsoleCommandMenu({ lineText: '/count', cursorOffset: 6 })).toBeNull();
     expect(getConsoleCommandMenu({ lineText: '/menu hide', cursorOffset: 10 })).toBeNull();
     expect(getConsoleCommandMenu({ lineText: '/menu show', cursorOffset: 10 })).toBeNull();
@@ -294,6 +310,14 @@ describe('getCompletedConsoleCommandLine', () => {
         selectedLabel: 'view',
       }),
     ).toBe('/view');
+
+    expect(
+      getCompletedConsoleCommandLine({
+        lineText: '/s',
+        cursorOffset: 2,
+        selectedLabel: 'select',
+      }),
+    ).toBe('/select');
 
     expect(
       getCompletedConsoleCommandLine({
@@ -347,6 +371,14 @@ describe('getCompletedConsoleCommandLine', () => {
 
 describe('getConsoleCommandPrediction', () => {
   it('returns only remaining prediction text', () => {
+    expect(
+      getConsoleCommandPrediction({
+        lineText: '/s',
+        cursorOffset: 2,
+        selectedLabel: 'select',
+      }),
+    ).toBe('elect');
+
     expect(
       getConsoleCommandPrediction({
         lineText: '/v',

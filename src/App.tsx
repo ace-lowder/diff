@@ -764,6 +764,10 @@ const App = () => {
   };
 
   const handleRunConsoleCommand: RunConsoleCommand = async (command, context) => {
+    if (command.type === 'select') {
+      return;
+    }
+
     if (command.type === 'view') {
       if (command.mode === 'next') {
         handleModeToggle();

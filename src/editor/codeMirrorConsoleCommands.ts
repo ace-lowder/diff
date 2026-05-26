@@ -1,4 +1,4 @@
-import { Prec, type Extension } from '@codemirror/state';
+import { EditorSelection, Prec, type Extension } from '@codemirror/state';
 import {
   Decoration,
   type DecorationSet,
@@ -57,6 +57,13 @@ export type CommandLineRemovalEdit = {
   from: number;
   to: number;
   selectionAnchor: number;
+};
+
+export type SelectCommandEdit = {
+  from: number;
+  to: number;
+  selectionAnchor: number;
+  selectionHead: number;
 };
 
 type CommandPanelMeasurement = {
@@ -183,6 +190,31 @@ export const getCodeMirrorConsoleCommandExtension = ({
         const parseResult = parseConsoleCommandLine(commandLine.text);
 
         if (parseResult.kind === 'valid') {
+          if (parseResult.command.type === 'select') {
+            const previousLine = getPreviousLine(this.view, commandLine.number);
+            const nextLine = getNextLine(this.view, commandLine.number);
+            const edit = getSelectCommandEdit({
+              commandLine,
+              previousLine,
+              nextLine,
+              documentLength: this.view.state.doc.length,
+            });
+
+            this.view.dispatch({
+              changes: {
+                from: edit.from,
+                to: edit.to,
+                insert: '',
+              },
+              selection: EditorSelection.range(
+                edit.selectionAnchor,
+                edit.selectionHead,
+              ),
+            });
+            this.view.focus();
+            return true;
+          }
+
           if (
             parseResult.command.type === 'copy' &&
             parseResult.command.target === 'line' &&
@@ -558,6 +590,23 @@ const getPreviousLine = (
   };
 };
 
+const getNextLine = (
+  view: EditorView,
+  commandLineNumber: number,
+): ConsoleCommandLineContext | null => {
+  if (commandLineNumber >= view.state.doc.lines) {
+    return null;
+  }
+
+  const line = view.state.doc.line(commandLineNumber + 1);
+  return {
+    text: line.text,
+    from: line.from,
+    to: line.to,
+    number: line.number,
+  };
+};
+
 export const getCommandLineRemovalEdit = ({
   commandLine,
   previousLine,
@@ -577,6 +626,29 @@ export const getCommandLineRemovalEdit = ({
     from: previousLine.to,
     to: commandLine.to,
     selectionAnchor: previousLine.to,
+  };
+};
+
+export const getSelectCommandEdit = ({
+  commandLine,
+  previousLine,
+  nextLine,
+  documentLength,
+}: {
+  commandLine: ConsoleCommandLineContext;
+  previousLine: ConsoleCommandLineContext | null;
+  nextLine: ConsoleCommandLineContext | null;
+  documentLength: number;
+}): SelectCommandEdit => {
+  const from = previousLine ? previousLine.to : commandLine.from;
+  const to = previousLine ? commandLine.to : (nextLine?.from ?? commandLine.to);
+  const nextDocumentLength = Math.max(0, documentLength - (to - from));
+
+  return {
+    from,
+    to,
+    selectionAnchor: 0,
+    selectionHead: nextDocumentLength,
   };
 };
 
