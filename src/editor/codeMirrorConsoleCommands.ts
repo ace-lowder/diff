@@ -53,6 +53,12 @@ export type CommandPanelPlacement = {
   top: number;
 };
 
+export type CommandLineRemovalEdit = {
+  from: number;
+  to: number;
+  selectionAnchor: number;
+};
+
 type CommandPanelMeasurement = {
   cursorCoordinates: { left: number; top: number; bottom: number };
   editorRect: { left: number; top: number };
@@ -197,13 +203,17 @@ export const getCodeMirrorConsoleCommandExtension = ({
           }
 
           const previousLine = getPreviousLine(this.view, commandLine.number);
+          const removalEdit = getCommandLineRemovalEdit({
+            commandLine,
+            previousLine,
+          });
           this.view.dispatch({
             changes: {
-              from: commandLine.from,
-              to: commandLine.to,
+              from: removalEdit.from,
+              to: removalEdit.to,
               insert: '',
             },
-            selection: { anchor: commandLine.from },
+            selection: { anchor: removalEdit.selectionAnchor },
           });
 
           this.onRunConsoleCommand(parseResult.command, {
@@ -282,6 +292,21 @@ export const getCodeMirrorConsoleCommandExtension = ({
 
         const optionCount = this.menu.options.length;
         this.selectedIndex = (this.selectedIndex + delta + optionCount) % optionCount;
+        this.decorations = this.getPredictionDecoration();
+        this.schedulePanelRender();
+        return true;
+      }
+
+      selectOption(index: number): boolean {
+        if (!this.menu || index < 0 || index >= this.menu.options.length) {
+          return false;
+        }
+
+        if (this.selectedIndex === index) {
+          return true;
+        }
+
+        this.selectedIndex = index;
         this.decorations = this.getPredictionDecoration();
         this.schedulePanelRender();
         return true;
@@ -395,6 +420,7 @@ export const getCodeMirrorConsoleCommandExtension = ({
             });
 
             panelElement.innerHTML = '';
+            panelElement.setAttribute('role', 'listbox');
             for (let index = 0; index < menu.options.length; index += 1) {
               const option = menu.options[index];
               const optionElement = document.createElement('div');
@@ -403,6 +429,23 @@ export const getCodeMirrorConsoleCommandExtension = ({
                   ? 'byline-command-option byline-command-option-active'
                   : 'byline-command-option';
               optionElement.textContent = option.label;
+              optionElement.setAttribute('role', 'option');
+              optionElement.setAttribute(
+                'aria-selected',
+                index === this.selectedIndex ? 'true' : 'false',
+              );
+              optionElement.addEventListener('pointerenter', () => {
+                this.selectOption(index);
+              });
+              optionElement.addEventListener('pointerdown', (event) => {
+                event.preventDefault();
+              });
+              optionElement.addEventListener('click', (event) => {
+                event.preventDefault();
+                this.selectOption(index);
+                this.completeSelection();
+                this.view.focus();
+              });
               panelElement.append(optionElement);
             }
 
@@ -512,6 +555,28 @@ const getPreviousLine = (
     from: line.from,
     to: line.to,
     number: line.number,
+  };
+};
+
+export const getCommandLineRemovalEdit = ({
+  commandLine,
+  previousLine,
+}: {
+  commandLine: ConsoleCommandLineContext;
+  previousLine: ConsoleCommandLineContext | null;
+}): CommandLineRemovalEdit => {
+  if (!previousLine) {
+    return {
+      from: commandLine.from,
+      to: commandLine.to,
+      selectionAnchor: commandLine.from,
+    };
+  }
+
+  return {
+    from: previousLine.to,
+    to: commandLine.to,
+    selectionAnchor: previousLine.to,
   };
 };
 

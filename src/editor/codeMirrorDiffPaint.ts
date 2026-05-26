@@ -728,10 +728,6 @@ const getDiffPaintMarkers = (
 
 const getLowestEditedLineMarkers = (view: EditorView): RectangleMarker[] => {
   const diffPaint = view.state.field(diffPaintField);
-  if (diffPaint.isTyping) {
-    return [];
-  }
-
   const { lowestEditedLine } = diffPaint;
   if (!lowestEditedLine) {
     return [];

@@ -1,6 +1,10 @@
 import { ChangeSet, EditorState } from '@codemirror/state';
 import { Decoration, type DecorationSet } from '@codemirror/view';
 import { describe, expect, it } from 'vitest';
+// @ts-expect-error Node typings are not included in app tsconfig.
+import { readFileSync } from 'node:fs';
+// @ts-expect-error Node typings are not included in app tsconfig.
+import { resolve } from 'node:path';
 
 import type { DraftHighlightRange, DraftLineDecoration, EditorHighlightRange } from '../editorDiff';
 import {
@@ -40,6 +44,12 @@ import {
   FULL_LINE_HIGHLIGHT_RESERVED_LEFT_GUTTER_NUDGE_PX,
   FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX,
 } from '../layoutTuning';
+
+const sourceDirectory = resolve(new URL('.', import.meta.url).pathname);
+const codeMirrorDiffPaintSource = readFileSync(
+  resolve(sourceDirectory, './codeMirrorDiffPaint.ts'),
+  'utf8',
+);
 
 const BASE_TEXT = 'one\ntwo\nthree';
 
@@ -435,6 +445,14 @@ describe('getActiveLineDiffPaintTargets', () => {
         geometryRole: 'activeLine',
       },
     ]);
+  });
+});
+
+describe('lowest edited line typing behavior', () => {
+  it('does not short-circuit lowest-edited-line markers while typing', () => {
+    expect(codeMirrorDiffPaintSource).not.toContain(
+      'if (diffPaint.isTyping) {\n    return [];\n  }\n\n  const { lowestEditedLine } = diffPaint;',
+    );
   });
 });
 
