@@ -47,8 +47,12 @@ describe('typing diff styles', () => {
     expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff-added');
     expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff-deleted');
     expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff-tick');
-    expect(codeMirrorExtensionsSource).toContain('boxShadow: "0 0 0 1px #2A4C2C"');
-    expect(codeMirrorExtensionsSource).toContain('boxShadow: "0 0 0 1px #693330"');
+    expect(codeMirrorExtensionsSource).toContain(
+      '0 0 0 1px #2A4C2C, 0 -1px 0 0 #2A4C2C, 0 1px 0 0 #2A4C2C',
+    );
+    expect(codeMirrorExtensionsSource).toContain(
+      '0 0 0 1px #693330, 0 -1px 0 0 #693330, 0 1px 0 0 #693330',
+    );
     expect(codeMirrorExtensionsSource).not.toContain(
       'boxShadow: "0 0 0 2px #2A4C2C"',
     );
@@ -62,6 +66,7 @@ describe('typing diff styles', () => {
       'lineHeight: "var(--byline-line-height)"',
     );
     expect(codeMirrorExtensionsSource).toContain('verticalAlign: "top"');
+    expect(codeMirrorExtensionsSource).toContain('transform: "translateY(1px)"');
     expect(codeMirrorExtensionsSource).toContain('top: "0"');
     expect(codeMirrorExtensionsSource).toContain('height: "100%"');
     expect(codeMirrorExtensionsSource).not.toContain(
