@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { DraftHighlightRange, DraftLineDecoration, EditorHighlightRange } from '../editorDiff';
 import {
+  getActiveLineDiffPaintTargets,
   diffPaintField,
   getDiffPaintEffectValue,
   getMappedDiffPaintStateThroughChanges,
@@ -407,6 +408,19 @@ describe('getDiffPaintTargets', () => {
         return target.type === 'marker' && target.position === 5;
       }),
     ).toBe(true);
+  });
+});
+
+describe('getActiveLineDiffPaintTargets', () => {
+  it('returns exactly one active-line target', () => {
+    expect(getActiveLineDiffPaintTargets(7)).toEqual([
+      {
+        type: 'line',
+        className: 'byline-diff-active-line',
+        lineNumber: 7,
+        geometryRole: 'activeLine',
+      },
+    ]);
   });
 });
 

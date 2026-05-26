@@ -256,13 +256,9 @@ export const getDiffPaintTargets = ({
   const docLength = text.length;
   const targets: DiffPaintTarget[] = [];
 
+  targets.push(...getActiveLineDiffPaintTargets(activeLineNumber));
+
   if (theme === 'editor') {
-    targets.push({
-      type: 'line',
-      className: 'byline-diff-active-line',
-      lineNumber: activeLineNumber,
-      geometryRole: 'activeLine',
-    });
     targets.push(
       ...getEditorRangeTargets(diffPaint.editorHighlightRanges, docLength, text),
       ...getEditorLineTargets(diffPaint.editorLineDecorations, docLineCount),
@@ -271,18 +267,25 @@ export const getDiffPaintTargets = ({
     return targets;
   }
 
-  targets.push({
-    type: 'line',
-    className: 'byline-diff-active-line',
-    lineNumber: activeLineNumber,
-    geometryRole: 'activeLine',
-  });
   targets.push(
     ...getDraftRangeTargets(diffPaint.draftHighlightRanges, docLength, text),
     ...getDraftLineTargets(diffPaint.draftLineDecorations, docLineCount),
   );
 
   return targets;
+};
+
+export const getActiveLineDiffPaintTargets = (
+  activeLineNumber: number,
+): Array<Extract<DiffPaintTarget, { type: 'line' }>> => {
+  return [
+    {
+      type: 'line',
+      className: 'byline-diff-active-line',
+      lineNumber: activeLineNumber,
+      geometryRole: 'activeLine',
+    },
+  ];
 };
 
 export const getTypingDiffDecorations = ({
@@ -647,7 +650,12 @@ const getDiffPaintMarkers = (
 ): readonly LayerMarker[] => {
   const diffPaint = view.state.field(diffPaintField);
   if (diffPaint.isTyping) {
-    return [];
+    return getLineMarkers(
+      view,
+      getActiveLineDiffPaintTargets(
+        view.state.doc.lineAt(view.state.selection.main.head).number,
+      ),
+    );
   }
 
   const targets = getDiffPaintTargets({
