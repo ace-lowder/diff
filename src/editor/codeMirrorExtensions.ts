@@ -22,6 +22,7 @@ import {
   CODE_MIRROR_LINE_NUMBER_GUTTER_PADDING_RIGHT,
   CODE_MIRROR_LINE_NUMBER_GUTTER_WIDTH,
 } from "./codeMirrorThemeConstants";
+import { DIFF_TICK_WIDTH_PX } from "./codeMirrorDiffPaintGeometry";
 import type {
   CodeMirrorTheme,
   CopyLineHandler,
@@ -236,6 +237,40 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       backgroundColor: "#2A4C2C",
     },
     ".byline-diff-deleted": {
+      backgroundColor: "#693330",
+    },
+    ".byline-typing-diff": {
+      boxDecorationBreak: "clone",
+      WebkitBoxDecorationBreak: "clone",
+    },
+    ".byline-typing-diff-added": {
+      backgroundColor: "#2A4C2C",
+      boxShadow: "0 0 0 2px #2A4C2C",
+    },
+    ".byline-typing-diff-deleted": {
+      backgroundColor: "#693330",
+      boxShadow: "0 0 0 2px #693330",
+    },
+    ".byline-typing-diff-tick": {
+      position: "relative",
+      display: "inline-block",
+      width: "0",
+      height: "0",
+      pointerEvents: "none",
+    },
+    ".byline-typing-diff-tick::after": {
+      content: '""',
+      position: "absolute",
+      left: "0",
+      top: "calc(var(--byline-line-height) / -2)",
+      width: `${DIFF_TICK_WIDTH_PX}px`,
+      height: "var(--byline-line-height)",
+      pointerEvents: "none",
+    },
+    ".byline-typing-diff-tick-added::after": {
+      backgroundColor: "#2A4C2C",
+    },
+    ".byline-typing-diff-tick-deleted::after": {
       backgroundColor: "#693330",
     },
     ".byline-missing-line": {

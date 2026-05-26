@@ -40,3 +40,14 @@ describe('document change callback payload', () => {
     );
   });
 });
+
+describe('typing diff styles', () => {
+  it('includes typing diff mark and tick styles', () => {
+    expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff');
+    expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff-added');
+    expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff-deleted');
+    expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff-tick');
+    expect(codeMirrorExtensionsSource).toContain('boxShadow');
+    expect(codeMirrorExtensionsSource).toContain('DIFF_TICK_WIDTH_PX');
+  });
+});

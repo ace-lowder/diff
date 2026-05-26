@@ -5,6 +5,11 @@ import { describe, expect, it } from 'vitest';
 import type { DraftHighlightRange, DraftLineDecoration, EditorHighlightRange } from '../editorDiff';
 import {
   getActiveLineDiffPaintTargets,
+  TYPING_DIFF_ADDED_CLASS_NAME,
+  TYPING_DIFF_DELETED_CLASS_NAME,
+  TYPING_DIFF_ADDED_TICK_CLASS_NAME,
+  TYPING_DIFF_DELETED_TICK_CLASS_NAME,
+  TypingDiffTickWidget,
   diffPaintField,
   getDiffPaintEffectValue,
   getMappedDiffPaintStateThroughChanges,
@@ -79,9 +84,32 @@ const getDecorationRanges = (
   set.between(0, Number.MAX_SAFE_INTEGER, (from, to, value) => {
     const className =
       typeof value.spec.class === 'string' ? value.spec.class : undefined;
+    if (!className) {
+      return;
+    }
     ranges.push({ from, to, className });
   });
   return ranges;
+};
+
+const getWidgetDecorationPositions = (
+  set: ReturnType<typeof getTypingDiffDecorations>,
+): Array<{ from: number; to: number; widgetClassName: string | undefined }> => {
+  const positions: Array<{ from: number; to: number; widgetClassName: string | undefined }> =
+    [];
+  set.between(0, Number.MAX_SAFE_INTEGER, (from, to, value) => {
+    const widget = value.spec.widget;
+    if (!(widget instanceof TypingDiffTickWidget)) {
+      return;
+    }
+
+    positions.push({
+      from,
+      to,
+      widgetClassName: (widget as unknown as { className?: string }).className,
+    });
+  });
+  return positions;
 };
 
 describe('getDiffPaintTargets', () => {
@@ -424,6 +452,60 @@ describe('getActiveLineDiffPaintTargets', () => {
   });
 });
 
+describe('typing diff class names', () => {
+  it('exports stable class names', () => {
+    expect(TYPING_DIFF_ADDED_CLASS_NAME).toBe(
+      'byline-typing-diff byline-typing-diff-added',
+    );
+    expect(TYPING_DIFF_DELETED_CLASS_NAME).toBe(
+      'byline-typing-diff byline-typing-diff-deleted',
+    );
+    expect(TYPING_DIFF_ADDED_TICK_CLASS_NAME).toBe(
+      'byline-typing-diff-tick byline-typing-diff-tick-added',
+    );
+    expect(TYPING_DIFF_DELETED_TICK_CLASS_NAME).toBe(
+      'byline-typing-diff-tick byline-typing-diff-tick-deleted',
+    );
+  });
+});
+
+describe('TypingDiffTickWidget', () => {
+  it('renders a span with class and aria-hidden', () => {
+    const widget = new TypingDiffTickWidget(TYPING_DIFF_ADDED_TICK_CLASS_NAME);
+    const originalDocument = globalThis.document;
+    const attributes: Record<string, string> = {};
+    const fakeElement = {
+      tagName: 'SPAN',
+      className: '',
+      setAttribute(name: string, value: string) {
+        attributes[name] = value;
+      },
+      getAttribute(name: string) {
+        return attributes[name];
+      },
+    };
+    (globalThis as { document?: unknown }).document = {
+      createElement: () => fakeElement,
+    };
+
+    const element = widget.toDOM();
+    (globalThis as { document?: unknown }).document = originalDocument;
+
+    expect(element.tagName).toBe('SPAN');
+    expect(element.className).toBe(TYPING_DIFF_ADDED_TICK_CLASS_NAME);
+    expect(element.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('compares by class name', () => {
+    const left = new TypingDiffTickWidget(TYPING_DIFF_ADDED_TICK_CLASS_NAME);
+    const same = new TypingDiffTickWidget(TYPING_DIFF_ADDED_TICK_CLASS_NAME);
+    const different = new TypingDiffTickWidget(TYPING_DIFF_DELETED_TICK_CLASS_NAME);
+
+    expect(left.eq(same)).toBe(true);
+    expect(left.eq(different)).toBe(false);
+  });
+});
+
 describe('getTypingDiffDecorations', () => {
   it('editor includes non-zero added ranges', () => {
     const decorations = getTypingDiffDecorations({
@@ -443,7 +525,7 @@ describe('getTypingDiffDecorations', () => {
     });
 
     expect(getDecorationRanges(decorations)).toEqual([
-      { from: 2, to: 6, className: 'byline-diff-added' },
+      { from: 2, to: 6, className: TYPING_DIFF_ADDED_CLASS_NAME },
     ]);
   });
 
@@ -465,7 +547,7 @@ describe('getTypingDiffDecorations', () => {
     });
 
     expect(getDecorationRanges(decorations)).toEqual([
-      { from: 3, to: 7, className: 'byline-diff-deleted' },
+      { from: 3, to: 7, className: TYPING_DIFF_DELETED_CLASS_NAME },
     ]);
   });
 
@@ -488,8 +570,124 @@ describe('getTypingDiffDecorations', () => {
     });
 
     expect(getDecorationRanges(decorations)).toEqual([
-      { from: 0, to: 3, className: 'byline-diff-added' },
-      { from: 8, to: 10, className: 'byline-diff-added' },
+      { from: 0, to: 3, className: TYPING_DIFF_ADDED_CLASS_NAME },
+      { from: 8, to: 10, className: TYPING_DIFF_ADDED_CLASS_NAME },
+    ]);
+  });
+
+  it('editor zero-width deleted ranges become tick widgets', () => {
+    const decorations = getTypingDiffDecorations({
+      theme: 'editor',
+      docLength: 10,
+      diffPaint: {
+        editorHighlightRanges: [{ type: 'deleted', from: 4, to: 4 }],
+        draftHighlightRanges: [],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+        isTyping: false,
+      },
+    });
+
+    expect(getWidgetDecorationPositions(decorations)).toEqual([
+      { from: 4, to: 4, widgetClassName: TYPING_DIFF_DELETED_TICK_CLASS_NAME },
+    ]);
+  });
+
+  it('draft zero-width added ranges become tick widgets', () => {
+    const decorations = getTypingDiffDecorations({
+      theme: 'draft',
+      docLength: 10,
+      diffPaint: {
+        editorHighlightRanges: [],
+        draftHighlightRanges: [{ type: 'added', from: 6, to: 6 }],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+        isTyping: false,
+      },
+    });
+
+    expect(getWidgetDecorationPositions(decorations)).toEqual([
+      { from: 6, to: 6, widgetClassName: TYPING_DIFF_ADDED_TICK_CLASS_NAME },
+    ]);
+  });
+
+  it('editor zero-width added ranges are skipped', () => {
+    const decorations = getTypingDiffDecorations({
+      theme: 'editor',
+      docLength: 10,
+      diffPaint: {
+        editorHighlightRanges: [{ type: 'added', from: 5, to: 5 }],
+        draftHighlightRanges: [],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+        isTyping: false,
+      },
+    });
+
+    expect(getDecorationRanges(decorations)).toEqual([]);
+    expect(getWidgetDecorationPositions(decorations)).toEqual([]);
+  });
+
+  it('draft zero-width deleted ranges are skipped', () => {
+    const decorations = getTypingDiffDecorations({
+      theme: 'draft',
+      docLength: 10,
+      diffPaint: {
+        editorHighlightRanges: [],
+        draftHighlightRanges: [{ type: 'deleted', from: 2, to: 2 }],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+        isTyping: false,
+      },
+    });
+
+    expect(getDecorationRanges(decorations)).toEqual([]);
+    expect(getWidgetDecorationPositions(decorations)).toEqual([]);
+  });
+
+  it('skips out-of-bounds zero-width positions', () => {
+    const decorations = getTypingDiffDecorations({
+      theme: 'editor',
+      docLength: 10,
+      diffPaint: {
+        editorHighlightRanges: [{ type: 'deleted', from: 11, to: 11 }],
+        draftHighlightRanges: [],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+        isTyping: false,
+      },
+    });
+
+    expect(getWidgetDecorationPositions(decorations)).toEqual([]);
+  });
+
+  it('keeps non-zero ranges and zero-width ticks together', () => {
+    const decorations = getTypingDiffDecorations({
+      theme: 'editor',
+      docLength: 10,
+      diffPaint: {
+        editorHighlightRanges: [
+          { type: 'added', from: 1, to: 3 },
+          { type: 'deleted', from: 4, to: 4 },
+        ],
+        draftHighlightRanges: [],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+        isTyping: false,
+      },
+    });
+
+    expect(getDecorationRanges(decorations)).toEqual([
+      { from: 1, to: 3, className: TYPING_DIFF_ADDED_CLASS_NAME },
+    ]);
+    expect(getWidgetDecorationPositions(decorations)).toEqual([
+      { from: 4, to: 4, widgetClassName: TYPING_DIFF_DELETED_TICK_CLASS_NAME },
     ]);
   });
 });

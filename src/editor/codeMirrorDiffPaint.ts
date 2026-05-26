@@ -11,6 +11,7 @@ import {
   type DecorationSet,
   EditorView,
   RectangleMarker,
+  WidgetType,
   layer,
   type LayerMarker,
 } from '@codemirror/view';
@@ -46,6 +47,15 @@ export type DiffPaintClassName =
   | 'byline-diff-added'
   | 'byline-diff-deleted'
   | 'byline-diff-active-line';
+
+export const TYPING_DIFF_ADDED_CLASS_NAME =
+  'byline-typing-diff byline-typing-diff-added';
+export const TYPING_DIFF_DELETED_CLASS_NAME =
+  'byline-typing-diff byline-typing-diff-deleted';
+export const TYPING_DIFF_ADDED_TICK_CLASS_NAME =
+  'byline-typing-diff-tick byline-typing-diff-tick-added';
+export const TYPING_DIFF_DELETED_TICK_CLASS_NAME =
+  'byline-typing-diff-tick byline-typing-diff-tick-deleted';
 
 export type DiffPaintTarget =
   | {
@@ -110,6 +120,26 @@ type PaintBlock = {
 };
 
 const VISIBLE_RANGE_BUFFER_CHARS = 500;
+
+export class TypingDiffTickWidget extends WidgetType {
+  private readonly className: string;
+
+  constructor(className: string) {
+    super();
+    this.className = className;
+  }
+
+  toDOM() {
+    const element = document.createElement('span');
+    element.className = this.className;
+    element.setAttribute('aria-hidden', 'true');
+    return element;
+  }
+
+  eq(other: TypingDiffTickWidget) {
+    return other.className === this.className;
+  }
+}
 
 export const setDiffPaintEffect = StateEffect.define<DiffPaintState>();
 export const setDiffPaintTypingEffect = StateEffect.define<boolean>();
@@ -297,13 +327,32 @@ export const getTypingDiffDecorations = ({
   docLength: number;
   diffPaint: DiffPaintState;
 }): DecorationSet => {
-  if (docLength <= 0) {
+  if (docLength < 0) {
     return Decoration.none;
   }
 
   const ranges =
     theme === 'editor'
       ? diffPaint.editorHighlightRanges.flatMap((range) => {
+          if (range.type === 'deleted') {
+            const validPosition = getValidTypingDiffPosition({
+              position: range.from,
+              docLength,
+            });
+            if (validPosition === null || range.to !== range.from) {
+              return [];
+            }
+
+            return [
+              Decoration.widget({
+                widget: new TypingDiffTickWidget(
+                  TYPING_DIFF_DELETED_TICK_CLASS_NAME,
+                ),
+                side: 1,
+              }).range(validPosition),
+            ];
+          }
+
           if (range.type !== 'added') {
             return [];
           }
@@ -318,13 +367,30 @@ export const getTypingDiffDecorations = ({
           }
 
           return [
-            Decoration.mark({ class: 'byline-diff-added' }).range(
+            Decoration.mark({ class: TYPING_DIFF_ADDED_CLASS_NAME }).range(
               validRange.from,
               validRange.to,
             ),
           ];
         })
       : diffPaint.draftHighlightRanges.flatMap((range) => {
+          if (range.type === 'added') {
+            const validPosition = getValidTypingDiffPosition({
+              position: range.from,
+              docLength,
+            });
+            if (validPosition === null || range.to !== range.from) {
+              return [];
+            }
+
+            return [
+              Decoration.widget({
+                widget: new TypingDiffTickWidget(TYPING_DIFF_ADDED_TICK_CLASS_NAME),
+                side: 1,
+              }).range(validPosition),
+            ];
+          }
+
           if (range.type !== 'deleted') {
             return [];
           }
@@ -339,7 +405,7 @@ export const getTypingDiffDecorations = ({
           }
 
           return [
-            Decoration.mark({ class: 'byline-diff-deleted' }).range(
+            Decoration.mark({ class: TYPING_DIFF_DELETED_CLASS_NAME }).range(
               validRange.from,
               validRange.to,
             ),
@@ -1103,6 +1169,24 @@ const getValidTypingDiffRange = ({
     from: clampedFrom,
     to: clampedTo,
   };
+};
+
+const getValidTypingDiffPosition = ({
+  position,
+  docLength,
+}: {
+  position: number;
+  docLength: number;
+}): number | null => {
+  if (!Number.isFinite(position) || !Number.isFinite(docLength)) {
+    return null;
+  }
+
+  if (docLength < 0 || position < 0 || position > docLength) {
+    return null;
+  }
+
+  return position;
 };
 
 const getContentWidth = (view: EditorView): number => {
