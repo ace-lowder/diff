@@ -271,7 +271,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     ".byline-typing-diff-tick::after": {
       content: '""',
       position: "absolute",
-      left: "0",
+      left: `-${DIFF_TICK_WIDTH_PX}px`,
       top: "0",
       width: `${DIFF_TICK_WIDTH_PX}px`,
       height: "100%",

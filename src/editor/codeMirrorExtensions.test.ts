@@ -14,6 +14,11 @@ const codeMirrorExtensionsSource = readFileSync(
   resolve(sourceDirectory, './codeMirrorExtensions.ts'),
   'utf8',
 );
+const typingTickAfterBlock = (() => {
+  const parts = codeMirrorExtensionsSource.split('".byline-typing-diff-tick::after":');
+  const block = parts[1];
+  return block ? block.slice(0, 300) : '';
+})();
 
 describe('line number text offsets', () => {
   it('uses tuned left and right line number text offsets', () => {
@@ -87,6 +92,8 @@ describe('typing diff styles', () => {
     expect(codeMirrorExtensionsSource).toContain(
       'transform: `translateY(${TYPING_DIFF_TICK_VERTICAL_NUDGE_PX}px)`',
     );
+    expect(codeMirrorExtensionsSource).toContain('left: `-${DIFF_TICK_WIDTH_PX}px`');
+    expect(typingTickAfterBlock).not.toContain('left: "0"');
     expect(codeMirrorExtensionsSource).toContain('top: "0"');
     expect(codeMirrorExtensionsSource).toContain('height: "100%"');
     expect(codeMirrorExtensionsSource).not.toContain(

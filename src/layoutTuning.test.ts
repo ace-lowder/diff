@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from "vitest";
 
 import {
   EDITOR_CONTENT_HORIZONTAL_PADDING_PX,
@@ -18,28 +18,28 @@ import {
   TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX,
   TYPING_DIFF_TICK_VERTICAL_NUDGE_PX,
   UNDERLINE_FONT_STYLE_LABEL_CLASS_NAME,
-} from './layoutTuning';
+} from "./layoutTuning";
 
-describe('layout tuning constants', () => {
-  it('match expected default values', () => {
+describe("layout tuning constants", () => {
+  it("match expected default values", () => {
     expect(EDITOR_CONTENT_HORIZONTAL_PADDING_PX).toBe(12);
-    expect(LINE_NUMBER_GUTTER_CONTENT_WIDTH).toBe('6ch');
-    expect(LINE_NUMBER_GUTTER_PADDING_RIGHT).toBe('2ch');
-    expect(LINE_NUMBER_GUTTER_TOTAL_WIDTH).toBe('calc(6ch + 2ch)');
-    expect(LEFT_LINE_NUMBER_TEXT_NUDGE).toBe('0ch');
-    expect(RIGHT_LINE_NUMBER_TEXT_NUDGE).toBe('-0.75ch');
+    expect(LINE_NUMBER_GUTTER_CONTENT_WIDTH).toBe("6ch");
+    expect(LINE_NUMBER_GUTTER_PADDING_RIGHT).toBe("2ch");
+    expect(LINE_NUMBER_GUTTER_TOTAL_WIDTH).toBe("calc(6ch + 2ch)");
+    expect(LEFT_LINE_NUMBER_TEXT_NUDGE).toBe("0ch");
+    expect(RIGHT_LINE_NUMBER_TEXT_NUDGE).toBe("-0.75ch");
     expect(LEFT_RESIZE_HANDLE_NUDGE_PX).toBe(12);
     expect(RIGHT_RESIZE_HANDLE_NUDGE_PX).toBe(12);
     expect(FULL_LINE_HIGHLIGHT_RESERVED_LEFT_GUTTER_NUDGE_PX).toBe(12);
     expect(FULL_LINE_HIGHLIGHT_NO_LEFT_GUTTER_NUDGE_PX).toBe(0);
     expect(FULL_LINE_HIGHLIGHT_RIGHT_NUDGE_PX).toBe(0);
-    expect(TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX).toBe(1);
-    expect(TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX).toBe(1);
-    expect(TYPING_DIFF_TICK_VERTICAL_NUDGE_PX).toBe(4);
-    expect(FONT_SIZE_ICON_SMALL_T_CLASS_NAME).toBe('text-[0.72em] font-bold');
-    expect(UNDERLINE_FONT_STYLE_LABEL_CLASS_NAME).toBe('text-[0.92em]');
+    expect(TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX).toBe(2);
+    expect(TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX).toBe(0);
+    expect(TYPING_DIFF_TICK_VERTICAL_NUDGE_PX).toBe(0);
+    expect(FONT_SIZE_ICON_SMALL_T_CLASS_NAME).toBe("text-[0.72em] font-bold");
+    expect(UNDERLINE_FONT_STYLE_LABEL_CLASS_NAME).toBe("text-[0.92em]");
     expect(FONT_SIZE_BUTTON_WIDTH_CLASS_NAME).toBe(
-      'w-[var(--byline-menu-height)]',
+      "w-[var(--byline-menu-height)]",
     );
   });
 });
