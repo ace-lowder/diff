@@ -27,4 +27,16 @@ describe('document change callback payload', () => {
     expect(codeMirrorExtensionsSource).toContain('onDocumentChange({ changes });');
     expect(codeMirrorExtensionsSource).not.toContain('update.state.doc.toString()');
   });
+
+  it('only requests layout updates when line count changes', () => {
+    expect(codeMirrorExtensionsSource).toContain(
+      'if (update.startState.doc.lines !== update.state.doc.lines)',
+    );
+  });
+
+  it('does not report selection changes for docChanged typing updates', () => {
+    expect(codeMirrorExtensionsSource).toContain(
+      'if (update.selectionSet && !update.docChanged)',
+    );
+  });
 });

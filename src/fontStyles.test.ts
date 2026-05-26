@@ -7,6 +7,7 @@ import {
   getInsertedFontStyleRanges,
   mapFontStyleRangesThroughChanges,
   normalizeFontStyleRanges,
+  shouldUpdateFontStyleRangesForChanges,
   toggleFontStyleRanges,
   type FontStyleRange,
 } from './fontStyles';
@@ -107,6 +108,35 @@ describe('areTextSelectionRangesEqual', () => {
         ],
         [{ from: 2, to: 4 }],
       ),
+    ).toBe(true);
+  });
+});
+
+describe('shouldUpdateFontStyleRangesForChanges', () => {
+  it('returns false for empty ranges and empty active types', () => {
+    expect(
+      shouldUpdateFontStyleRangesForChanges({
+        ranges: [],
+        activeTypes: [],
+      }),
+    ).toBe(false);
+  });
+
+  it('returns true when ranges are non-empty', () => {
+    expect(
+      shouldUpdateFontStyleRangesForChanges({
+        ranges: [{ type: 'bold', from: 1, to: 2 }],
+        activeTypes: [],
+      }),
+    ).toBe(true);
+  });
+
+  it('returns true when active types are non-empty', () => {
+    expect(
+      shouldUpdateFontStyleRangesForChanges({
+        ranges: [],
+        activeTypes: ['italic'],
+      }),
     ).toBe(true);
   });
 });

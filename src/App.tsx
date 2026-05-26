@@ -43,9 +43,11 @@ import {
   getInsertedFontStyleRanges,
   mapFontStyleRangesThroughChanges,
   normalizeFontStyleRanges,
+  shouldUpdateFontStyleRangesForChanges,
   toggleFontStyleRanges,
   type FontStyleRange,
   type FontStyleType,
+  type TextChange,
   type TextSelectionRange,
 } from './fontStyles';
 import {
@@ -74,6 +76,7 @@ import {
   getTopVisibleLineNumber,
   scrollToLineNumber,
 } from './editor/codeMirrorScroll';
+import { setDiffPaintTypingEffect } from './editor/codeMirrorDiffPaint';
 import { LINE_NUMBER_AUTO_HIDE_DELAY_MS } from './editor/codeMirrorLineNumberSettings';
 import { getVisibleLineNumberGutterWidthPx } from './editor/codeMirrorLineCopy';
 import {
@@ -206,6 +209,9 @@ const App = () => {
   const latestTextRef = useRef({ draftText, editorText });
   const draftTextRef = useRef(draftText);
   const editorTextRef = useRef(editorText);
+  const draftFontStyleRangesRef = useRef(draftFontStyleRanges);
+  const editorFontStyleRangesRef = useRef(editorFontStyleRanges);
+  const isDiffPaintPausedForTypingRef = useRef(false);
   const editorDiffStateRef = useRef(editorDiffState);
   const storedTextTimeoutRef = useRef<number | null>(null);
   const pendingStoredTextRef = useRef<
@@ -260,9 +266,27 @@ const App = () => {
   }, []);
 
   const setCurrentEditorDiffState = (nextState: EditorDiffState) => {
+    isDiffPaintPausedForTypingRef.current = false;
     editorDiffStateRef.current = nextState;
     setEditorDiffState(nextState);
   };
+
+  const pauseDiffPaintForTyping = useCallback(() => {
+    if (isDiffPaintPausedForTypingRef.current) {
+      return;
+    }
+
+    isDiffPaintPausedForTypingRef.current = true;
+
+    for (const editorView of [
+      draftEditorViewRef.current,
+      editorEditorViewRef.current,
+    ]) {
+      editorView?.dispatch({
+        effects: setDiffPaintTypingEffect.of(true),
+      });
+    }
+  }, []);
 
   const startEditorDiffWorkerRequest = ({
     draftText: nextDraftText,
@@ -386,6 +410,14 @@ const App = () => {
   useEffect(() => {
     editorTextRef.current = editorText;
   }, [editorText]);
+
+  useEffect(() => {
+    draftFontStyleRangesRef.current = draftFontStyleRanges;
+  }, [draftFontStyleRanges]);
+
+  useEffect(() => {
+    editorFontStyleRangesRef.current = editorFontStyleRanges;
+  }, [editorFontStyleRanges]);
 
   useEffect(() => {
     latestTextRef.current = { draftText, editorText };
@@ -1096,6 +1128,60 @@ const App = () => {
     [],
   );
 
+  const applyDraftDocumentChanges = useCallback((changes: TextChange[]) => {
+    const activeTypes = draftActiveFontStyleTypesRef.current;
+
+    if (
+      !shouldUpdateFontStyleRangesForChanges({
+        ranges: draftFontStyleRangesRef.current,
+        activeTypes,
+      })
+    ) {
+      return;
+    }
+
+    setDraftFontStyleRanges((currentRanges) => {
+      const nextRanges = normalizeFontStyleRanges([
+        ...mapFontStyleRangesThroughChanges({ ranges: currentRanges, changes }),
+        ...getInsertedFontStyleRanges({ changes, activeTypes }),
+      ]);
+
+      if (areFontStyleRangesEqual(currentRanges, nextRanges)) {
+        return currentRanges;
+      }
+
+      draftFontStyleRangesRef.current = nextRanges;
+      return nextRanges;
+    });
+  }, []);
+
+  const applyEditorDocumentChanges = useCallback((changes: TextChange[]) => {
+    const activeTypes = editorActiveFontStyleTypesRef.current;
+
+    if (
+      !shouldUpdateFontStyleRangesForChanges({
+        ranges: editorFontStyleRangesRef.current,
+        activeTypes,
+      })
+    ) {
+      return;
+    }
+
+    setEditorFontStyleRanges((currentRanges) => {
+      const nextRanges = normalizeFontStyleRanges([
+        ...mapFontStyleRangesThroughChanges({ ranges: currentRanges, changes }),
+        ...getInsertedFontStyleRanges({ changes, activeTypes }),
+      ]);
+
+      if (areFontStyleRangesEqual(currentRanges, nextRanges)) {
+        return currentRanges;
+      }
+
+      editorFontStyleRangesRef.current = nextRanges;
+      return nextRanges;
+    });
+  }, []);
+
   const setDraftTextIfChanged = useCallback((nextText: string) => {
     setDraftText((currentText) => {
       if (currentText === nextText) {
@@ -1249,25 +1335,9 @@ const App = () => {
             {mode === 'draft' && (
               <CodeMirrorPane
                 value={draftText}
-                onDocumentChange={({ changes }) => {
-                  setDraftFontStyleRanges((currentRanges) => {
-                    const nextRanges = normalizeFontStyleRanges([
-                      ...mapFontStyleRangesThroughChanges({
-                        ranges: currentRanges,
-                        changes,
-                      }),
-                      ...getInsertedFontStyleRanges({
-                        changes,
-                        activeTypes: draftActiveFontStyleTypesRef.current,
-                      }),
-                    ]);
-
-                    return areFontStyleRangesEqual(currentRanges, nextRanges)
-                      ? currentRanges
-                      : nextRanges;
-                  });
-                }}
+                onDocumentChange={({ changes }) => applyDraftDocumentChanges(changes)}
                 onCommittedValueChange={setDraftTextIfChanged}
+                onTypingActivity={pauseDiffPaintForTyping}
                 onFocusPane={() => setActivePane('draft')}
                 onToggleFontStyle={(fontStyleType) =>
                   handleToggleFontStyleForPane('draft', fontStyleType)
@@ -1306,25 +1376,9 @@ const App = () => {
             {mode === 'editor' && (
               <CodeMirrorPane
                 value={editorText}
-                onDocumentChange={({ changes }) => {
-                  setEditorFontStyleRanges((currentRanges) => {
-                    const nextRanges = normalizeFontStyleRanges([
-                      ...mapFontStyleRangesThroughChanges({
-                        ranges: currentRanges,
-                        changes,
-                      }),
-                      ...getInsertedFontStyleRanges({
-                        changes,
-                        activeTypes: editorActiveFontStyleTypesRef.current,
-                      }),
-                    ]);
-
-                    return areFontStyleRangesEqual(currentRanges, nextRanges)
-                      ? currentRanges
-                      : nextRanges;
-                  });
-                }}
+                onDocumentChange={({ changes }) => applyEditorDocumentChanges(changes)}
                 onCommittedValueChange={setEditorTextIfChanged}
+                onTypingActivity={pauseDiffPaintForTyping}
                 onFocusPane={() => setActivePane('editor')}
                 onToggleFontStyle={(fontStyleType) =>
                   handleToggleFontStyleForPane('editor', fontStyleType)
@@ -1367,25 +1421,9 @@ const App = () => {
                 >
                   <CodeMirrorPane
                     value={draftText}
-                    onDocumentChange={({ changes }) => {
-                      setDraftFontStyleRanges((currentRanges) => {
-                        const nextRanges = normalizeFontStyleRanges([
-                          ...mapFontStyleRangesThroughChanges({
-                            ranges: currentRanges,
-                            changes,
-                          }),
-                          ...getInsertedFontStyleRanges({
-                            changes,
-                            activeTypes: draftActiveFontStyleTypesRef.current,
-                          }),
-                        ]);
-
-                        return areFontStyleRangesEqual(currentRanges, nextRanges)
-                          ? currentRanges
-                          : nextRanges;
-                      });
-                    }}
+                    onDocumentChange={({ changes }) => applyDraftDocumentChanges(changes)}
                     onCommittedValueChange={setDraftTextIfChanged}
+                    onTypingActivity={pauseDiffPaintForTyping}
                     onFocusPane={() => setActivePane('draft')}
                     onToggleFontStyle={(fontStyleType) =>
                       handleToggleFontStyleForPane('draft', fontStyleType)
@@ -1440,25 +1478,9 @@ const App = () => {
                 <div className="min-h-0 flex-1">
                   <CodeMirrorPane
                     value={editorText}
-                    onDocumentChange={({ changes }) => {
-                      setEditorFontStyleRanges((currentRanges) => {
-                        const nextRanges = normalizeFontStyleRanges([
-                          ...mapFontStyleRangesThroughChanges({
-                            ranges: currentRanges,
-                            changes,
-                          }),
-                          ...getInsertedFontStyleRanges({
-                            changes,
-                            activeTypes: editorActiveFontStyleTypesRef.current,
-                          }),
-                        ]);
-
-                        return areFontStyleRangesEqual(currentRanges, nextRanges)
-                          ? currentRanges
-                          : nextRanges;
-                      });
-                    }}
+                    onDocumentChange={({ changes }) => applyEditorDocumentChanges(changes)}
                     onCommittedValueChange={setEditorTextIfChanged}
+                    onTypingActivity={pauseDiffPaintForTyping}
                     onFocusPane={() => setActivePane('editor')}
                     onToggleFontStyle={(fontStyleType) =>
                       handleToggleFontStyleForPane('editor', fontStyleType)

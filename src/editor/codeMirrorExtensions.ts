@@ -106,10 +106,12 @@ export const getCodeMirrorExtensions = ({
           changes.push({ fromA, toA, fromB, toB });
         });
         onDocumentChange({ changes });
-        onContentLayoutChange();
+        if (update.startState.doc.lines !== update.state.doc.lines) {
+          onContentLayoutChange();
+        }
       }
 
-      if (update.selectionSet || update.docChanged) {
+      if (update.selectionSet && !update.docChanged) {
         onSelectionChange?.(getTextSelectionRanges(update.state));
       }
     }),

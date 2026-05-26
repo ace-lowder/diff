@@ -70,6 +70,7 @@ export type DiffPaintState = {
   editorLineDecorations: EditorLineDecoration[];
   draftLineDecorations: DraftLineDecoration[];
   lowestEditedLine: LowestEditedLine | null;
+  isTyping: boolean;
 };
 
 export type VisualLineBoxInput = {
@@ -99,6 +100,7 @@ type PaintBlock = {
 const VISIBLE_RANGE_BUFFER_CHARS = 500;
 
 export const setDiffPaintEffect = StateEffect.define<DiffPaintState>();
+export const setDiffPaintTypingEffect = StateEffect.define<boolean>();
 
 export const diffPaintField = StateField.define<DiffPaintState>({
   create() {
@@ -108,20 +110,30 @@ export const diffPaintField = StateField.define<DiffPaintState>({
       editorLineDecorations: [],
       draftLineDecorations: [],
       lowestEditedLine: null,
+      isTyping: false,
     };
   },
   update(value, transaction) {
     for (const effect of transaction.effects) {
       if (effect.is(setDiffPaintEffect)) {
-        return effect.value;
+        return { ...effect.value, isTyping: false };
+      }
+
+      if (effect.is(setDiffPaintTypingEffect)) {
+        if (value.isTyping === effect.value) {
+          return value;
+        }
+
+        return { ...value, isTyping: effect.value };
       }
     }
 
     if (transaction.docChanged) {
-      return getMappedDiffPaintStateThroughChanges({
-        diffPaint: value,
-        changes: transaction.changes,
-      });
+      if (value.isTyping) {
+        return value;
+      }
+
+      return { ...value, isTyping: true };
     }
 
     return value;
@@ -142,6 +154,7 @@ export const mapDiffPaintStateThroughChanges = (
     editorLineDecorations: diffPaint.editorLineDecorations,
     draftLineDecorations: diffPaint.draftLineDecorations,
     lowestEditedLine: diffPaint.lowestEditedLine,
+    isTyping: diffPaint.isTyping,
   };
 };
 
@@ -164,6 +177,7 @@ export const getDiffPaintEffectValue = (
     editorLineDecorations: decorations.editorLineDecorations,
     draftLineDecorations: decorations.draftLineDecorations,
     lowestEditedLine: decorations.lowestEditedLine,
+    isTyping: false,
   };
 };
 
@@ -507,6 +521,10 @@ const getDiffPaintMarkers = (
   theme: CodeMirrorTheme,
 ): readonly LayerMarker[] => {
   const diffPaint = view.state.field(diffPaintField);
+  if (diffPaint.isTyping) {
+    return [];
+  }
+
   const targets = getDiffPaintTargets({
     theme,
     text: view.state.doc.toString(),
@@ -558,7 +576,12 @@ const getDiffPaintMarkers = (
 };
 
 const getLowestEditedLineMarkers = (view: EditorView): RectangleMarker[] => {
-  const { lowestEditedLine } = view.state.field(diffPaintField);
+  const diffPaint = view.state.field(diffPaintField);
+  if (diffPaint.isTyping) {
+    return [];
+  }
+
+  const { lowestEditedLine } = diffPaint;
   if (!lowestEditedLine) {
     return [];
   }

@@ -178,6 +178,16 @@ export const getInsertedFontStyleRanges = ({
   return normalizeFontStyleRanges(insertedRanges);
 };
 
+export const shouldUpdateFontStyleRangesForChanges = ({
+  ranges,
+  activeTypes,
+}: {
+  ranges: FontStyleRange[];
+  activeTypes: FontStyleType[];
+}): boolean => {
+  return ranges.length > 0 || activeTypes.length > 0;
+};
+
 export const getActiveFontStyleTypesForSelections = ({
   ranges,
   selections,

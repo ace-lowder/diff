@@ -14,6 +14,7 @@ import {
   isMarkerInsideInlineRange,
   mapDiffPaintStateThroughChanges,
   setDiffPaintEffect,
+  setDiffPaintTypingEffect,
   getVisualRowRangeSegments,
   getVisualLineBox,
   type DiffPaintState,
@@ -54,6 +55,7 @@ const getTargets = ({
     editorLineDecorations,
     draftLineDecorations,
     lowestEditedLine: null,
+    isTyping: false,
   };
 
   return getDiffPaintTargets({
@@ -93,6 +95,7 @@ describe('getDiffPaintTargets', () => {
         editorLineDecorations: [],
         draftLineDecorations: [],
         lowestEditedLine: null,
+      isTyping: false,
       },
     });
 
@@ -148,6 +151,7 @@ describe('getDiffPaintTargets', () => {
         editorLineDecorations: [],
         draftLineDecorations: [],
         lowestEditedLine: null,
+      isTyping: false,
       },
     });
 
@@ -248,6 +252,7 @@ describe('getDiffPaintTargets', () => {
         editorLineDecorations: [],
         draftLineDecorations: [],
         lowestEditedLine: null,
+      isTyping: false,
       },
     });
 
@@ -273,6 +278,7 @@ describe('getDiffPaintTargets', () => {
         editorLineDecorations: [],
         draftLineDecorations: [],
         lowestEditedLine: null,
+      isTyping: false,
       },
     });
 
@@ -298,6 +304,7 @@ describe('getDiffPaintTargets', () => {
         editorLineDecorations: [],
         draftLineDecorations: [],
         lowestEditedLine: null,
+      isTyping: false,
       },
     });
 
@@ -323,6 +330,7 @@ describe('getDiffPaintTargets', () => {
         editorLineDecorations: [],
         draftLineDecorations: [],
         lowestEditedLine: null,
+      isTyping: false,
       },
     });
 
@@ -348,6 +356,7 @@ describe('getDiffPaintTargets', () => {
         editorLineDecorations: [],
         draftLineDecorations: [],
         lowestEditedLine: null,
+      isTyping: false,
       },
     });
 
@@ -373,6 +382,7 @@ describe('getDiffPaintTargets', () => {
         editorLineDecorations: [],
         draftLineDecorations: [],
         lowestEditedLine: null,
+      isTyping: false,
       },
     });
 
@@ -401,12 +411,29 @@ describe('getDiffPaintEffectValue', () => {
       editorLineDecorations: [],
       draftLineDecorations: [],
       lowestEditedLine: { lineNumber: 8 },
+      isTyping: false,
     });
   });
 });
 
 describe('diffPaintField', () => {
-  it('maps existing ranges through doc changes and is replaced by explicit effect updates', () => {
+  it('starts with isTyping false', () => {
+    const state = EditorState.create({
+      doc: 'one',
+      extensions: [diffPaintField],
+    });
+
+    expect(state.field(diffPaintField)).toEqual({
+      editorHighlightRanges: [],
+      draftHighlightRanges: [],
+      editorLineDecorations: [],
+      draftLineDecorations: [],
+      lowestEditedLine: null,
+      isTyping: false,
+    });
+  });
+
+  it('sets typing true on docChanged without remapping ranges', () => {
     const initialState = EditorState.create({
       doc: 'one',
       extensions: [diffPaintField],
@@ -420,6 +447,7 @@ describe('diffPaintField', () => {
           editorLineDecorations: [{ lineNumber: 1 }],
           draftLineDecorations: [],
           lowestEditedLine: { lineNumber: 1 },
+          isTyping: false,
         }),
       ],
     }).state;
@@ -429,14 +457,45 @@ describe('diffPaintField', () => {
     }).state;
 
     expect(afterDocChange.field(diffPaintField)).toEqual({
-      editorHighlightRanges: [{ type: 'added', from: 0, to: 3 }],
+      editorHighlightRanges: [{ type: 'added', from: 0, to: 2 }],
       draftHighlightRanges: [{ type: 'deleted', from: 0, to: 1 }],
       editorLineDecorations: [{ lineNumber: 1 }],
       draftLineDecorations: [],
       lowestEditedLine: { lineNumber: 1 },
+      isTyping: true,
+    });
+  });
+
+  it('keeps state unchanged across docChanged while already typing', () => {
+    const initialState = EditorState.create({
+      doc: 'one',
+      extensions: [diffPaintField],
     });
 
-    const replacedState = afterDocChange.update({
+    const seededState = initialState.update({
+      effects: [setDiffPaintTypingEffect.of(true)],
+    }).state;
+
+    const nextState = seededState.update({
+      changes: { from: 1, insert: 'x' },
+    }).state;
+
+    expect(nextState.field(diffPaintField)).toBe(seededState.field(diffPaintField));
+  });
+
+  it('applies setDiffPaintTypingEffect and setDiffPaintEffect semantics', () => {
+    const initialState = EditorState.create({
+      doc: 'one',
+      extensions: [diffPaintField],
+    });
+
+    const typingState = initialState.update({
+      effects: [setDiffPaintTypingEffect.of(true)],
+    }).state;
+
+    expect(typingState.field(diffPaintField).isTyping).toBe(true);
+
+    const replacedState = typingState.update({
       effects: [
         setDiffPaintEffect.of({
           editorHighlightRanges: [{ type: 'deleted', from: 2, to: 2 }],
@@ -444,6 +503,7 @@ describe('diffPaintField', () => {
           editorLineDecorations: [],
           draftLineDecorations: [],
           lowestEditedLine: null,
+          isTyping: false,
         }),
       ],
     }).state;
@@ -454,6 +514,7 @@ describe('diffPaintField', () => {
       editorLineDecorations: [],
       draftLineDecorations: [],
       lowestEditedLine: null,
+      isTyping: false,
     });
   });
 });
@@ -468,6 +529,7 @@ describe('getMappedDiffPaintStateThroughChanges', () => {
         editorLineDecorations: [],
         draftLineDecorations: [],
         lowestEditedLine: null,
+      isTyping: false,
       },
       changes,
     });
@@ -484,6 +546,7 @@ describe('getMappedDiffPaintStateThroughChanges', () => {
         editorLineDecorations: [],
         draftLineDecorations: [],
         lowestEditedLine: null,
+      isTyping: false,
       },
       changes,
     });
@@ -500,6 +563,7 @@ describe('getMappedDiffPaintStateThroughChanges', () => {
         editorLineDecorations: [],
         draftLineDecorations: [],
         lowestEditedLine: null,
+      isTyping: false,
       },
       changes,
     });
@@ -518,6 +582,7 @@ describe('mapDiffPaintStateThroughChanges', () => {
         editorLineDecorations: [],
         draftLineDecorations: [],
         lowestEditedLine: null,
+      isTyping: false,
       },
       changes,
     );
@@ -534,6 +599,7 @@ describe('mapDiffPaintStateThroughChanges', () => {
         editorLineDecorations: [],
         draftLineDecorations: [],
         lowestEditedLine: null,
+      isTyping: false,
       },
       changes,
     );
@@ -550,6 +616,7 @@ describe('mapDiffPaintStateThroughChanges', () => {
         editorLineDecorations: [],
         draftLineDecorations: [],
         lowestEditedLine: null,
+      isTyping: false,
       },
       changes,
     );
@@ -569,6 +636,7 @@ describe('mapDiffPaintStateThroughChanges', () => {
           { type: 'deletedDraftLine', lineNumber: 3, placement: 'before' },
         ],
         lowestEditedLine: { lineNumber: 5 },
+      isTyping: false,
       },
       changes,
     );

@@ -47,6 +47,7 @@ type CodeMirrorPaneProps = {
   value: string;
   onDocumentChange: ({ changes }: { changes: TextChange[] }) => void;
   onCommittedValueChange: (value: string) => void;
+  onTypingActivity?: () => void;
   onFocusPane?: () => void;
   onToggleFontStyle: (fontStyleType: FontStyleType) => void;
   onRunConsoleCommand: RunConsoleCommand;
@@ -76,12 +77,13 @@ type CodeMirrorPaneProps = {
   onEditorViewChange?: (editorView: EditorView | null) => void;
 };
 
-const DOCUMENT_VALUE_COMMIT_DELAY_MS = 60;
+const DOCUMENT_VALUE_COMMIT_DELAY_MS = 180;
 
 export const CodeMirrorPane = ({
   value,
   onDocumentChange,
   onCommittedValueChange,
+  onTypingActivity,
   onFocusPane,
   onToggleFontStyle,
   onRunConsoleCommand,
@@ -111,6 +113,7 @@ export const CodeMirrorPane = ({
   const editorViewRef = useRef<EditorView | null>(null);
   const onDocumentChangeRef = useRef(onDocumentChange);
   const onCommittedValueChangeRef = useRef(onCommittedValueChange);
+  const onTypingActivityRef = useRef(onTypingActivity);
   const onScrollOffsetChangeRef = useRef(onScrollOffsetChange);
   const onContentLayoutChangeRef = useRef(onContentLayoutChange);
   const onSelectionChangeRef = useRef(onSelectionChange);
@@ -148,6 +151,10 @@ export const CodeMirrorPane = ({
   useEffect(() => {
     onCommittedValueChangeRef.current = onCommittedValueChange;
   }, [onCommittedValueChange]);
+
+  useEffect(() => {
+    onTypingActivityRef.current = onTypingActivity;
+  }, [onTypingActivity]);
 
   useEffect(() => {
     onScrollOffsetChangeRef.current = onScrollOffsetChange;
@@ -299,6 +306,8 @@ export const CodeMirrorPane = ({
           onRunConsoleCommand: (command, context) =>
             onRunConsoleCommandRef.current(command, context),
           onDocumentChange: ({ changes }) => {
+            onTypingActivityRef.current?.();
+
             if (!isApplyingExternalValueRef.current) {
               scheduleCurrentEditorValueCommit();
             }
