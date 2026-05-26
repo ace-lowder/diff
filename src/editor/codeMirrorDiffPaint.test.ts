@@ -1,4 +1,5 @@
 import { ChangeSet, EditorState } from '@codemirror/state';
+import { Decoration } from '@codemirror/view';
 import { describe, expect, it } from 'vitest';
 
 import type { DraftHighlightRange, DraftLineDecoration, EditorHighlightRange } from '../editorDiff';
@@ -6,6 +7,7 @@ import {
   diffPaintField,
   getDiffPaintEffectValue,
   getMappedDiffPaintStateThroughChanges,
+  getTypingDiffDecorations,
   getDiffPaintTargets,
   getLineBoundedRangeSegments,
   getMarkerTargetsOutsideInlineRangeInteriors,
@@ -15,6 +17,8 @@ import {
   mapDiffPaintStateThroughChanges,
   setDiffPaintEffect,
   setDiffPaintTypingEffect,
+  setTypingDiffDecorationsEffect,
+  typingDiffDecorationsField,
   getVisualRowRangeSegments,
   getVisualLineBox,
   type DiffPaintState,
@@ -65,6 +69,18 @@ const getTargets = ({
     activeLineNumber: 2,
     diffPaint,
   });
+};
+
+const getDecorationRanges = (
+  set: ReturnType<typeof getTypingDiffDecorations>,
+): Array<{ from: number; to: number; className: string | undefined }> => {
+  const ranges: Array<{ from: number; to: number; className: string | undefined }> = [];
+  set.between(0, Number.MAX_SAFE_INTEGER, (from, to, value) => {
+    const className =
+      typeof value.spec.class === 'string' ? value.spec.class : undefined;
+    ranges.push({ from, to, className });
+  });
+  return ranges;
 };
 
 describe('getDiffPaintTargets', () => {
@@ -394,6 +410,76 @@ describe('getDiffPaintTargets', () => {
   });
 });
 
+describe('getTypingDiffDecorations', () => {
+  it('editor includes non-zero added ranges', () => {
+    const decorations = getTypingDiffDecorations({
+      theme: 'editor',
+      docLength: 20,
+      diffPaint: {
+        editorHighlightRanges: [
+          { type: 'added', from: 2, to: 6 },
+          { type: 'deleted', from: 8, to: 8 },
+        ],
+        draftHighlightRanges: [],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+        isTyping: false,
+      },
+    });
+
+    expect(getDecorationRanges(decorations)).toEqual([
+      { from: 2, to: 6, className: 'byline-diff-added' },
+    ]);
+  });
+
+  it('draft includes non-zero deleted ranges and skips added markers', () => {
+    const decorations = getTypingDiffDecorations({
+      theme: 'draft',
+      docLength: 20,
+      diffPaint: {
+        editorHighlightRanges: [],
+        draftHighlightRanges: [
+          { type: 'deleted', from: 3, to: 7 },
+          { type: 'added', from: 8, to: 8 },
+        ],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+        isTyping: false,
+      },
+    });
+
+    expect(getDecorationRanges(decorations)).toEqual([
+      { from: 3, to: 7, className: 'byline-diff-deleted' },
+    ]);
+  });
+
+  it('clamps out-of-bounds ranges and drops invalid ranges', () => {
+    const decorations = getTypingDiffDecorations({
+      theme: 'editor',
+      docLength: 10,
+      diffPaint: {
+        editorHighlightRanges: [
+          { type: 'added', from: -4, to: 3 },
+          { type: 'added', from: 8, to: 99 },
+          { type: 'added', from: 6, to: 6 },
+        ],
+        draftHighlightRanges: [],
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+        lowestEditedLine: null,
+        isTyping: false,
+      },
+    });
+
+    expect(getDecorationRanges(decorations)).toEqual([
+      { from: 0, to: 3, className: 'byline-diff-added' },
+      { from: 8, to: 10, className: 'byline-diff-added' },
+    ]);
+  });
+});
+
 describe('getDiffPaintEffectValue', () => {
   it('includes lowest edited line', () => {
     expect(
@@ -516,6 +602,94 @@ describe('diffPaintField', () => {
       lowestEditedLine: null,
       isTyping: false,
     });
+  });
+});
+
+describe('typingDiffDecorationsField', () => {
+  it('starts hidden while not typing', () => {
+    const state = EditorState.create({
+      doc: 'one',
+      extensions: [typingDiffDecorationsField],
+    });
+
+    const fieldValue = state.field(typingDiffDecorationsField);
+    expect(fieldValue.isTyping).toBe(false);
+    expect(getDecorationRanges(fieldValue.decorations)).toEqual([]);
+  });
+
+  it('stores decorations and shows them only while typing', () => {
+    const state = EditorState.create({
+      doc: 'abcdef',
+      extensions: [typingDiffDecorationsField],
+    });
+
+    const seededDecorations = Decoration.set([
+      Decoration.mark({ class: 'byline-diff-added' }).range(1, 3),
+    ]);
+    const seededState = state.update({
+      effects: [setTypingDiffDecorationsEffect.of(seededDecorations)],
+    }).state;
+
+    expect(seededState.field(typingDiffDecorationsField).isTyping).toBe(false);
+    expect(
+      getDecorationRanges(seededState.field(typingDiffDecorationsField).decorations),
+    ).toEqual([{ from: 1, to: 3, className: 'byline-diff-added' }]);
+
+    const typingState = seededState.update({
+      effects: [setDiffPaintTypingEffect.of(true)],
+    }).state;
+
+    expect(typingState.field(typingDiffDecorationsField).isTyping).toBe(true);
+  });
+
+  it('maps stored decorations through doc changes while typing', () => {
+    const state = EditorState.create({
+      doc: 'abcdef',
+      extensions: [typingDiffDecorationsField],
+    });
+
+    const seededDecorations = Decoration.set([
+      Decoration.mark({ class: 'byline-diff-added' }).range(2, 4),
+    ]);
+    const seededState = state.update({
+      effects: [
+        setTypingDiffDecorationsEffect.of(seededDecorations),
+        setDiffPaintTypingEffect.of(true),
+      ],
+    }).state;
+
+    const nextState = seededState.update({
+      changes: { from: 0, insert: 'xx' },
+    }).state;
+    const fieldValue = nextState.field(typingDiffDecorationsField);
+
+    expect(fieldValue.isTyping).toBe(true);
+    expect(getDecorationRanges(fieldValue.decorations)).toEqual([
+      { from: 4, to: 6, className: 'byline-diff-added' },
+    ]);
+  });
+
+  it('reset effect replaces decorations and clears typing', () => {
+    const state = EditorState.create({
+      doc: 'abcdef',
+      extensions: [typingDiffDecorationsField],
+    });
+
+    const typingState = state.update({
+      effects: [setDiffPaintTypingEffect.of(true)],
+    }).state;
+    const replacement = Decoration.set([
+      Decoration.mark({ class: 'byline-diff-deleted' }).range(0, 2),
+    ]);
+    const replacedState = typingState.update({
+      effects: [setTypingDiffDecorationsEffect.of(replacement)],
+    }).state;
+
+    const fieldValue = replacedState.field(typingDiffDecorationsField);
+    expect(fieldValue.isTyping).toBe(false);
+    expect(getDecorationRanges(fieldValue.decorations)).toEqual([
+      { from: 0, to: 2, className: 'byline-diff-deleted' },
+    ]);
   });
 });
 

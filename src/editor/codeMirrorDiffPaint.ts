@@ -6,7 +6,14 @@ import {
   type ChangeDesc,
   type Extension,
 } from '@codemirror/state';
-import { EditorView, RectangleMarker, layer, type LayerMarker } from '@codemirror/view';
+import {
+  Decoration,
+  type DecorationSet,
+  EditorView,
+  RectangleMarker,
+  layer,
+  type LayerMarker,
+} from '@codemirror/view';
 
 import type { CodeMirrorTheme } from '../appTypes';
 import type {
@@ -73,6 +80,11 @@ export type DiffPaintState = {
   isTyping: boolean;
 };
 
+type TypingDiffDecorationsState = {
+  decorations: DecorationSet;
+  isTyping: boolean;
+};
+
 export type VisualLineBoxInput = {
   rectTop: number;
   rectHeight: number;
@@ -101,6 +113,7 @@ const VISIBLE_RANGE_BUFFER_CHARS = 500;
 
 export const setDiffPaintEffect = StateEffect.define<DiffPaintState>();
 export const setDiffPaintTypingEffect = StateEffect.define<boolean>();
+export const setTypingDiffDecorationsEffect = StateEffect.define<DecorationSet>();
 
 export const diffPaintField = StateField.define<DiffPaintState>({
   create() {
@@ -139,6 +152,52 @@ export const diffPaintField = StateField.define<DiffPaintState>({
     return value;
   },
 });
+
+export const typingDiffDecorationsField = StateField.define<TypingDiffDecorationsState>(
+  {
+    create() {
+      return {
+        decorations: Decoration.none,
+        isTyping: false,
+      };
+    },
+    update(value, transaction) {
+      for (const effect of transaction.effects) {
+        if (effect.is(setTypingDiffDecorationsEffect)) {
+          return {
+            decorations: effect.value,
+            isTyping: false,
+          };
+        }
+
+        if (effect.is(setDiffPaintTypingEffect)) {
+          if (value.isTyping === effect.value) {
+            return value;
+          }
+
+          return {
+            decorations: value.decorations,
+            isTyping: effect.value,
+          };
+        }
+      }
+
+      if (transaction.docChanged) {
+        return {
+          decorations: value.decorations.map(transaction.changes),
+          isTyping: true,
+        };
+      }
+
+      return value;
+    },
+    provide(field) {
+      return EditorView.decorations.from(field, (value) => {
+        return value.isTyping ? value.decorations : Decoration.none;
+      });
+    },
+  },
+);
 
 export const mapDiffPaintStateThroughChanges = (
   diffPaint: DiffPaintState,
@@ -226,11 +285,77 @@ export const getDiffPaintTargets = ({
   return targets;
 };
 
+export const getTypingDiffDecorations = ({
+  theme,
+  docLength,
+  diffPaint,
+}: {
+  theme: CodeMirrorTheme;
+  docLength: number;
+  diffPaint: DiffPaintState;
+}): DecorationSet => {
+  if (docLength <= 0) {
+    return Decoration.none;
+  }
+
+  const ranges =
+    theme === 'editor'
+      ? diffPaint.editorHighlightRanges.flatMap((range) => {
+          if (range.type !== 'added') {
+            return [];
+          }
+
+          const validRange = getValidTypingDiffRange({
+            from: range.from,
+            to: range.to,
+            docLength,
+          });
+          if (!validRange) {
+            return [];
+          }
+
+          return [
+            Decoration.mark({ class: 'byline-diff-added' }).range(
+              validRange.from,
+              validRange.to,
+            ),
+          ];
+        })
+      : diffPaint.draftHighlightRanges.flatMap((range) => {
+          if (range.type !== 'deleted') {
+            return [];
+          }
+
+          const validRange = getValidTypingDiffRange({
+            from: range.from,
+            to: range.to,
+            docLength,
+          });
+          if (!validRange) {
+            return [];
+          }
+
+          return [
+            Decoration.mark({ class: 'byline-diff-deleted' }).range(
+              validRange.from,
+              validRange.to,
+            ),
+          ];
+        });
+
+  if (ranges.length === 0) {
+    return Decoration.none;
+  }
+
+  return Decoration.set(ranges, true);
+};
+
 export const getCodeMirrorDiffPaintExtension = (
   theme: CodeMirrorTheme,
 ): Extension[] => {
   return [
     diffPaintField,
+    typingDiffDecorationsField,
     layer({
       above: false,
       class: 'byline-diff-layer',
@@ -941,6 +1066,35 @@ const getValidRange = (
   }
 
   return { from, to };
+};
+
+const getValidTypingDiffRange = ({
+  from,
+  to,
+  docLength,
+}: {
+  from: number;
+  to: number;
+  docLength: number;
+}): { from: number; to: number } | null => {
+  if (!Number.isFinite(from) || !Number.isFinite(to) || !Number.isFinite(docLength)) {
+    return null;
+  }
+
+  if (docLength < 0) {
+    return null;
+  }
+
+  const clampedFrom = Math.max(0, Math.min(docLength, from));
+  const clampedTo = Math.max(0, Math.min(docLength, to));
+  if (clampedTo <= clampedFrom) {
+    return null;
+  }
+
+  return {
+    from: clampedFrom,
+    to: clampedTo,
+  };
 };
 
 const getContentWidth = (view: EditorView): number => {

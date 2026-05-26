@@ -11,7 +11,9 @@ import {
 import type { RunConsoleCommand } from '../editor/codeMirrorConsoleCommands';
 import {
   getDiffPaintEffectValue,
+  getTypingDiffDecorations,
   setDiffPaintEffect,
+  setTypingDiffDecorationsEffect,
 } from '../editor/codeMirrorDiffPaint';
 import { getCodeMirrorExtensions } from '../editor/codeMirrorExtensions';
 import {
@@ -216,6 +218,8 @@ export const CodeMirrorPane = ({
   };
 
   const refreshEditorGeometry = (editorView: EditorView) => {
+    const diffPaintEffectValue = getDiffPaintEffectValue(decorationsRef.current);
+
     editorView.requestMeasure();
 
     editorView.dispatch({
@@ -223,7 +227,14 @@ export const CodeMirrorPane = ({
         setEditorDecorationsEffect.of(
           getCodeMirrorDecorations(editorView, decorationsRef.current),
         ),
-        setDiffPaintEffect.of(getDiffPaintEffectValue(decorationsRef.current)),
+        setDiffPaintEffect.of(diffPaintEffectValue),
+        setTypingDiffDecorationsEffect.of(
+          getTypingDiffDecorations({
+            theme,
+            docLength: editorView.state.doc.length,
+            diffPaint: diffPaintEffectValue,
+          }),
+        ),
       ],
     });
 
@@ -334,12 +345,20 @@ export const CodeMirrorPane = ({
     onEditorViewChangeRef.current?.(editorView);
     editorView.scrollDOM.scrollLeft = initialScrollOffsetRef.current.left;
     scrollToLineNumber(editorView, initialLineNumberRef.current);
+    const diffPaintEffectValue = getDiffPaintEffectValue(decorationsRef.current);
     editorView.dispatch({
       effects: [
         setEditorDecorationsEffect.of(
           getCodeMirrorDecorations(editorView, decorationsRef.current),
         ),
-        setDiffPaintEffect.of(getDiffPaintEffectValue(decorationsRef.current)),
+        setDiffPaintEffect.of(diffPaintEffectValue),
+        setTypingDiffDecorationsEffect.of(
+          getTypingDiffDecorations({
+            theme,
+            docLength: editorView.state.doc.length,
+            diffPaint: diffPaintEffectValue,
+          }),
+        ),
       ],
     });
 
