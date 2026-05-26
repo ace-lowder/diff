@@ -48,9 +48,27 @@ describe('typing diff styles', () => {
     expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff-deleted');
     expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff-tick');
     expect(codeMirrorExtensionsSource).toContain(
-      '0 0 0 1px #2A4C2C, 0 -1px 0 0 #2A4C2C, 0 1px 0 0 #2A4C2C',
+      'paddingTop: `${TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX}px`',
     );
     expect(codeMirrorExtensionsSource).toContain(
+      'paddingBottom: `${TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX}px`',
+    );
+    expect(codeMirrorExtensionsSource).toContain(
+      'marginTop: `-${TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX}px`',
+    );
+    expect(codeMirrorExtensionsSource).toContain(
+      'marginBottom: `-${TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX}px`',
+    );
+    expect(codeMirrorExtensionsSource).toContain(
+      'boxShadow: `0 0 0 ${TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX}px #2A4C2C`',
+    );
+    expect(codeMirrorExtensionsSource).toContain(
+      'boxShadow: `0 0 0 ${TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX}px #693330`',
+    );
+    expect(codeMirrorExtensionsSource).not.toContain(
+      '0 0 0 1px #2A4C2C, 0 -1px 0 0 #2A4C2C, 0 1px 0 0 #2A4C2C',
+    );
+    expect(codeMirrorExtensionsSource).not.toContain(
       '0 0 0 1px #693330, 0 -1px 0 0 #693330, 0 1px 0 0 #693330',
     );
     expect(codeMirrorExtensionsSource).not.toContain(
@@ -66,12 +84,21 @@ describe('typing diff styles', () => {
       'lineHeight: "var(--byline-line-height)"',
     );
     expect(codeMirrorExtensionsSource).toContain('verticalAlign: "top"');
-    expect(codeMirrorExtensionsSource).toContain('transform: "translateY(1px)"');
+    expect(codeMirrorExtensionsSource).toContain(
+      'transform: `translateY(${TYPING_DIFF_TICK_VERTICAL_NUDGE_PX}px)`',
+    );
     expect(codeMirrorExtensionsSource).toContain('top: "0"');
     expect(codeMirrorExtensionsSource).toContain('height: "100%"');
     expect(codeMirrorExtensionsSource).not.toContain(
       'top: "calc(var(--byline-line-height) / -2)"',
     );
     expect(codeMirrorExtensionsSource).toContain('DIFF_TICK_WIDTH_PX');
+    expect(codeMirrorExtensionsSource).toContain(
+      'TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX',
+    );
+    expect(codeMirrorExtensionsSource).toContain(
+      'TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX',
+    );
+    expect(codeMirrorExtensionsSource).toContain('TYPING_DIFF_TICK_VERTICAL_NUDGE_PX');
   });
 });

@@ -36,6 +36,9 @@ import {
   EDITOR_CONTENT_HORIZONTAL_PADDING_PX,
   LEFT_LINE_NUMBER_TEXT_NUDGE,
   RIGHT_LINE_NUMBER_TEXT_NUDGE,
+  TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX,
+  TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX,
+  TYPING_DIFF_TICK_VERTICAL_NUDGE_PX,
 } from '../layoutTuning';
 
 const RIGHT_LINE_NUMBER_PADDING_LEFT = "1ch";
@@ -242,16 +245,18 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     ".byline-typing-diff": {
       boxDecorationBreak: "clone",
       WebkitBoxDecorationBreak: "clone",
+      paddingTop: `${TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX}px`,
+      paddingBottom: `${TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX}px`,
+      marginTop: `-${TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX}px`,
+      marginBottom: `-${TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX}px`,
     },
     ".byline-typing-diff-added": {
       backgroundColor: "#2A4C2C",
-      boxShadow:
-        "0 0 0 1px #2A4C2C, 0 -1px 0 0 #2A4C2C, 0 1px 0 0 #2A4C2C",
+      boxShadow: `0 0 0 ${TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX}px #2A4C2C`,
     },
     ".byline-typing-diff-deleted": {
       backgroundColor: "#693330",
-      boxShadow:
-        "0 0 0 1px #693330, 0 -1px 0 0 #693330, 0 1px 0 0 #693330",
+      boxShadow: `0 0 0 ${TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX}px #693330`,
     },
     ".byline-typing-diff-tick": {
       position: "relative",
@@ -260,7 +265,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       height: "var(--byline-line-height)",
       lineHeight: "var(--byline-line-height)",
       verticalAlign: "top",
-      transform: "translateY(1px)",
+      transform: `translateY(${TYPING_DIFF_TICK_VERTICAL_NUDGE_PX}px)`,
       pointerEvents: "none",
     },
     ".byline-typing-diff-tick::after": {
