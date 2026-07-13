@@ -201,13 +201,16 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       display: "inline-block",
       transform: `translateX(${RIGHT_LINE_NUMBER_TEXT_NUDGE})`,
     },
+    ".byline-line-number-gutter-left": {
+      overflow: "visible",
+    },
     ".cm-lineNumbers .cm-gutterElement:hover": {
       color: "#BBBEBF",
     },
     ".byline-line-copy-icon": {
       position: "absolute",
       left: LEFT_LINE_COPY_ICON_OFFSET,
-      top: "50%",
+      top: `calc(${CODE_MIRROR_LINE_HEIGHT} / 2)`,
       display: "inline-flex",
       transform: "translateY(-50%)",
       color: "#BBBEBF",
