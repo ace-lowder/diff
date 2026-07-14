@@ -40,14 +40,14 @@ import type {
 import type {
   FontStyleRange,
   FontStyleType,
-  TextChange,
+  StyledDocumentChange,
   TextSelectionRange,
 } from '../fontStyles';
 import { shouldRevealAutoHiddenControls } from '../pointerEvents';
 
 type CodeMirrorPaneProps = {
   value: string;
-  onDocumentChange: ({ changes }: { changes: TextChange[] }) => void;
+  onDocumentChange: (change: StyledDocumentChange) => void;
   onCommittedValueChange: (value: string) => void;
   onTypingActivity?: () => void;
   onFocusPane?: () => void;
@@ -128,6 +128,7 @@ export const CodeMirrorPane = ({
   const onShowLineNumbersRef = useRef(onShowLineNumbers);
   const onScheduleLineNumbersHideRef = useRef(onScheduleLineNumbersHide);
   const lineNumberPositionRef = useRef(lineNumberPosition);
+  const fontStyleRangesRef = useRef(fontStyleRanges ?? []);
   const areLineNumbersVisibleRef = useRef(true);
   const initialValueRef = useRef(value);
   const lastCommittedValueRef = useRef(value);
@@ -201,6 +202,10 @@ export const CodeMirrorPane = ({
   useEffect(() => {
     onScheduleLineNumbersHideRef.current = onScheduleLineNumbersHide;
   }, [onScheduleLineNumbersHide]);
+
+  useEffect(() => {
+    fontStyleRangesRef.current = fontStyleRanges ?? [];
+  }, [fontStyleRanges]);
 
   useEffect(() => {
     lineNumberPositionRef.current = lineNumberPosition;
@@ -316,14 +321,14 @@ export const CodeMirrorPane = ({
           theme,
           onRunConsoleCommand: (command, context) =>
             onRunConsoleCommandRef.current(command, context),
-          onDocumentChange: ({ changes }) => {
+          onDocumentChange: (change) => {
             onTypingActivityRef.current?.();
 
             if (!isApplyingExternalValueRef.current) {
               scheduleCurrentEditorValueCommit();
             }
 
-            onDocumentChangeRef.current({ changes });
+            onDocumentChangeRef.current(change);
           },
           onFocusPane: () => onFocusPaneRef.current?.(),
           onToggleFontStyle: (fontStyleType) =>
@@ -334,6 +339,7 @@ export const CodeMirrorPane = ({
           onSelectionChange: (selections) =>
             onSelectionChangeRef.current?.(selections),
           onCopyLine: (context) => onCopyLineRef.current(context),
+          getFontStyleRanges: () => fontStyleRangesRef.current,
           lineNumberPosition: lineNumberPositionRef.current,
           lineNumberVisibilityMode: lineNumberVisibilityModeRef.current,
           areLineNumbersVisible: areLineNumbersVisibleRef.current,

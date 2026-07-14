@@ -1,5 +1,11 @@
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { EditorState, type Extension } from "@codemirror/state";
+import {
+  Annotation,
+  EditorSelection,
+  EditorState,
+  Transaction,
+  type Extension,
+} from "@codemirror/state";
 import {
   EditorView,
   highlightActiveLineGutter,
@@ -16,6 +22,8 @@ import { getCodeMirrorDiffPaintExtension } from "./codeMirrorDiffPaint";
 import { getCodeMirrorLineCopyExtension } from "./codeMirrorLineCopy";
 import { getTopVisibleLineNumber } from "./codeMirrorScroll";
 import { CODE_MIRROR_TAB_SIZE, insertTabCharacter } from "./codeMirrorTab";
+import { getSelectionClipboardContent } from "../clipboardExport";
+import { getRichTextClipboardContent } from "../clipboardImport";
 import {
   CODE_MIRROR_FONT_SIZE,
   CODE_MIRROR_LINE_HEIGHT,
@@ -30,32 +38,41 @@ import type {
   PaneId,
   ScrollOffset,
 } from "../appTypes";
-import type { FontStyleType, TextChange, TextSelectionRange } from "../fontStyles";
+import type {
+  FontStyleType,
+  StyledDocumentChange,
+  FontStyleRange,
+  TextChange,
+  TextSelectionRange,
+} from "../fontStyles";
 import {
   EDITOR_CONTENT_HORIZONTAL_PADDING_PX,
   LEFT_LINE_NUMBER_TEXT_NUDGE,
   RIGHT_LINE_NUMBER_TEXT_NUDGE,
   TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX,
   TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX,
-} from '../layoutTuning';
+} from "../layoutTuning";
 
 const RIGHT_LINE_NUMBER_PADDING_LEFT = "1ch";
 const RIGHT_LINE_NUMBER_PADDING_RIGHT = "3ch";
 const LEFT_LINE_COPY_ICON_OFFSET = "calc(100% - 1.45ch)";
 const RIGHT_LINE_COPY_ICON_OFFSET = "calc(100% - 3.2ch)";
+const INSERTED_FONT_STYLE_RANGES_ANNOTATION =
+  Annotation.define<StyledDocumentChange["insertedFontStyleRanges"]>();
 
 type CodeMirrorExtensionOptions = {
   ariaLabel: string;
   pane: PaneId;
   theme: CodeMirrorTheme;
   onRunConsoleCommand: RunConsoleCommand;
-  onDocumentChange: ({ changes }: { changes: TextChange[] }) => void;
+  onDocumentChange: (change: StyledDocumentChange) => void;
   onFocusPane: () => void;
   onToggleFontStyle: (fontStyleType: FontStyleType) => void;
   onScroll: (scrollOffset: ScrollOffset, topVisibleLineNumber: number) => void;
   onContentLayoutChange: () => void;
   onSelectionChange?: (selections: TextSelectionRange[]) => void;
   onCopyLine: CopyLineHandler;
+  getFontStyleRanges: () => FontStyleRange[];
   lineNumberPosition: LineNumberPosition;
   lineNumberVisibilityMode: LineNumberVisibilityMode;
   areLineNumbersVisible: boolean;
@@ -73,6 +90,7 @@ export const getCodeMirrorExtensions = ({
   onContentLayoutChange,
   onSelectionChange,
   onCopyLine,
+  getFontStyleRanges,
   lineNumberPosition,
   lineNumberVisibilityMode,
   areLineNumbersVisible,
@@ -101,13 +119,98 @@ export const getCodeMirrorExtensions = ({
     EditorView.contentAttributes.of({
       "aria-label": ariaLabel,
     }),
+    EditorView.domEventHandlers({
+      copy: (event, view) => {
+        const clipboardData = event.clipboardData;
+        if (!clipboardData) {
+          return false;
+        }
+
+        const content = getSelectionClipboardContent({
+          text: view.state.doc.toString(),
+          selections: view.state.selection.ranges,
+          fontStyleRanges: getFontStyleRanges(),
+        });
+
+        if (!content) {
+          return false;
+        }
+
+        event.preventDefault();
+        clipboardData.setData("text/plain", content.plainText);
+        clipboardData.setData("text/html", content.htmlText);
+        return true;
+      },
+      paste: (event, view) => {
+        const clipboardData = event.clipboardData;
+        if (!clipboardData) {
+          return false;
+        }
+
+        const richTextClipboardContent = getRichTextClipboardContent({
+          html: clipboardData.getData("text/html"),
+          plainText: clipboardData.getData("text/plain"),
+        });
+
+        if (!richTextClipboardContent) {
+          return false;
+        }
+
+        event.preventDefault();
+
+        const insertedFontStyleRanges: StyledDocumentChange["insertedFontStyleRanges"] =
+          [];
+        const transaction = view.state.changeByRange((range) => {
+          const insertedFrom = range.from;
+          for (const fontStyleRange of richTextClipboardContent.fontStyleRanges) {
+            insertedFontStyleRanges.push({
+              type: fontStyleRange.type,
+              from: insertedFrom + fontStyleRange.from,
+              to: insertedFrom + fontStyleRange.to,
+            });
+          }
+
+          return {
+            changes: {
+              from: range.from,
+              to: range.to,
+              insert: richTextClipboardContent.text,
+            },
+            range: EditorSelection.cursor(
+              insertedFrom + richTextClipboardContent.text.length,
+            ),
+          };
+        });
+
+        view.dispatch({
+          ...transaction,
+          annotations: [
+            INSERTED_FONT_STYLE_RANGES_ANNOTATION.of(insertedFontStyleRanges),
+            Transaction.userEvent.of("input.paste"),
+          ],
+          scrollIntoView: true,
+        });
+
+        return true;
+      },
+    }),
     EditorView.updateListener.of((update) => {
       if (update.docChanged) {
         const changes: TextChange[] = [];
         update.changes.iterChanges((fromA, toA, fromB, toB) => {
           changes.push({ fromA, toA, fromB, toB });
         });
-        onDocumentChange({ changes });
+        const insertedFontStyleRanges: StyledDocumentChange["insertedFontStyleRanges"] =
+          [];
+        for (const transaction of update.transactions) {
+          const annotatedRanges = transaction.annotation(
+            INSERTED_FONT_STYLE_RANGES_ANNOTATION,
+          );
+          if (annotatedRanges) {
+            insertedFontStyleRanges.push(...annotatedRanges);
+          }
+        }
+        onDocumentChange({ changes, insertedFontStyleRanges });
         if (update.startState.doc.lines !== update.state.doc.lines) {
           onContentLayoutChange();
         }

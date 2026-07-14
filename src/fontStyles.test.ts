@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  applyFontStyleDocumentChanges,
   areFontStyleRangesEqual,
   areTextSelectionRangesEqual,
   getActiveFontStyleTypesForSelections,
@@ -196,6 +197,34 @@ describe('mapFontStyleRangesThroughChanges', () => {
     });
 
     expect(ranges).toEqual([{ type: 'bold', from: 3, to: 6 }]);
+  });
+});
+
+describe('applyFontStyleDocumentChanges', () => {
+  it('retains active styles for normal typing', () => {
+    const ranges = applyFontStyleDocumentChanges({
+      ranges: [],
+      changes: [{ fromA: 2, toA: 2, fromB: 2, toB: 5 }],
+      activeTypes: ['bold'],
+      insertedFontStyleRanges: [],
+    });
+
+    expect(ranges).toEqual([{ type: 'bold', from: 2, to: 5 }]);
+  });
+
+  it('replaces surrounding and active styles during rich paste', () => {
+    const ranges = applyFontStyleDocumentChanges({
+      ranges: [{ type: 'bold', from: 0, to: 10 }],
+      changes: [{ fromA: 4, toA: 6, fromB: 4, toB: 7 }],
+      activeTypes: ['italic'],
+      insertedFontStyleRanges: [{ type: 'underline', from: 4, to: 7 }],
+    });
+
+    expect(ranges).toEqual([
+      { type: 'bold', from: 0, to: 4 },
+      { type: 'bold', from: 7, to: 11 },
+      { type: 'underline', from: 4, to: 7 },
+    ]);
   });
 });
 

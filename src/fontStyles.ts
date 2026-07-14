@@ -13,6 +13,11 @@ export type TextChange = {
   toB: number;
 };
 
+export type StyledDocumentChange = {
+  changes: TextChange[];
+  insertedFontStyleRanges: FontStyleRange[];
+};
+
 export type TextSelectionRange = {
   from: number;
   to: number;
@@ -149,6 +154,57 @@ export const mapFontStyleRangesThroughChanges = ({
   }
 
   return normalizeFontStyleRanges(mappedRanges);
+};
+
+export const applyFontStyleDocumentChanges = ({
+  ranges,
+  changes,
+  activeTypes,
+  insertedFontStyleRanges,
+}: {
+  ranges: FontStyleRange[];
+  changes: TextChange[];
+  activeTypes: FontStyleType[];
+  insertedFontStyleRanges: FontStyleRange[];
+}): FontStyleRange[] => {
+  if (
+    ranges.length === 0 &&
+    activeTypes.length === 0 &&
+    insertedFontStyleRanges.length === 0
+  ) {
+    return ranges;
+  }
+
+  const mappedRanges = mapFontStyleRangesThroughChanges({ ranges, changes });
+
+  if (insertedFontStyleRanges.length > 0) {
+    const insertedSelections = changes
+      .filter((change) => change.toB > change.fromB)
+      .map((change) => ({
+        from: change.fromB,
+        to: change.toB,
+      }))
+      .sort((left, right) => left.from - right.from || left.to - right.to);
+
+    const rangesWithoutInsertedSpans = removeStyleFromSelections(
+      mappedRanges,
+      insertedSelections,
+    );
+
+    const nextRanges = normalizeFontStyleRanges([
+      ...rangesWithoutInsertedSpans,
+      ...insertedFontStyleRanges,
+    ]);
+
+    return areFontStyleRangesEqual(ranges, nextRanges) ? ranges : nextRanges;
+  }
+
+  const nextRanges = normalizeFontStyleRanges([
+    ...mappedRanges,
+    ...getInsertedFontStyleRanges({ changes, activeTypes }),
+  ]);
+
+  return areFontStyleRangesEqual(ranges, nextRanges) ? ranges : nextRanges;
 };
 
 export const getInsertedFontStyleRanges = ({

@@ -24,7 +24,9 @@ describe('line number text offsets', () => {
 
 describe('document change callback payload', () => {
   it('forwards only changes and does not read full document text', () => {
-    expect(codeMirrorExtensionsSource).toContain('onDocumentChange({ changes });');
+    expect(codeMirrorExtensionsSource).toContain(
+      'onDocumentChange({ changes, insertedFontStyleRanges });',
+    );
     expect(codeMirrorExtensionsSource).not.toContain('update.state.doc.toString()');
   });
 

@@ -5,6 +5,7 @@ import {
   getClipboardHighlightRangesForLine,
   getClipboardHtml,
   getDraftClipboardHighlightRanges,
+  getSelectionClipboardContent,
 } from './clipboardExport';
 
 const getHtmlTextContent = (html: string): string => {
@@ -279,6 +280,64 @@ describe('getDraftClipboardHighlightRanges', () => {
     const html = getClipboardHtml({ text, highlightRanges: ranges });
 
     expect(getHtmlTextContent(html)).toBe(text);
+  });
+});
+
+describe('getSelectionClipboardContent', () => {
+  it('exports a single clipped selection with font styles', () => {
+    const content = getSelectionClipboardContent({
+      text: 'abcd efgh',
+      selections: [{ from: 1, to: 6 }],
+      fontStyleRanges: [
+        { type: 'bold', from: 0, to: 4 },
+        { type: 'italic', from: 2, to: 7 },
+        { type: 'underline', from: 4, to: 8 },
+      ],
+    });
+
+    expect(content?.plainText).toBe('bcd e');
+    expect(content?.htmlText).toContain(
+      '<span style="font-weight: 700">b</span>',
+    );
+    expect(content?.htmlText).toContain(
+      '<span style="font-weight: 700; font-style: italic">cd</span>',
+    );
+    expect(content?.htmlText).toContain(
+      '<span style="font-style: italic; text-decoration: underline"> e</span>',
+    );
+  });
+
+  it('exports multiple selections in document order with joined text', () => {
+    const content = getSelectionClipboardContent({
+      text: 'alpha beta gamma',
+      selections: [
+        { from: 6, to: 10 },
+        { from: 0, to: 5 },
+      ],
+      fontStyleRanges: [
+        { type: 'bold', from: 0, to: 5 },
+        { type: 'italic', from: 6, to: 10 },
+        { type: 'underline', from: 0, to: 10 },
+      ],
+    });
+
+    expect(content?.plainText).toBe('alpha\nbeta');
+    expect(content?.htmlText).toContain(
+      '<span style="font-weight: 700; text-decoration: underline">alpha</span>',
+    );
+    expect(content?.htmlText).toContain('\n');
+    expect(content?.htmlText).toContain(
+      '<span style="font-style: italic; text-decoration: underline">beta</span>',
+    );
+  });
+
+  it('returns null when there are no non-empty selections', () => {
+    expect(
+      getSelectionClipboardContent({
+        text: 'abc',
+        selections: [{ from: 1, to: 1 }],
+      }),
+    ).toBeNull();
   });
 });
 

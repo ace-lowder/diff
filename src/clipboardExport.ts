@@ -5,6 +5,7 @@ import {
   getSegmentBoundaries,
   getTextSegment,
 } from './clipboardExportHelpers';
+import type { TextSelectionRange } from './fontStyles';
 
 export type ClipboardHighlightRange = {
   type: 'added' | 'deleted';
@@ -95,6 +96,68 @@ export const getClipboardHtml = ({
 
   html += '</div>';
   return html;
+};
+
+export const getSelectionClipboardContent = ({
+  text,
+  selections,
+  fontStyleRanges = [],
+}: {
+  text: string;
+  selections: readonly TextSelectionRange[];
+  fontStyleRanges?: ClipboardFontStyleRange[];
+}): {
+  plainText: string;
+  htmlText: string;
+} | null => {
+  const orderedSelections = selections
+    .filter((selection) => selection.to > selection.from)
+    .sort((left, right) => left.from - right.from || left.to - right.to);
+
+  if (orderedSelections.length === 0) {
+    return null;
+  }
+
+  const plainTextParts: string[] = [];
+  const clippedFontStyleRanges: ClipboardFontStyleRange[] = [];
+  let cursor = 0;
+
+  for (const selection of orderedSelections) {
+    if (plainTextParts.length > 0) {
+      plainTextParts.push('\n');
+      cursor += 1;
+    }
+
+    const selectionText = text.slice(selection.from, selection.to);
+    plainTextParts.push(selectionText);
+
+    for (const range of fontStyleRanges) {
+      const clippedFrom = Math.max(range.from, selection.from);
+      const clippedTo = Math.min(range.to, selection.to);
+      if (clippedTo <= clippedFrom) {
+        continue;
+      }
+
+      clippedFontStyleRanges.push({
+        type: range.type,
+        from: cursor + (clippedFrom - selection.from),
+        to: cursor + (clippedTo - selection.from),
+      });
+    }
+
+    cursor += selectionText.length;
+  }
+
+  const plainText = plainTextParts.join('');
+
+  return {
+    plainText,
+    htmlText: getClipboardHtml({
+      text: plainText,
+      highlightRanges: [],
+      fontStyleRanges: clippedFontStyleRanges,
+    }),
+  };
 };
 
 export const getClipboardHighlightRangesForLine = ({
