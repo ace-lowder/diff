@@ -408,7 +408,9 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       pointerEvents: "none",
     },
     ".byline-font-bold": {
-      fontWeight: "700",
+      fontWeight: "800",
+      WebkitTextStroke: "0.4px currentColor",
+      paintOrder: "stroke fill",
     },
     ".byline-font-italic": {
       fontStyle: "italic",
