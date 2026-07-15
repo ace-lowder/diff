@@ -1265,6 +1265,7 @@ const App = () => {
             ranges: currentRanges,
             type: fontStyleType,
             selections,
+            text: targetEditorView.state.doc.toString(),
           }),
         );
       } else {
@@ -1278,6 +1279,7 @@ const App = () => {
           ranges: currentRanges,
           type: fontStyleType,
           selections,
+          text: targetEditorView.state.doc.toString(),
         }),
       );
     } else {

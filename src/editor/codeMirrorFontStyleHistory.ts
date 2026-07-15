@@ -10,7 +10,7 @@ import {
 import {
   applyFontStyleDocumentChanges,
   mapFontStyleRangesThroughChanges,
-  normalizeFontStyleRanges,
+  normalizeFontStyleRangesForText,
   type FontStyleRange,
   type FontStyleType,
   type TextChange,
@@ -45,13 +45,19 @@ export const createCodeMirrorFontStyleHistoryExtension = ({
   extension: Extension[];
 } => {
   const field = StateField.define<FontStyleRange[]>({
-    create() {
-      return normalizeFontStyleRanges(getInitialFontStyleRanges());
+    create(state) {
+      return normalizeFontStyleRangesForText({
+        ranges: getInitialFontStyleRanges(),
+        text: state.doc.toString(),
+      });
     },
     update(value, transaction) {
       for (const effect of transaction.effects) {
         if (effect.is(setCodeMirrorFontStyleRangesEffect)) {
-          return normalizeFontStyleRanges(effect.value);
+          return normalizeFontStyleRangesForText({
+            ranges: effect.value,
+            text: transaction.newDoc.toString(),
+          });
         }
       }
 
@@ -72,6 +78,7 @@ export const createCodeMirrorFontStyleHistoryExtension = ({
           transaction.annotation(
             codeMirrorRichPasteFontStyleRangesAnnotation,
           ) ?? [],
+        text: transaction.newDoc.toString(),
       });
     },
     compare(left, right) {

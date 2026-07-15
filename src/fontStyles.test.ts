@@ -8,6 +8,7 @@ import {
   getInsertedFontStyleRanges,
   mapFontStyleRangesThroughChanges,
   normalizeFontStyleRanges,
+  normalizeFontStyleRangesForText,
   shouldUpdateFontStyleRangesForChanges,
   toggleFontStyleRanges,
   type FontStyleRange,
@@ -148,6 +149,7 @@ describe('toggleFontStyleRanges', () => {
       ranges: [],
       type: 'bold',
       selections: [{ from: 1, to: 4 }],
+      text: 'abcde',
     });
 
     expect(ranges).toEqual([{ type: 'bold', from: 1, to: 4 }]);
@@ -158,6 +160,7 @@ describe('toggleFontStyleRanges', () => {
       ranges: [{ type: 'bold', from: 1, to: 4 }],
       type: 'bold',
       selections: [{ from: 1, to: 4 }],
+      text: 'abcde',
     });
 
     expect(ranges).toEqual([]);
@@ -168,11 +171,26 @@ describe('toggleFontStyleRanges', () => {
       ranges: [{ type: 'bold', from: 0, to: 10 }],
       type: 'bold',
       selections: [{ from: 3, to: 7 }],
+      text: 'abcdefghij',
     });
 
     expect(ranges).toEqual([
       { type: 'bold', from: 0, to: 3 },
       { type: 'bold', from: 7, to: 10 },
+    ]);
+  });
+
+  it('splits styled selections across line breaks and excludes the newline', () => {
+    const ranges = toggleFontStyleRanges({
+      ranges: [],
+      type: 'bold',
+      selections: [{ from: 0, to: 7 }],
+      text: 'one\ntwo',
+    });
+
+    expect(ranges).toEqual([
+      { type: 'bold', from: 0, to: 3 },
+      { type: 'bold', from: 4, to: 7 },
     ]);
   });
 });
@@ -207,6 +225,7 @@ describe('applyFontStyleDocumentChanges', () => {
       changes: [{ fromA: 2, toA: 2, fromB: 2, toB: 5 }],
       activeTypes: ['bold'],
       insertedFontStyleRanges: [],
+      text: 'abcde',
     });
 
     expect(ranges).toEqual([{ type: 'bold', from: 2, to: 5 }]);
@@ -218,12 +237,39 @@ describe('applyFontStyleDocumentChanges', () => {
       changes: [{ fromA: 4, toA: 6, fromB: 4, toB: 7 }],
       activeTypes: ['italic'],
       insertedFontStyleRanges: [{ type: 'underline', from: 4, to: 7 }],
+      text: 'abcdefghijk',
     });
 
     expect(ranges).toEqual([
       { type: 'bold', from: 0, to: 4 },
       { type: 'bold', from: 7, to: 11 },
       { type: 'underline', from: 4, to: 7 },
+    ]);
+  });
+
+  it('drops bold from deleted newline-separated text', () => {
+    const ranges = applyFontStyleDocumentChanges({
+      ranges: [{ type: 'bold', from: 0, to: 8 }],
+      changes: [{ fromA: 0, toA: 7, fromB: 0, toB: 0 }],
+      activeTypes: [],
+      insertedFontStyleRanges: [],
+      text: '\nthree',
+    });
+
+    expect(ranges).toEqual([]);
+  });
+});
+
+describe('normalizeFontStyleRangesForText', () => {
+  it('splits ranges around newlines and clips them to the text', () => {
+    const ranges = normalizeFontStyleRangesForText({
+      ranges: [{ type: 'bold', from: -5, to: 10 }],
+      text: 'one\ntwo',
+    });
+
+    expect(ranges).toEqual([
+      { type: 'bold', from: 0, to: 3 },
+      { type: 'bold', from: 4, to: 7 },
     ]);
   });
 });

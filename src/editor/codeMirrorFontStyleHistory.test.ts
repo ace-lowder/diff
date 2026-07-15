@@ -10,14 +10,17 @@ import {
 } from './codeMirrorFontStyleHistory';
 import type { FontStyleRange } from '../fontStyles';
 
-const createState = (fontStyleRanges: FontStyleRange[]) => {
+const createState = (
+  fontStyleRanges: FontStyleRange[],
+  doc = 'abcde',
+) => {
   const historyExtension = createCodeMirrorFontStyleHistoryExtension({
     getInitialFontStyleRanges: () => fontStyleRanges,
     getActiveFontStyleTypes: () => [],
   });
 
   let state = EditorState.create({
-    doc: 'abcde',
+    doc,
     extensions: [history(), ...historyExtension.extension],
   });
 
@@ -63,6 +66,42 @@ describe('codeMirrorFontStyleHistory', () => {
 
     expect(redo(editor)).toBe(true);
     expect(editor.state.doc.toString()).toBe('ae');
+    expect(editor.state.field(editor.field)).toEqual([]);
+  });
+
+  it('normalizes visible line ranges, then restores them through undo and redo', () => {
+    const editor = createState(
+      [{ type: 'bold', from: 0, to: 8 }],
+      'one\ntwo\nthree',
+    );
+
+    expect(editor.state.field(editor.field)).toEqual([
+      { type: 'bold', from: 0, to: 3 },
+      { type: 'bold', from: 4, to: 7 },
+    ]);
+
+    editor.dispatch(
+      editor.state.update({
+        changes: {
+          from: 0,
+          to: 7,
+          insert: '',
+        },
+      }),
+    );
+
+    expect(editor.state.doc.toString()).toBe('\nthree');
+    expect(editor.state.field(editor.field)).toEqual([]);
+
+    expect(undo(editor)).toBe(true);
+    expect(editor.state.doc.toString()).toBe('one\ntwo\nthree');
+    expect(editor.state.field(editor.field)).toEqual([
+      { type: 'bold', from: 0, to: 3 },
+      { type: 'bold', from: 4, to: 7 },
+    ]);
+
+    expect(redo(editor)).toBe(true);
+    expect(editor.state.doc.toString()).toBe('\nthree');
     expect(editor.state.field(editor.field)).toEqual([]);
   });
 

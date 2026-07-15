@@ -218,7 +218,7 @@ export const getCodeMirrorExtensions = ({
         }
       }
 
-      if (update.selectionSet && !update.docChanged) {
+      if (update.selectionSet) {
         onSelectionChange?.(getTextSelectionRanges(update.state));
       }
     }),

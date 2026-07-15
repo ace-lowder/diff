@@ -63,6 +63,50 @@ export const normalizeFontStyleRanges = (
   return mergedRanges;
 };
 
+export const normalizeFontStyleRangesForText = ({
+  ranges,
+  text,
+}: {
+  ranges: FontStyleRange[];
+  text: string;
+}): FontStyleRange[] => {
+  const clippedRanges: FontStyleRange[] = [];
+  const textLength = text.length;
+
+  for (const range of ranges) {
+    const start = Math.max(0, Math.min(range.from, textLength));
+    const end = Math.max(0, Math.min(range.to, textLength));
+
+    if (end <= start) {
+      continue;
+    }
+
+    let segmentStart = start;
+
+    while (segmentStart < end) {
+      const newlineIndex = text.indexOf('\n', segmentStart);
+      const segmentEnd =
+        newlineIndex === -1 || newlineIndex >= end ? end : newlineIndex;
+
+      if (segmentEnd > segmentStart) {
+        clippedRanges.push({
+          ...range,
+          from: segmentStart,
+          to: segmentEnd,
+        });
+      }
+
+      if (newlineIndex === -1 || newlineIndex >= end) {
+        break;
+      }
+
+      segmentStart = newlineIndex + 1;
+    }
+  }
+
+  return normalizeFontStyleRanges(clippedRanges);
+};
+
 export const areFontStyleRangesEqual = (
   leftRanges: FontStyleRange[],
   rightRanges: FontStyleRange[],
@@ -110,12 +154,17 @@ export const toggleFontStyleRanges = ({
   ranges,
   type,
   selections,
+  text,
 }: {
   ranges: FontStyleRange[];
   type: FontStyleType;
   selections: TextSelectionRange[];
+  text: string;
 }): FontStyleRange[] => {
-  const normalizedRanges = normalizeFontStyleRanges(ranges);
+  const normalizedRanges = normalizeFontStyleRangesForText({
+    ranges,
+    text,
+  });
   const normalizedSelections = normalizeSelections(selections);
 
   if (normalizedSelections.length === 0) {
@@ -132,7 +181,10 @@ export const toggleFontStyleRanges = ({
     : addStyleForSelections(styleRanges, normalizedSelections, type);
 
   const untouchedRanges = normalizedRanges.filter((range) => range.type !== type);
-  return normalizeFontStyleRanges([...untouchedRanges, ...updatedStyleRanges]);
+  return normalizeFontStyleRangesForText({
+    ranges: [...untouchedRanges, ...updatedStyleRanges],
+    text,
+  });
 };
 
 export const mapFontStyleRangesThroughChanges = ({
@@ -161,21 +213,18 @@ export const applyFontStyleDocumentChanges = ({
   changes,
   activeTypes,
   insertedFontStyleRanges,
+  text,
 }: {
   ranges: FontStyleRange[];
   changes: TextChange[];
   activeTypes: FontStyleType[];
   insertedFontStyleRanges: FontStyleRange[];
+  text: string;
 }): FontStyleRange[] => {
-  if (
-    ranges.length === 0 &&
-    activeTypes.length === 0 &&
-    insertedFontStyleRanges.length === 0
-  ) {
-    return ranges;
-  }
-
-  const mappedRanges = mapFontStyleRangesThroughChanges({ ranges, changes });
+  const mappedRanges = normalizeFontStyleRangesForText({
+    ranges: mapFontStyleRangesThroughChanges({ ranges, changes }),
+    text,
+  });
 
   if (insertedFontStyleRanges.length > 0) {
     const insertedSelections = changes
@@ -191,20 +240,22 @@ export const applyFontStyleDocumentChanges = ({
       insertedSelections,
     );
 
-    const nextRanges = normalizeFontStyleRanges([
-      ...rangesWithoutInsertedSpans,
-      ...insertedFontStyleRanges,
-    ]);
-
-    return areFontStyleRangesEqual(ranges, nextRanges) ? ranges : nextRanges;
+    return normalizeFontStyleRangesForText({
+      ranges: [
+        ...rangesWithoutInsertedSpans,
+        ...insertedFontStyleRanges,
+      ],
+      text,
+    });
   }
 
-  const nextRanges = normalizeFontStyleRanges([
-    ...mappedRanges,
-    ...getInsertedFontStyleRanges({ changes, activeTypes }),
-  ]);
-
-  return areFontStyleRangesEqual(ranges, nextRanges) ? ranges : nextRanges;
+  return normalizeFontStyleRangesForText({
+    ranges: [
+      ...mappedRanges,
+      ...getInsertedFontStyleRanges({ changes, activeTypes }),
+    ],
+    text,
+  });
 };
 
 export const getInsertedFontStyleRanges = ({
@@ -375,28 +426,41 @@ const mapSingleRangeThroughChange = (
     return range;
   }
 
-  const overlapStart = Math.max(range.from, change.fromA);
-  const overlapEnd = Math.min(range.to, change.toA);
-  const removedInside = Math.max(0, overlapEnd - overlapStart);
+  if (change.fromA <= range.from && change.toA >= range.to) {
+    if (insertedLength === 0) {
+      return null;
+    }
 
-  let nextFrom = range.from;
-  let nextTo = range.to - removedInside;
+    return {
+      type: range.type,
+      from: change.fromB,
+      to: change.fromB + insertedLength,
+    };
+  }
 
   if (change.fromA < range.from) {
-    nextFrom = change.fromB;
+    const nextTo = range.to + delta;
+
+    if (nextTo <= change.fromB) {
+      return null;
+    }
+
+    return {
+      type: range.type,
+      from: change.fromB,
+      to: nextTo,
+    };
   }
 
-  if (change.toA <= range.to) {
-    nextTo += insertedLength;
-  }
+  const nextTo = range.to + delta;
 
-  if (nextTo <= nextFrom) {
+  if (nextTo <= range.from) {
     return null;
   }
 
   return {
     type: range.type,
-    from: nextFrom,
+    from: range.from,
     to: nextTo,
   };
 };
