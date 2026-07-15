@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { EditorState } from '@codemirror/state';
+import { EditorState, Transaction } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import {
@@ -16,6 +16,7 @@ import {
   setTypingDiffDecorationsEffect,
 } from '../editor/codeMirrorDiffPaint';
 import { getCodeMirrorExtensions } from '../editor/codeMirrorExtensions';
+import { setCodeMirrorFontStyleRangesEffect } from '../editor/codeMirrorFontStyleHistory';
 import {
   getCodeMirrorPaneLineNumberClassName,
   getLineNumberEdgeTriggerClassName,
@@ -43,6 +44,7 @@ import type {
   StyledDocumentChange,
   TextSelectionRange,
 } from '../fontStyles';
+import { areFontStyleRangesEqual } from '../fontStyles';
 import { shouldRevealAutoHiddenControls } from '../pointerEvents';
 
 type CodeMirrorPaneProps = {
@@ -70,6 +72,7 @@ type CodeMirrorPaneProps = {
   ) => void;
   onContentLayoutChange?: () => void;
   onSelectionChange?: (selections: TextSelectionRange[]) => void;
+  activeFontStyleTypes: FontStyleType[];
   editorHighlightRanges?: EditorHighlightRange[];
   draftHighlightRanges?: DraftHighlightRange[];
   editorLineDecorations?: EditorLineDecoration[];
@@ -103,6 +106,7 @@ export const CodeMirrorPane = ({
   onScrollOffsetChange,
   onContentLayoutChange,
   onSelectionChange,
+  activeFontStyleTypes,
   editorHighlightRanges,
   draftHighlightRanges,
   editorLineDecorations,
@@ -124,11 +128,13 @@ export const CodeMirrorPane = ({
   const onToggleFontStyleRef = useRef(onToggleFontStyle);
   const onRunConsoleCommandRef = useRef(onRunConsoleCommand);
   const onCopyLineRef = useRef(onCopyLine);
+  const activeFontStyleTypesRef = useRef(activeFontStyleTypes);
   const lineNumberVisibilityModeRef = useRef(lineNumberVisibilityMode);
   const onShowLineNumbersRef = useRef(onShowLineNumbers);
   const onScheduleLineNumbersHideRef = useRef(onScheduleLineNumbersHide);
   const lineNumberPositionRef = useRef(lineNumberPosition);
   const fontStyleRangesRef = useRef(fontStyleRanges ?? []);
+  const lastAppliedFontStyleRangesRef = useRef(fontStyleRanges ?? []);
   const areLineNumbersVisibleRef = useRef(true);
   const initialValueRef = useRef(value);
   const lastCommittedValueRef = useRef(value);
@@ -192,6 +198,10 @@ export const CodeMirrorPane = ({
   }, [onCopyLine]);
 
   useEffect(() => {
+    activeFontStyleTypesRef.current = activeFontStyleTypes;
+  }, [activeFontStyleTypes]);
+
+  useEffect(() => {
     lineNumberVisibilityModeRef.current = lineNumberVisibilityMode;
   }, [lineNumberVisibilityMode]);
 
@@ -204,7 +214,30 @@ export const CodeMirrorPane = ({
   }, [onScheduleLineNumbersHide]);
 
   useEffect(() => {
-    fontStyleRangesRef.current = fontStyleRanges ?? [];
+    const nextFontStyleRanges = fontStyleRanges ?? [];
+    fontStyleRangesRef.current = nextFontStyleRanges;
+
+    const editorView = editorViewRef.current;
+
+    if (
+      areFontStyleRangesEqual(
+        lastAppliedFontStyleRangesRef.current,
+        nextFontStyleRanges,
+      )
+    ) {
+      return;
+    }
+
+    lastAppliedFontStyleRangesRef.current = nextFontStyleRanges;
+
+    if (!editorView) {
+      return;
+    }
+
+    editorView.dispatch({
+      effects: [setCodeMirrorFontStyleRangesEffect.of(nextFontStyleRanges)],
+      annotations: [Transaction.addToHistory.of(false)],
+    });
   }, [fontStyleRanges]);
 
   useEffect(() => {
@@ -322,6 +355,8 @@ export const CodeMirrorPane = ({
           onRunConsoleCommand: (command, context) =>
             onRunConsoleCommandRef.current(command, context),
           onDocumentChange: (change) => {
+            fontStyleRangesRef.current = change.fontStyleRanges;
+            lastAppliedFontStyleRangesRef.current = change.fontStyleRanges;
             onTypingActivityRef.current?.();
 
             if (!isApplyingExternalValueRef.current) {
@@ -339,7 +374,9 @@ export const CodeMirrorPane = ({
           onSelectionChange: (selections) =>
             onSelectionChangeRef.current?.(selections),
           onCopyLine: (context) => onCopyLineRef.current(context),
+          getInitialFontStyleRanges: () => fontStyleRanges ?? [],
           getFontStyleRanges: () => fontStyleRangesRef.current,
+          getActiveFontStyleTypes: () => activeFontStyleTypesRef.current,
           lineNumberPosition: lineNumberPositionRef.current,
           lineNumberVisibilityMode: lineNumberVisibilityModeRef.current,
           areLineNumbersVisible: areLineNumbersVisibleRef.current,

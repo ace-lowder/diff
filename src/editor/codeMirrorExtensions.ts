@@ -1,6 +1,5 @@
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import {
-  Annotation,
   EditorSelection,
   EditorState,
   Transaction,
@@ -19,6 +18,10 @@ import {
   type RunConsoleCommand,
 } from "./codeMirrorConsoleCommands";
 import { getCodeMirrorDiffPaintExtension } from "./codeMirrorDiffPaint";
+import {
+  createCodeMirrorFontStyleHistoryExtension,
+  codeMirrorRichPasteFontStyleRangesAnnotation,
+} from "./codeMirrorFontStyleHistory";
 import { getCodeMirrorLineCopyExtension } from "./codeMirrorLineCopy";
 import { getTopVisibleLineNumber } from "./codeMirrorScroll";
 import { CODE_MIRROR_TAB_SIZE, insertTabCharacter } from "./codeMirrorTab";
@@ -57,8 +60,6 @@ const RIGHT_LINE_NUMBER_PADDING_LEFT = "1ch";
 const RIGHT_LINE_NUMBER_PADDING_RIGHT = "3ch";
 const LEFT_LINE_COPY_ICON_OFFSET = "calc(100% - 1.45ch)";
 const RIGHT_LINE_COPY_ICON_OFFSET = "calc(100% - 3.2ch)";
-const INSERTED_FONT_STYLE_RANGES_ANNOTATION =
-  Annotation.define<StyledDocumentChange["insertedFontStyleRanges"]>();
 
 type CodeMirrorExtensionOptions = {
   ariaLabel: string;
@@ -72,7 +73,9 @@ type CodeMirrorExtensionOptions = {
   onContentLayoutChange: () => void;
   onSelectionChange?: (selections: TextSelectionRange[]) => void;
   onCopyLine: CopyLineHandler;
+  getInitialFontStyleRanges: () => FontStyleRange[];
   getFontStyleRanges: () => FontStyleRange[];
+  getActiveFontStyleTypes: () => FontStyleType[];
   lineNumberPosition: LineNumberPosition;
   lineNumberVisibilityMode: LineNumberVisibilityMode;
   areLineNumbersVisible: boolean;
@@ -90,11 +93,18 @@ export const getCodeMirrorExtensions = ({
   onContentLayoutChange,
   onSelectionChange,
   onCopyLine,
+  getInitialFontStyleRanges,
   getFontStyleRanges,
+  getActiveFontStyleTypes,
   lineNumberPosition,
   lineNumberVisibilityMode,
   areLineNumbersVisible,
 }: CodeMirrorExtensionOptions): Extension[] => {
+  const codeMirrorFontStyleHistory = createCodeMirrorFontStyleHistoryExtension({
+    getInitialFontStyleRanges,
+    getActiveFontStyleTypes,
+  });
+
   return [
     ...getCodeMirrorLineCopyExtension({
       pane,
@@ -105,6 +115,7 @@ export const getCodeMirrorExtensions = ({
     }),
     highlightActiveLineGutter(),
     history(),
+    ...codeMirrorFontStyleHistory.extension,
     ...getCodeMirrorConsoleCommandExtension({
       pane,
       onRunConsoleCommand,
@@ -153,12 +164,11 @@ export const getCodeMirrorExtensions = ({
 
         event.preventDefault();
 
-        const insertedFontStyleRanges: StyledDocumentChange["insertedFontStyleRanges"] =
-          [];
+        const fontStyleRanges: FontStyleRange[] = [];
         const transaction = view.state.changeByRange((range) => {
           const insertedFrom = range.from;
           for (const fontStyleRange of richTextClipboardContent.fontStyleRanges) {
-            insertedFontStyleRanges.push({
+            fontStyleRanges.push({
               type: fontStyleRange.type,
               from: insertedFrom + fontStyleRange.from,
               to: insertedFrom + fontStyleRange.to,
@@ -180,7 +190,9 @@ export const getCodeMirrorExtensions = ({
         view.dispatch({
           ...transaction,
           annotations: [
-            INSERTED_FONT_STYLE_RANGES_ANNOTATION.of(insertedFontStyleRanges),
+            codeMirrorRichPasteFontStyleRangesAnnotation.of(
+              fontStyleRanges,
+            ),
             Transaction.userEvent.of("input.paste"),
           ],
           scrollIntoView: true,
@@ -195,17 +207,10 @@ export const getCodeMirrorExtensions = ({
         update.changes.iterChanges((fromA, toA, fromB, toB) => {
           changes.push({ fromA, toA, fromB, toB });
         });
-        const insertedFontStyleRanges: StyledDocumentChange["insertedFontStyleRanges"] =
-          [];
-        for (const transaction of update.transactions) {
-          const annotatedRanges = transaction.annotation(
-            INSERTED_FONT_STYLE_RANGES_ANNOTATION,
-          );
-          if (annotatedRanges) {
-            insertedFontStyleRanges.push(...annotatedRanges);
-          }
-        }
-        onDocumentChange({ changes, insertedFontStyleRanges });
+        onDocumentChange({
+          changes,
+          fontStyleRanges: update.state.field(codeMirrorFontStyleHistory.field),
+        });
         if (update.startState.doc.lines !== update.state.doc.lines) {
           onContentLayoutChange();
         }

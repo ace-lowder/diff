@@ -37,7 +37,6 @@ import {
   type ClipboardHighlightRange,
 } from './clipboardExport';
 import {
-  applyFontStyleDocumentChanges,
   areFontStyleRangesEqual,
   areTextSelectionRangesEqual,
   getActiveFontStyleTypesForSelections,
@@ -193,8 +192,6 @@ const App = () => {
   const coffeeStatusTimeoutRef = useRef<number | null>(null);
   const menuHideTimeoutRef = useRef<number | null>(null);
   const lineNumberHideTimeoutRef = useRef<number | null>(null);
-  const draftActiveFontStyleTypesRef = useRef<FontStyleType[]>([]);
-  const editorActiveFontStyleTypesRef = useRef<FontStyleType[]>([]);
   const pendingDiffTimeoutRef = useRef<number | null>(null);
   const editorDiffWorkerRef = useRef<Worker | null>(null);
   const latestEditorDiffRequestIdRef = useRef(0);
@@ -481,14 +478,6 @@ const App = () => {
   useEffect(() => {
     setStoredFontStyleRanges(storageKeys.editorFontStyleRanges, editorFontStyleRanges);
   }, [editorFontStyleRanges]);
-
-  useEffect(() => {
-    draftActiveFontStyleTypesRef.current = draftActiveFontStyleTypes;
-  }, [draftActiveFontStyleTypes]);
-
-  useEffect(() => {
-    editorActiveFontStyleTypesRef.current = editorActiveFontStyleTypes;
-  }, [editorActiveFontStyleTypes]);
 
   useEffect(() => {
     return () => {
@@ -1129,21 +1118,9 @@ const App = () => {
     [],
   );
 
-  const applyDraftDocumentChanges = useCallback(
-    ({
-      changes,
-      insertedFontStyleRanges,
-    }: StyledDocumentChange) => {
-      const activeTypes = draftActiveFontStyleTypesRef.current;
-
+  const setDraftFontStyleRangesIfChanged = useCallback(
+    (nextRanges: FontStyleRange[]) => {
       setDraftFontStyleRanges((currentRanges) => {
-        const nextRanges = applyFontStyleDocumentChanges({
-          ranges: currentRanges,
-          changes,
-          activeTypes,
-          insertedFontStyleRanges,
-        });
-
         if (areFontStyleRangesEqual(currentRanges, nextRanges)) {
           return currentRanges;
         }
@@ -1155,21 +1132,9 @@ const App = () => {
     [],
   );
 
-  const applyEditorDocumentChanges = useCallback(
-    ({
-      changes,
-      insertedFontStyleRanges,
-    }: StyledDocumentChange) => {
-      const activeTypes = editorActiveFontStyleTypesRef.current;
-
+  const setEditorFontStyleRangesIfChanged = useCallback(
+    (nextRanges: FontStyleRange[]) => {
       setEditorFontStyleRanges((currentRanges) => {
-        const nextRanges = applyFontStyleDocumentChanges({
-          ranges: currentRanges,
-          changes,
-          activeTypes,
-          insertedFontStyleRanges,
-        });
-
         if (areFontStyleRangesEqual(currentRanges, nextRanges)) {
           return currentRanges;
         }
@@ -1179,6 +1144,20 @@ const App = () => {
       });
     },
     [],
+  );
+
+  const handleDraftDocumentChange = useCallback(
+    ({ fontStyleRanges }: StyledDocumentChange) => {
+      setDraftFontStyleRangesIfChanged(fontStyleRanges);
+    },
+    [setDraftFontStyleRangesIfChanged],
+  );
+
+  const handleEditorDocumentChange = useCallback(
+    ({ fontStyleRanges }: StyledDocumentChange) => {
+      setEditorFontStyleRangesIfChanged(fontStyleRanges);
+    },
+    [setEditorFontStyleRangesIfChanged],
   );
 
   const setDraftTextIfChanged = useCallback((nextText: string) => {
@@ -1334,7 +1313,7 @@ const App = () => {
             {mode === 'draft' && (
               <CodeMirrorPane
                 value={draftText}
-                onDocumentChange={applyDraftDocumentChanges}
+                onDocumentChange={handleDraftDocumentChange}
                 onCommittedValueChange={setDraftTextIfChanged}
                 onTypingActivity={pauseDiffPaintForTyping}
                 onFocusPane={() => setActivePane('draft')}
@@ -1344,6 +1323,7 @@ const App = () => {
                 onRunConsoleCommand={handleRunConsoleCommand}
                 onCopyLine={handleCopyLine}
                 onSelectionChange={setDraftSelectionsIfChanged}
+                activeFontStyleTypes={draftActiveFontStyleTypes}
                 lineNumberPosition={lineNumberPosition}
                 lineNumberVisibilityMode={lineNumberVisibilityMode}
                 areLineNumbersVisible={areLineNumbersVisible}
@@ -1375,7 +1355,7 @@ const App = () => {
             {mode === 'editor' && (
               <CodeMirrorPane
                 value={editorText}
-                onDocumentChange={applyEditorDocumentChanges}
+                onDocumentChange={handleEditorDocumentChange}
                 onCommittedValueChange={setEditorTextIfChanged}
                 onTypingActivity={pauseDiffPaintForTyping}
                 onFocusPane={() => setActivePane('editor')}
@@ -1385,6 +1365,7 @@ const App = () => {
                 onRunConsoleCommand={handleRunConsoleCommand}
                 onCopyLine={handleCopyLine}
                 onSelectionChange={setEditorSelectionsIfChanged}
+                activeFontStyleTypes={editorActiveFontStyleTypes}
                 lineNumberPosition={lineNumberPosition}
                 lineNumberVisibilityMode={lineNumberVisibilityMode}
                 areLineNumbersVisible={areLineNumbersVisible}
@@ -1420,7 +1401,7 @@ const App = () => {
                 >
                   <CodeMirrorPane
                     value={draftText}
-                    onDocumentChange={applyDraftDocumentChanges}
+                    onDocumentChange={handleDraftDocumentChange}
                     onCommittedValueChange={setDraftTextIfChanged}
                     onTypingActivity={pauseDiffPaintForTyping}
                     onFocusPane={() => setActivePane('draft')}
@@ -1430,6 +1411,7 @@ const App = () => {
                     onRunConsoleCommand={handleRunConsoleCommand}
                     onCopyLine={handleCopyLine}
                     onSelectionChange={setDraftSelectionsIfChanged}
+                    activeFontStyleTypes={draftActiveFontStyleTypes}
                     lineNumberPosition={lineNumberPosition}
                     lineNumberVisibilityMode={lineNumberVisibilityMode}
                     areLineNumbersVisible={areLineNumbersVisible}
@@ -1477,7 +1459,7 @@ const App = () => {
                 <div className="min-h-0 flex-1">
                   <CodeMirrorPane
                     value={editorText}
-                    onDocumentChange={applyEditorDocumentChanges}
+                    onDocumentChange={handleEditorDocumentChange}
                     onCommittedValueChange={setEditorTextIfChanged}
                     onTypingActivity={pauseDiffPaintForTyping}
                     onFocusPane={() => setActivePane('editor')}
@@ -1487,6 +1469,7 @@ const App = () => {
                     onRunConsoleCommand={handleRunConsoleCommand}
                     onCopyLine={handleCopyLine}
                     onSelectionChange={setEditorSelectionsIfChanged}
+                    activeFontStyleTypes={editorActiveFontStyleTypes}
                     lineNumberPosition={lineNumberPosition}
                     lineNumberVisibilityMode={lineNumberVisibilityMode}
                     areLineNumbersVisible={areLineNumbersVisible}

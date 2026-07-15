@@ -15,7 +15,7 @@ export type TextChange = {
 
 export type StyledDocumentChange = {
   changes: TextChange[];
-  insertedFontStyleRanges: FontStyleRange[];
+  fontStyleRanges: FontStyleRange[];
 };
 
 export type TextSelectionRange = {
