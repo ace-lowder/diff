@@ -24,7 +24,9 @@ describe('getClipboardHtml', () => {
       highlightRanges: [],
     });
 
-    expect(html).toContain('A &lt; B &amp; &quot;C&quot;');
+    expect(html).toContain(
+      '<span style="white-space: pre-wrap;">A &lt; B &amp; &quot;C&quot;</span>',
+    );
   });
 
   it('wraps added ranges in green highlight spans', () => {
@@ -140,7 +142,7 @@ describe('getClipboardHtml', () => {
       fontStyleRanges: [{ type: 'bold', from: 0, to: 5 }],
     });
 
-    expect(html).toContain('font-weight: 700');
+    expect(html).toContain('<span style="white-space: pre-wrap;"><strong>hello</strong></span>');
     expect(getHtmlTextContent(html)).toBe('hello');
   });
 
@@ -151,7 +153,7 @@ describe('getClipboardHtml', () => {
       fontStyleRanges: [{ type: 'italic', from: 0, to: 5 }],
     });
 
-    expect(html).toContain('font-style: italic');
+    expect(html).toContain('<em>hello</em>');
     expect(getHtmlTextContent(html)).toBe('hello');
   });
 
@@ -162,7 +164,7 @@ describe('getClipboardHtml', () => {
       fontStyleRanges: [{ type: 'underline', from: 0, to: 5 }],
     });
 
-    expect(html).toContain('text-decoration: underline');
+    expect(html).toContain('<u>hello</u>');
     expect(getHtmlTextContent(html)).toBe('hello');
   });
 
@@ -174,7 +176,7 @@ describe('getClipboardHtml', () => {
     });
 
     expect(html).toContain(
-      '<span style="background-color: #d9ead3; color: #000000; font-weight: 700">hello</span>',
+      '<span style="background-color: #d9ead3; color: #000000"><strong>hello</strong></span>',
     );
   });
 
@@ -187,9 +189,9 @@ describe('getClipboardHtml', () => {
     });
 
     expect(html).toContain(
-      '<span style="font-style: italic">one</span>\n<span style="font-style: italic">two</span>',
+      '<span style="white-space: pre-wrap;"><em>one</em>\n<em>two</em></span>',
     );
-    expect(html).not.toContain('<span style="font-style: italic">one\ntwo</span>');
+    expect(html).not.toContain('<em>one\ntwo</em>');
     expect(getHtmlTextContent(html)).toBe(text);
   });
 
@@ -199,8 +201,13 @@ describe('getClipboardHtml', () => {
       highlightRanges: [],
     });
 
-    expect(html).toContain('tab-size: 4');
+    expect(html).toContain('<span style="white-space: pre-wrap;">');
     expect(getHtmlTextContent(html)).toBe('one\ttwo');
+    expect(html).not.toContain('font-family');
+    expect(html).not.toContain('font-size');
+    expect(html).not.toContain('line-height');
+    expect(html).not.toContain('letter-spacing');
+    expect(html).not.toContain('tab-size');
   });
 });
 
@@ -297,14 +304,15 @@ describe('getSelectionClipboardContent', () => {
 
     expect(content?.plainText).toBe('bcd e');
     expect(content?.htmlText).toContain(
-      '<span style="font-weight: 700">b</span>',
+      '<strong>b</strong>',
     );
     expect(content?.htmlText).toContain(
-      '<span style="font-weight: 700; font-style: italic">cd</span>',
+      '<strong><em>cd</em></strong>',
     );
     expect(content?.htmlText).toContain(
-      '<span style="font-style: italic; text-decoration: underline"> e</span>',
+      '<em><u> e</u></em>',
     );
+    expect(content?.htmlText).toContain('<span style="white-space: pre-wrap;">');
   });
 
   it('exports multiple selections in document order with joined text', () => {
@@ -323,12 +331,13 @@ describe('getSelectionClipboardContent', () => {
 
     expect(content?.plainText).toBe('alpha\nbeta');
     expect(content?.htmlText).toContain(
-      '<span style="font-weight: 700; text-decoration: underline">alpha</span>',
+      '<strong><u>alpha</u></strong>',
     );
     expect(content?.htmlText).toContain('\n');
     expect(content?.htmlText).toContain(
-      '<span style="font-style: italic; text-decoration: underline">beta</span>',
+      '<em><u>beta</u></em>',
     );
+    expect(content?.htmlText).toContain('<span style="white-space: pre-wrap;">');
   });
 
   it('returns null when there are no non-empty selections', () => {

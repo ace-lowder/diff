@@ -49,7 +49,7 @@ export const getClipboardHtml = ({
     normalizedFontStyleRanges,
   );
 
-  let html = `<div style="white-space: pre-wrap; tab-size: 4; color: ${CLIPBOARD_TEXT_COLOR}; font-family: Arial, sans-serif;">`;
+  let html = '<span style="white-space: pre-wrap;">';
 
   for (let index = 0; index < boundaries.length - 1; index += 1) {
     const from = boundaries[index];
@@ -84,17 +84,10 @@ export const getClipboardHtml = ({
       continue;
     }
 
-    const style = getSegmentStyle(segment);
-
-    if (!style) {
-      html += escapeHtml(segmentText);
-      continue;
-    }
-
-    html += `<span style="${style}">${escapeHtml(segmentText)}</span>`;
+    html += renderClipboardSegment(segmentText, segment);
   }
 
-  html += '</div>';
+  html += '</span>';
   return html;
 };
 
@@ -290,28 +283,29 @@ export const getDraftClipboardHighlightRanges = ({
   return draftRanges;
 };
 
+const renderClipboardSegment = (
+  text: string,
+  segment: TextSegment,
+): string => {
+  let html = escapeHtml(text);
 
-const getSegmentStyle = (segment: TextSegment): string => {
-  const styles: string[] = [];
-
-  if (segment.highlightColor) {
-    styles.push(`background-color: ${segment.highlightColor}`);
-    styles.push(`color: ${CLIPBOARD_TEXT_COLOR}`);
-  }
-
-  if (segment.isBold) {
-    styles.push('font-weight: 700');
+  if (segment.isUnderline) {
+    html = `<u>${html}</u>`;
   }
 
   if (segment.isItalic) {
-    styles.push('font-style: italic');
+    html = `<em>${html}</em>`;
   }
 
-  if (segment.isUnderline) {
-    styles.push('text-decoration: underline');
+  if (segment.isBold) {
+    html = `<strong>${html}</strong>`;
   }
 
-  return styles.join('; ');
+  if (segment.highlightColor) {
+    html = `<span style="background-color: ${segment.highlightColor}; color: ${CLIPBOARD_TEXT_COLOR}">${html}</span>`;
+  }
+
+  return html;
 };
 
 const isDraftClipboardHighlightCharacter = (character: string): boolean => {
