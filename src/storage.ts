@@ -4,6 +4,7 @@ import {
   isFontSizeMode,
 } from './fontSize';
 import type {
+  AppMode,
   FontSizeMode,
   LineGapMode,
   LineNumberPosition,
@@ -43,6 +44,7 @@ export const storageKeys = {
   fontSizeMode: 'byline:fontSizeMode',
   lineGapMode: 'byline:lineGapMode',
   wordWrappingEnabled: 'byline:wordWrappingEnabled',
+  appMode: 'byline:appMode',
 } as const;
 
 export type StoredDocumentText = {
@@ -209,6 +211,33 @@ export const setStoredFontSizeMode = (
 ): void => {
   try {
     window.localStorage.setItem(storageKeys.fontSizeMode, fontSizeMode);
+  } catch {
+    // Ignore storage failures so editing still works.
+  }
+};
+
+export const getStoredAppMode = (): AppMode => {
+  try {
+    const value = window.localStorage.getItem(storageKeys.appMode);
+
+    if (value === 'draft' || value === 'editor' || value === 'split') {
+      return value;
+    }
+
+    return 'split';
+  } catch {
+    return 'split';
+  }
+};
+
+export const setStoredAppMode = (mode: AppMode): void => {
+  try {
+    if (mode === 'split') {
+      window.localStorage.removeItem(storageKeys.appMode);
+      return;
+    }
+
+    window.localStorage.setItem(storageKeys.appMode, mode);
   } catch {
     // Ignore storage failures so editing still works.
   }

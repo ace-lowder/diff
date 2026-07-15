@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   DEFAULT_DRAFT_TEXT,
   DEFAULT_EDITOR_TEXT,
+  getStoredAppMode,
   getStoredDocumentText,
   getStoredFontSizeMode,
   getStoredLineGapMode,
@@ -11,6 +12,7 @@ import {
   getStoredMenuPlacement,
   getStoredMenuVisibilityMode,
   getStoredWordWrappingEnabled,
+  setStoredAppMode,
   setStoredFontSizeMode,
   setStoredLineGapMode,
   setStoredLineNumberPosition,
@@ -124,6 +126,65 @@ describe('getStoredDocumentText', () => {
       });
     } finally {
       window.localStorage.getItem = originalGetItem;
+    }
+  });
+});
+
+describe('app mode storage', () => {
+  it('returns split when value is missing', () => {
+    expect(getStoredAppMode()).toBe('split');
+  });
+
+  it('returns draft, editor, and split when stored', () => {
+    store.set(storageKeys.appMode, 'draft');
+    expect(getStoredAppMode()).toBe('draft');
+
+    store.set(storageKeys.appMode, 'editor');
+    expect(getStoredAppMode()).toBe('editor');
+
+    store.set(storageKeys.appMode, 'split');
+    expect(getStoredAppMode()).toBe('split');
+  });
+
+  it('returns split for invalid stored value', () => {
+    store.set(storageKeys.appMode, 'preview');
+    expect(getStoredAppMode()).toBe('split');
+  });
+
+  it('stores draft and editor and clears split', () => {
+    setStoredAppMode('draft');
+    expect(store.get(storageKeys.appMode)).toBe('draft');
+
+    setStoredAppMode('editor');
+    expect(store.get(storageKeys.appMode)).toBe('editor');
+
+    setStoredAppMode('split');
+    expect(store.has(storageKeys.appMode)).toBe(false);
+  });
+
+  it('falls back safely when storage access fails', () => {
+    const originalGetItem = window.localStorage.getItem;
+    const originalSetItem = window.localStorage.setItem;
+    const originalRemoveItem = window.localStorage.removeItem;
+
+    window.localStorage.getItem = () => {
+      throw new Error('get-failed');
+    };
+    window.localStorage.setItem = () => {
+      throw new Error('set-failed');
+    };
+    window.localStorage.removeItem = () => {
+      throw new Error('remove-failed');
+    };
+
+    try {
+      expect(getStoredAppMode()).toBe('split');
+      expect(() => setStoredAppMode('draft')).not.toThrow();
+      expect(() => setStoredAppMode('split')).not.toThrow();
+    } finally {
+      window.localStorage.getItem = originalGetItem;
+      window.localStorage.setItem = originalSetItem;
+      window.localStorage.removeItem = originalRemoveItem;
     }
   });
 });

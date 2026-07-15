@@ -54,6 +54,7 @@ import {
   getStoredMenuPlacement,
   getStoredMenuVisibilityMode,
   getStoredFontSizeMode,
+  getStoredAppMode,
   getStoredLineGapMode,
   getStoredLineNumberPosition,
   getStoredLineNumberVisibilityMode,
@@ -63,6 +64,7 @@ import {
   setStoredLineNumberPosition,
   setStoredLineNumberVisibilityMode,
   setStoredFontSizeMode,
+  setStoredAppMode,
   setStoredLineGapMode,
   setStoredMenuPlacement,
   setStoredMenuVisibilityMode,
@@ -115,7 +117,7 @@ const App = () => {
   );
   const initialFontSizeMode = useMemo(() => getStoredFontSizeMode(), []);
 
-  const [mode, setMode] = useState<AppMode>('split');
+  const [mode, setMode] = useState<AppMode>(() => getStoredAppMode());
   const [statsMode, setStatsMode] = useState<StatsMode>('words');
   const [draftText, setDraftText] = useState(() => initialDocumentText.draftText);
   const [editorText, setEditorText] = useState(() => initialDocumentText.editorText);
@@ -541,7 +543,12 @@ const App = () => {
   const handleModeToggle = () => {
     refreshActiveLineFromVisiblePane();
     setInitialLineNumber(activeLineNumberRef.current);
-    setMode((currentMode) => getNextMode(currentMode));
+    setPersistentAppMode(getNextMode(mode));
+  };
+
+  const setPersistentAppMode = (nextMode: AppMode) => {
+    setStoredAppMode(nextMode);
+    setMode(nextMode);
   };
 
   const handleStatsModeToggle = () => {
@@ -784,7 +791,7 @@ const App = () => {
 
       refreshActiveLineFromVisiblePane();
       setInitialLineNumber(activeLineNumberRef.current);
-      setMode(command.mode);
+      setPersistentAppMode(command.mode);
       return;
     }
 
