@@ -6,6 +6,7 @@ export type MenuVisibilityMode = 'visible' | 'autoHide';
 export type LineNumberPosition = 'left' | 'right';
 export type LineNumberVisibilityMode = 'visible' | 'autoHide';
 export type FontSizeMode = 'small' | 'medium' | 'large';
+export type LineGapMode = 'normal' | 'large';
 
 export type ScrollOffset = {
   left: number;

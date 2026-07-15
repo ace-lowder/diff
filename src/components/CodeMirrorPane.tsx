@@ -16,6 +16,7 @@ import {
   setTypingDiffDecorationsEffect,
 } from '../editor/codeMirrorDiffPaint';
 import { getCodeMirrorExtensions } from '../editor/codeMirrorExtensions';
+import { createCodeMirrorDisplaySettingsController } from '../editor/codeMirrorDisplaySettings';
 import { setCodeMirrorFontStyleRangesEffect } from '../editor/codeMirrorFontStyleHistory';
 import {
   getCodeMirrorPaneLineNumberClassName,
@@ -27,6 +28,7 @@ import type {
   CodeMirrorTheme,
   CopyLineHandler,
   FontSizeMode,
+  LineGapMode,
   LineNumberPosition,
   LineNumberVisibilityMode,
   ScrollOffset,
@@ -62,6 +64,8 @@ type CodeMirrorPaneProps = {
   onShowLineNumbers: () => void;
   onScheduleLineNumbersHide: () => void;
   fontSizeMode: FontSizeMode;
+  lineGapMode: LineGapMode;
+  isWordWrappingEnabled: boolean;
   ariaLabel: string;
   theme: CodeMirrorTheme;
   initialLineNumber: number;
@@ -99,6 +103,8 @@ export const CodeMirrorPane = ({
   onShowLineNumbers,
   onScheduleLineNumbersHide,
   fontSizeMode,
+  lineGapMode,
+  isWordWrappingEnabled,
   ariaLabel,
   theme,
   initialLineNumber,
@@ -129,6 +135,9 @@ export const CodeMirrorPane = ({
   const onRunConsoleCommandRef = useRef(onRunConsoleCommand);
   const onCopyLineRef = useRef(onCopyLine);
   const activeFontStyleTypesRef = useRef(activeFontStyleTypes);
+  const displaySettingsControllerRef = useRef<ReturnType<
+    typeof createCodeMirrorDisplaySettingsController
+  > | null>(null);
   const lineNumberVisibilityModeRef = useRef(lineNumberVisibilityMode);
   const onShowLineNumbersRef = useRef(onShowLineNumbers);
   const onScheduleLineNumbersHideRef = useRef(onScheduleLineNumbersHide);
@@ -152,6 +161,13 @@ export const CodeMirrorPane = ({
       lowestEditedLine,
     }),
   );
+
+  if (displaySettingsControllerRef.current === null) {
+    displaySettingsControllerRef.current = createCodeMirrorDisplaySettingsController({
+      lineGapMode,
+      isWordWrappingEnabled,
+    });
+  }
 
   useEffect(() => {
     onDocumentChangeRef.current = onDocumentChange;
@@ -200,6 +216,34 @@ export const CodeMirrorPane = ({
   useEffect(() => {
     activeFontStyleTypesRef.current = activeFontStyleTypes;
   }, [activeFontStyleTypes]);
+
+  useEffect(() => {
+    const editorView = editorViewRef.current;
+
+    if (!editorView) {
+      return;
+    }
+
+    const displaySettingsController = displaySettingsControllerRef.current;
+
+    if (!displaySettingsController) {
+      return;
+    }
+
+    editorView.dispatch({
+      effects: [
+        displaySettingsController.reconfigureLineGapMode(lineGapMode),
+        displaySettingsController.reconfigureWordWrapping(isWordWrappingEnabled),
+      ],
+    });
+
+    const frameId = window.requestAnimationFrame(() => {
+      refreshEditorGeometry(editorView);
+      onContentLayoutChangeRef.current?.();
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [lineGapMode, isWordWrappingEnabled]);
 
   useEffect(() => {
     lineNumberVisibilityModeRef.current = lineNumberVisibilityMode;
@@ -377,6 +421,8 @@ export const CodeMirrorPane = ({
           getInitialFontStyleRanges: () => fontStyleRanges ?? [],
           getFontStyleRanges: () => fontStyleRangesRef.current,
           getActiveFontStyleTypes: () => activeFontStyleTypesRef.current,
+          displaySettingsExtension:
+            displaySettingsControllerRef.current?.extension ?? [],
           lineNumberPosition: lineNumberPositionRef.current,
           lineNumberVisibilityMode: lineNumberVisibilityModeRef.current,
           areLineNumbersVisible: areLineNumbersVisibleRef.current,

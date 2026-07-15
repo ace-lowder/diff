@@ -5,6 +5,7 @@ import {
 } from './fontSize';
 import type {
   FontSizeMode,
+  LineGapMode,
   LineNumberPosition,
   LineNumberVisibilityMode,
   MenuPlacement,
@@ -40,6 +41,8 @@ export const storageKeys = {
   lineNumberPosition: 'byline:lineNumberPosition',
   lineNumberVisibilityMode: 'byline:lineNumberVisibilityMode',
   fontSizeMode: 'byline:fontSizeMode',
+  lineGapMode: 'byline:lineGapMode',
+  wordWrappingEnabled: 'byline:wordWrappingEnabled',
 } as const;
 
 export type StoredDocumentText = {
@@ -206,6 +209,62 @@ export const setStoredFontSizeMode = (
 ): void => {
   try {
     window.localStorage.setItem(storageKeys.fontSizeMode, fontSizeMode);
+  } catch {
+    // Ignore storage failures so editing still works.
+  }
+};
+
+export const getStoredLineGapMode = (): LineGapMode => {
+  try {
+    const value = window.localStorage.getItem(storageKeys.lineGapMode);
+
+    if (value === 'normal' || value === 'large') {
+      return value;
+    }
+
+    return 'normal';
+  } catch {
+    return 'normal';
+  }
+};
+
+export const setStoredLineGapMode = (lineGapMode: LineGapMode): void => {
+  try {
+    if (lineGapMode === 'normal') {
+      window.localStorage.removeItem(storageKeys.lineGapMode);
+      return;
+    }
+
+    window.localStorage.setItem(storageKeys.lineGapMode, lineGapMode);
+  } catch {
+    // Ignore storage failures so editing still works.
+  }
+};
+
+export const getStoredWordWrappingEnabled = (): boolean => {
+  try {
+    const value = window.localStorage.getItem(storageKeys.wordWrappingEnabled);
+
+    if (value === 'false') {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return true;
+  }
+};
+
+export const setStoredWordWrappingEnabled = (
+  wordWrappingEnabled: boolean,
+): void => {
+  try {
+    if (wordWrappingEnabled) {
+      window.localStorage.removeItem(storageKeys.wordWrappingEnabled);
+      return;
+    }
+
+    window.localStorage.setItem(storageKeys.wordWrappingEnabled, 'false');
   } catch {
     // Ignore storage failures so editing still works.
   }

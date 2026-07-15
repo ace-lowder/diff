@@ -5,15 +5,19 @@ import {
   DEFAULT_EDITOR_TEXT,
   getStoredDocumentText,
   getStoredFontSizeMode,
+  getStoredLineGapMode,
   getStoredLineNumberPosition,
   getStoredLineNumberVisibilityMode,
   getStoredMenuPlacement,
   getStoredMenuVisibilityMode,
+  getStoredWordWrappingEnabled,
   setStoredFontSizeMode,
+  setStoredLineGapMode,
   setStoredLineNumberPosition,
   setStoredLineNumberVisibilityMode,
   setStoredMenuPlacement,
   setStoredMenuVisibilityMode,
+  setStoredWordWrappingEnabled,
   storageKeys,
 } from './storage';
 
@@ -383,6 +387,111 @@ describe('font size mode storage', () => {
     } finally {
       window.localStorage.getItem = originalGetItem;
       window.localStorage.setItem = originalSetItem;
+    }
+  });
+});
+
+describe('line gap mode storage', () => {
+  it('returns normal when value is missing', () => {
+    expect(getStoredLineGapMode()).toBe('normal');
+  });
+
+  it('returns normal when normal is stored', () => {
+    store.set(storageKeys.lineGapMode, 'normal');
+    expect(getStoredLineGapMode()).toBe('normal');
+  });
+
+  it('returns large when large is stored', () => {
+    store.set(storageKeys.lineGapMode, 'large');
+    expect(getStoredLineGapMode()).toBe('large');
+  });
+
+  it('returns normal for invalid stored value', () => {
+    store.set(storageKeys.lineGapMode, 'wide');
+    expect(getStoredLineGapMode()).toBe('normal');
+  });
+
+  it('stores large and removes normal', () => {
+    setStoredLineGapMode('large');
+    expect(store.get(storageKeys.lineGapMode)).toBe('large');
+
+    setStoredLineGapMode('normal');
+    expect(store.has(storageKeys.lineGapMode)).toBe(false);
+  });
+
+  it('falls back safely when storage access fails', () => {
+    const originalGetItem = window.localStorage.getItem;
+    const originalSetItem = window.localStorage.setItem;
+    const originalRemoveItem = window.localStorage.removeItem;
+
+    window.localStorage.getItem = () => {
+      throw new Error('get-failed');
+    };
+    window.localStorage.setItem = () => {
+      throw new Error('set-failed');
+    };
+    window.localStorage.removeItem = () => {
+      throw new Error('remove-failed');
+    };
+
+    try {
+      expect(getStoredLineGapMode()).toBe('normal');
+      expect(() => setStoredLineGapMode('large')).not.toThrow();
+      expect(() => setStoredLineGapMode('normal')).not.toThrow();
+    } finally {
+      window.localStorage.getItem = originalGetItem;
+      window.localStorage.setItem = originalSetItem;
+      window.localStorage.removeItem = originalRemoveItem;
+    }
+  });
+});
+
+describe('word wrapping storage', () => {
+  it('defaults to enabled when value is missing', () => {
+    expect(getStoredWordWrappingEnabled()).toBe(true);
+  });
+
+  it('returns false when disabled is stored', () => {
+    store.set(storageKeys.wordWrappingEnabled, 'false');
+    expect(getStoredWordWrappingEnabled()).toBe(false);
+  });
+
+  it('returns true for invalid stored value', () => {
+    store.set(storageKeys.wordWrappingEnabled, 'maybe');
+    expect(getStoredWordWrappingEnabled()).toBe(true);
+  });
+
+  it('stores false and removes true', () => {
+    setStoredWordWrappingEnabled(false);
+    expect(store.get(storageKeys.wordWrappingEnabled)).toBe('false');
+
+    setStoredWordWrappingEnabled(true);
+    expect(store.has(storageKeys.wordWrappingEnabled)).toBe(false);
+  });
+
+  it('falls back safely when storage access fails', () => {
+    const originalGetItem = window.localStorage.getItem;
+    const originalSetItem = window.localStorage.setItem;
+    const originalRemoveItem = window.localStorage.removeItem;
+
+    window.localStorage.getItem = () => {
+      throw new Error('get-failed');
+    };
+    window.localStorage.setItem = () => {
+      throw new Error('set-failed');
+    };
+    window.localStorage.removeItem = () => {
+      throw new Error('remove-failed');
+    };
+
+    try {
+      expect(getStoredWordWrappingEnabled()).toBe(true);
+      expect(() => setStoredWordWrappingEnabled(false)).not.toThrow();
+      expect(() => setStoredWordWrappingEnabled(true)).not.toThrow();
+    } finally {
+      window.localStorage.getItem = originalGetItem;
+      window.localStorage.setItem = originalSetItem;
+      window.localStorage.removeItem = originalRemoveItem;
     }
   });
 });

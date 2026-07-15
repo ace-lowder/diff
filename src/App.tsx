@@ -54,16 +54,20 @@ import {
   getStoredMenuPlacement,
   getStoredMenuVisibilityMode,
   getStoredFontSizeMode,
+  getStoredLineGapMode,
   getStoredLineNumberPosition,
   getStoredLineNumberVisibilityMode,
   getStoredDocumentText,
   getStoredFontStyleRanges,
+  getStoredWordWrappingEnabled,
   setStoredLineNumberPosition,
   setStoredLineNumberVisibilityMode,
   setStoredFontSizeMode,
+  setStoredLineGapMode,
   setStoredMenuPlacement,
   setStoredMenuVisibilityMode,
   setStoredFontStyleRanges,
+  setStoredWordWrappingEnabled,
   setStoredText,
   storageKeys,
 } from './storage';
@@ -86,6 +90,7 @@ import type {
   LineNumberPosition,
   LineNumberVisibilityMode,
   FontSizeMode,
+  LineGapMode,
   MenuVisibilityMode,
   MenuPlacement,
   TextLineContext,
@@ -160,6 +165,11 @@ const App = () => {
     useState<LineNumberVisibilityMode>(initialLineNumberVisibilityMode);
   const [fontSizeMode, setFontSizeMode] =
     useState<FontSizeMode>(initialFontSizeMode);
+  const [lineGapMode, setLineGapMode] =
+    useState<LineGapMode>(() => getStoredLineGapMode());
+  const [isWordWrappingEnabled, setIsWordWrappingEnabled] = useState(() =>
+    getStoredWordWrappingEnabled(),
+  );
   const [areLineNumbersVisible, setAreLineNumbersVisible] = useState(
     initialLineNumberVisibilityMode === 'visible',
   );
@@ -626,6 +636,18 @@ const App = () => {
     setFontSizeMode(nextFontSizeMode);
   };
 
+  const setPersistentLineGapMode = (nextLineGapMode: LineGapMode) => {
+    setStoredLineGapMode(nextLineGapMode);
+    setLineGapMode(nextLineGapMode);
+  };
+
+  const setPersistentWordWrappingEnabled = (
+    nextWordWrappingEnabled: boolean,
+  ) => {
+    setStoredWordWrappingEnabled(nextWordWrappingEnabled);
+    setIsWordWrappingEnabled(nextWordWrappingEnabled);
+  };
+
   const handleFontSizeToggle = () => {
     setPersistentFontSizeMode(getNextFontSizeMode(fontSizeMode));
   };
@@ -813,6 +835,23 @@ const App = () => {
 
     if (command.type === 'fontSize') {
       setPersistentFontSizeMode(command.fontSizeMode);
+      return;
+    }
+
+    if (command.type === 'gap') {
+      if (command.lineGapMode === 'toggle') {
+        setPersistentLineGapMode(
+          lineGapMode === 'normal' ? 'large' : 'normal',
+        );
+        return;
+      }
+
+      setPersistentLineGapMode(command.lineGapMode);
+      return;
+    }
+
+    if (command.type === 'wrap') {
+      setPersistentWordWrappingEnabled(!isWordWrappingEnabled);
       return;
     }
 
@@ -1324,6 +1363,8 @@ const App = () => {
                 onCopyLine={handleCopyLine}
                 onSelectionChange={setDraftSelectionsIfChanged}
                 activeFontStyleTypes={draftActiveFontStyleTypes}
+                lineGapMode={lineGapMode}
+                isWordWrappingEnabled={isWordWrappingEnabled}
                 lineNumberPosition={lineNumberPosition}
                 lineNumberVisibilityMode={lineNumberVisibilityMode}
                 areLineNumbersVisible={areLineNumbersVisible}
@@ -1366,6 +1407,8 @@ const App = () => {
                 onCopyLine={handleCopyLine}
                 onSelectionChange={setEditorSelectionsIfChanged}
                 activeFontStyleTypes={editorActiveFontStyleTypes}
+                lineGapMode={lineGapMode}
+                isWordWrappingEnabled={isWordWrappingEnabled}
                 lineNumberPosition={lineNumberPosition}
                 lineNumberVisibilityMode={lineNumberVisibilityMode}
                 areLineNumbersVisible={areLineNumbersVisible}
@@ -1412,6 +1455,8 @@ const App = () => {
                     onCopyLine={handleCopyLine}
                     onSelectionChange={setDraftSelectionsIfChanged}
                     activeFontStyleTypes={draftActiveFontStyleTypes}
+                    lineGapMode={lineGapMode}
+                    isWordWrappingEnabled={isWordWrappingEnabled}
                     lineNumberPosition={lineNumberPosition}
                     lineNumberVisibilityMode={lineNumberVisibilityMode}
                     areLineNumbersVisible={areLineNumbersVisible}
@@ -1470,6 +1515,8 @@ const App = () => {
                     onCopyLine={handleCopyLine}
                     onSelectionChange={setEditorSelectionsIfChanged}
                     activeFontStyleTypes={editorActiveFontStyleTypes}
+                    lineGapMode={lineGapMode}
+                    isWordWrappingEnabled={isWordWrappingEnabled}
                     lineNumberPosition={lineNumberPosition}
                     lineNumberVisibilityMode={lineNumberVisibilityMode}
                     areLineNumbersVisible={areLineNumbersVisible}

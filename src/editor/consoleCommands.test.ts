@@ -95,6 +95,22 @@ describe('parseConsoleCommandLine', () => {
       kind: 'valid',
       command: { type: 'fontSize', fontSizeMode: 'large' },
     });
+    expect(parseConsoleCommandLine('/gap normal')).toEqual({
+      kind: 'valid',
+      command: { type: 'gap', lineGapMode: 'normal' },
+    });
+    expect(parseConsoleCommandLine('/gap large')).toEqual({
+      kind: 'valid',
+      command: { type: 'gap', lineGapMode: 'large' },
+    });
+    expect(parseConsoleCommandLine('/gap')).toEqual({
+      kind: 'valid',
+      command: { type: 'gap', lineGapMode: 'toggle' },
+    });
+    expect(parseConsoleCommandLine('/wrap')).toEqual({
+      kind: 'valid',
+      command: { type: 'wrap' },
+    });
   });
 
   it('parses invalid and non-command lines', () => {
@@ -131,6 +147,18 @@ describe('parseConsoleCommandLine', () => {
       kind: 'unknown-command',
       message: '/fontsize huge - unknown command',
     });
+    expect(parseConsoleCommandLine('/gap medium')).toEqual({
+      kind: 'unknown-command',
+      message: '/gap medium - unknown command',
+    });
+    expect(parseConsoleCommandLine('/gap normal extra')).toEqual({
+      kind: 'unknown-command',
+      message: '/gap normal extra - unknown command',
+    });
+    expect(parseConsoleCommandLine('/wrap now')).toEqual({
+      kind: 'unknown-command',
+      message: '/wrap now - unknown command',
+    });
     expect(parseConsoleCommandLine('/linenum show')).toEqual({
       kind: 'unknown-root',
     });
@@ -165,6 +193,8 @@ describe('getConsoleCommandMenu', () => {
         { label: 'menu' },
         { label: 'linenums' },
         { label: 'fontsize' },
+        { label: 'gap' },
+        { label: 'wrap' },
       ],
       tokenFrom: 1,
       tokenTo: 1,
@@ -200,6 +230,18 @@ describe('getConsoleCommandMenu', () => {
       options: [{ label: 'fontsize' }],
       tokenFrom: 1,
       tokenTo: 5,
+    });
+
+    expect(getConsoleCommandMenu({ lineText: '/g', cursorOffset: 2 })).toEqual({
+      options: [{ label: 'gap' }],
+      tokenFrom: 1,
+      tokenTo: 2,
+    });
+
+    expect(getConsoleCommandMenu({ lineText: '/w', cursorOffset: 2 })).toEqual({
+      options: [{ label: 'wrap' }],
+      tokenFrom: 1,
+      tokenTo: 2,
     });
 
     expect(getConsoleCommandMenu({ lineText: '/s', cursorOffset: 2 })).toEqual({
@@ -282,6 +324,18 @@ describe('getConsoleCommandMenu', () => {
       tokenTo: 10,
     });
 
+    expect(getConsoleCommandMenu({ lineText: '/gap ', cursorOffset: 5 })).toEqual({
+      options: [{ label: 'normal' }, { label: 'large' }],
+      tokenFrom: 5,
+      tokenTo: 5,
+    });
+
+    expect(getConsoleCommandMenu({ lineText: '/gap n', cursorOffset: 6 })).toEqual({
+      options: [{ label: 'normal' }],
+      tokenFrom: 5,
+      tokenTo: 6,
+    });
+
     expect(getConsoleCommandMenu({ lineText: '/fontsize m', cursorOffset: 11 })).toEqual({
       options: [{ label: 'medium' }],
       tokenFrom: 10,
@@ -298,6 +352,7 @@ describe('getConsoleCommandMenu', () => {
     expect(getConsoleCommandMenu({ lineText: '/menu top', cursorOffset: 9 })).toBeNull();
     expect(getConsoleCommandMenu({ lineText: '/menu bottom', cursorOffset: 12 })).toBeNull();
     expect(getConsoleCommandMenu({ lineText: '/fontsize medium', cursorOffset: 16 })).toBeNull();
+    expect(getConsoleCommandMenu({ lineText: '/wrap', cursorOffset: 5 })).toBeNull();
   });
 });
 
@@ -366,6 +421,14 @@ describe('getCompletedConsoleCommandLine', () => {
         selectedLabel: 'medium',
       }),
     ).toBe('/fontsize medium');
+
+    expect(
+      getCompletedConsoleCommandLine({
+        lineText: '/gap n',
+        cursorOffset: 6,
+        selectedLabel: 'normal',
+      }),
+    ).toBe('/gap normal');
   });
 });
 
@@ -442,5 +505,13 @@ describe('getConsoleCommandPrediction', () => {
         selectedLabel: 'bottom',
       }),
     ).toBe('ottom');
+
+    expect(
+      getConsoleCommandPrediction({
+        lineText: '/gap n',
+        cursorOffset: 6,
+        selectedLabel: 'normal',
+      }),
+    ).toBe('ormal');
   });
 });

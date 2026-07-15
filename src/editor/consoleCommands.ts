@@ -1,6 +1,7 @@
 import type { StatsMode } from '../editorDiff';
 import type {
   FontSizeMode,
+  LineGapMode,
   LineNumberPosition,
   LineNumberVisibilityMode,
   MenuPlacement,
@@ -47,6 +48,13 @@ export type ConsoleCommand =
   | {
       type: 'fontSize';
       fontSizeMode: FontSizeMode;
+    }
+  | {
+      type: 'gap';
+      lineGapMode: LineGapMode | 'toggle';
+    }
+  | {
+      type: 'wrap';
     };
 
 export type ConsoleCommandParseResult =
@@ -89,6 +97,8 @@ const ROOT_OPTIONS = [
   'menu',
   'linenums',
   'fontsize',
+  'gap',
+  'wrap',
 ] as const;
 const VIEW_OPTIONS = ['draft', 'editor', 'split'] as const;
 const COPY_OPTIONS = ['line'] as const;
@@ -96,6 +106,7 @@ const COUNT_OPTIONS = ['word', 'char'] as const;
 const MENU_OPTIONS = ['hide', 'show', 'top', 'bottom'] as const;
 const LINE_NUMBERS_OPTIONS = ['left', 'right', 'show', 'hide'] as const;
 const FONT_SIZE_OPTIONS = ['small', 'medium', 'large'] as const;
+const GAP_OPTIONS = ['normal', 'large'] as const;
 
 export const parseConsoleCommandLine = (
   lineText: string,
@@ -309,6 +320,48 @@ export const parseConsoleCommandLine = (
     };
   }
 
+  if (root === 'gap') {
+    if (parts.length === 1) {
+      return {
+        kind: 'valid',
+        command: { type: 'gap', lineGapMode: 'toggle' },
+      };
+    }
+
+    if (parts.length === 2 && option === 'normal') {
+      return {
+        kind: 'valid',
+        command: { type: 'gap', lineGapMode: 'normal' },
+      };
+    }
+
+    if (parts.length === 2 && option === 'large') {
+      return {
+        kind: 'valid',
+        command: { type: 'gap', lineGapMode: 'large' },
+      };
+    }
+
+    return {
+      kind: 'unknown-command',
+      message: `${trimmedLineText}${UNKNOWN_COMMAND_SUFFIX}`,
+    };
+  }
+
+  if (root === 'wrap') {
+    if (parts.length === 1) {
+      return {
+        kind: 'valid',
+        command: { type: 'wrap' },
+      };
+    }
+
+    return {
+      kind: 'unknown-command',
+      message: `${trimmedLineText}${UNKNOWN_COMMAND_SUFFIX}`,
+    };
+  }
+
   return {
     kind: 'unknown-command',
     message: `${trimmedLineText}${UNKNOWN_COMMAND_SUFFIX}`,
@@ -378,7 +431,9 @@ export const getConsoleCommandMenu = ({
       currentTokenText === '/count' ||
       currentTokenText === '/menu' ||
       currentTokenText === '/linenums' ||
-      currentTokenText === '/fontsize'
+      currentTokenText === '/fontsize' ||
+      currentTokenText === '/gap' ||
+      currentTokenText === '/wrap'
     ) {
       return null;
     }
@@ -500,6 +555,10 @@ const getOptionsForRoot = (
 
   if (root === 'fontsize') {
     return FONT_SIZE_OPTIONS;
+  }
+
+  if (root === 'gap') {
+    return GAP_OPTIONS;
   }
 
   return null;

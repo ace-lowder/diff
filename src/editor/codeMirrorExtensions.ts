@@ -22,6 +22,7 @@ import {
   createCodeMirrorFontStyleHistoryExtension,
   codeMirrorRichPasteFontStyleRangesAnnotation,
 } from "./codeMirrorFontStyleHistory";
+import { CODE_MIRROR_LARGE_LINE_GAP_CLASS_NAME } from "./codeMirrorDisplaySettings";
 import { getCodeMirrorLineCopyExtension } from "./codeMirrorLineCopy";
 import { getTopVisibleLineNumber } from "./codeMirrorScroll";
 import { CODE_MIRROR_TAB_SIZE, insertTabCharacter } from "./codeMirrorTab";
@@ -76,6 +77,7 @@ type CodeMirrorExtensionOptions = {
   getInitialFontStyleRanges: () => FontStyleRange[];
   getFontStyleRanges: () => FontStyleRange[];
   getActiveFontStyleTypes: () => FontStyleType[];
+  displaySettingsExtension: Extension;
   lineNumberPosition: LineNumberPosition;
   lineNumberVisibilityMode: LineNumberVisibilityMode;
   areLineNumbersVisible: boolean;
@@ -96,6 +98,7 @@ export const getCodeMirrorExtensions = ({
   getInitialFontStyleRanges,
   getFontStyleRanges,
   getActiveFontStyleTypes,
+  displaySettingsExtension,
   lineNumberPosition,
   lineNumberVisibilityMode,
   areLineNumbersVisible,
@@ -126,7 +129,6 @@ export const getCodeMirrorExtensions = ({
       ...defaultKeymap,
       ...historyKeymap,
     ]),
-    EditorView.lineWrapping,
     EditorView.contentAttributes.of({
       "aria-label": ariaLabel,
     }),
@@ -238,6 +240,7 @@ export const getCodeMirrorExtensions = ({
     ...getCodeMirrorDiffPaintExtension(theme),
     EditorState.tabSize.of(CODE_MIRROR_TAB_SIZE),
     getCodeMirrorTheme(theme),
+    displaySettingsExtension,
   ];
 };
 
@@ -300,6 +303,9 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       lineHeight: CODE_MIRROR_LINE_HEIGHT,
       minHeight: CODE_MIRROR_LINE_HEIGHT,
       boxSizing: "border-box",
+    },
+    [`&.${CODE_MIRROR_LARGE_LINE_GAP_CLASS_NAME} .cm-line`]: {
+      paddingBottom: CODE_MIRROR_LINE_HEIGHT,
     },
     ".cm-gutters": {
       backgroundColor,
