@@ -120,25 +120,20 @@ export const getCodeMirrorExtensions = ({
       "aria-label": ariaLabel,
     }),
     EditorView.domEventHandlers({
-      copy: (event, view) => {
-        const clipboardData = event.clipboardData;
-        if (!clipboardData) {
+      copy: (event, view) =>
+        writeSelectionClipboardContent(event, view, getFontStyleRanges()),
+      cut: (event, view) => {
+        if (
+          !writeSelectionClipboardContent(event, view, getFontStyleRanges())
+        ) {
           return false;
         }
 
-        const content = getSelectionClipboardContent({
-          text: view.state.doc.toString(),
-          selections: view.state.selection.ranges,
-          fontStyleRanges: getFontStyleRanges(),
+        view.dispatch({
+          ...view.state.replaceSelection(""),
+          annotations: [Transaction.userEvent.of("delete.cut")],
+          scrollIntoView: true,
         });
-
-        if (!content) {
-          return false;
-        }
-
-        event.preventDefault();
-        clipboardData.setData("text/plain", content.plainText);
-        clipboardData.setData("text/html", content.htmlText);
         return true;
       },
       paste: (event, view) => {
@@ -239,6 +234,32 @@ export const getCodeMirrorExtensions = ({
     EditorState.tabSize.of(CODE_MIRROR_TAB_SIZE),
     getCodeMirrorTheme(theme),
   ];
+};
+
+const writeSelectionClipboardContent = (
+  event: ClipboardEvent,
+  view: EditorView,
+  fontStyleRanges: FontStyleRange[],
+): boolean => {
+  const clipboardData = event.clipboardData;
+  if (!clipboardData) {
+    return false;
+  }
+
+  const content = getSelectionClipboardContent({
+    text: view.state.doc.toString(),
+    selections: view.state.selection.ranges,
+    fontStyleRanges,
+  });
+
+  if (!content) {
+    return false;
+  }
+
+  event.preventDefault();
+  clipboardData.setData("text/plain", content.plainText);
+  clipboardData.setData("text/html", content.htmlText);
+  return true;
 };
 
 const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
