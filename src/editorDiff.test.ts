@@ -307,12 +307,12 @@ describe('getEditorHighlightRanges', () => {
   });
 
   it('refines case and punctuation replacement highlights', () => {
-    const editorText = 'Welcome to Byline!';
-    const changes = getDisplayChanges('Welcome to byline', editorText);
+    const editorText = 'Welcome, Writer!';
+    const changes = getDisplayChanges('Welcome, writer', editorText);
     const ranges = getEditorHighlightRanges(changes);
 
     expect(ranges.map((range) => editorText.slice(range.from, range.to))).toEqual([
-      'B',
+      'W',
       '!',
     ]);
   });
@@ -340,32 +340,32 @@ describe('getEditorHighlightRanges', () => {
   });
 
   it('keeps punctuation/case/trailing-s heavy replacements character-level', () => {
-    const bylineWithPunctuation = getDisplayChanges('byline', 'Byline!');
-    const bylinePunctuationAdded = getEditorHighlightRanges(bylineWithPunctuation)
+    const writerWithPunctuation = getDisplayChanges('writer', 'Writer!');
+    const writerPunctuationAdded = getEditorHighlightRanges(writerWithPunctuation)
       .filter((range) => range.type === 'added')
-      .map((range) => 'Byline!'.slice(range.from, range.to));
-    expect(bylinePunctuationAdded).toEqual(['B', '!']);
-    expect(bylinePunctuationAdded).not.toContain('Byline!');
+      .map((range) => 'Writer!'.slice(range.from, range.to));
+    expect(writerPunctuationAdded).toEqual(['W', '!']);
+    expect(writerPunctuationAdded).not.toContain('Writer!');
 
-    const bylineBolinesPunctuation = getDisplayChanges('byline', 'Bolines!');
-    const bolinesPunctuationAdded = getEditorHighlightRanges(bylineBolinesPunctuation)
+    const writersWithPunctuation = getDisplayChanges('writer', 'Writers!');
+    const writersPunctuationAdded = getEditorHighlightRanges(writersWithPunctuation)
       .filter((range) => range.type === 'added')
-      .map((range) => 'Bolines!'.slice(range.from, range.to));
-    const bolinesPunctuationDeleted = getDraftHighlightRanges(bylineBolinesPunctuation)
+      .map((range) => 'Writers!'.slice(range.from, range.to));
+    const writersPunctuationDeleted = getDraftHighlightRanges(writersWithPunctuation)
       .filter((range) => range.type === 'deleted')
-      .map((range) => 'byline'.slice(range.from, range.to));
-    expect(bolinesPunctuationAdded).not.toContain('Bolines!');
-    expect(bolinesPunctuationDeleted).not.toContain('byline');
+      .map((range) => 'writer'.slice(range.from, range.to));
+    expect(writersPunctuationAdded).not.toContain('Writers!');
+    expect(writersPunctuationDeleted).not.toContain('writer');
 
-    const bylineBolines = getDisplayChanges('byline', 'Bolines');
-    const bolinesAdded = getEditorHighlightRanges(bylineBolines)
+    const writerWriters = getDisplayChanges('writer', 'Writers');
+    const writersAdded = getEditorHighlightRanges(writerWriters)
       .filter((range) => range.type === 'added')
-      .map((range) => 'Bolines'.slice(range.from, range.to));
-    const bolinesDeleted = getDraftHighlightRanges(bylineBolines)
+      .map((range) => 'Writers'.slice(range.from, range.to));
+    const writersDeleted = getDraftHighlightRanges(writerWriters)
       .filter((range) => range.type === 'deleted')
-      .map((range) => 'byline'.slice(range.from, range.to));
-    expect(bolinesAdded).not.toContain('Bolines');
-    expect(bolinesDeleted).not.toContain('byline');
+      .map((range) => 'writer'.slice(range.from, range.to));
+    expect(writersAdded).not.toContain('Writers');
+    expect(writersDeleted).not.toContain('writer');
 
     const teests = getDisplayChanges('test', 'Teests');
     const teestsAdded = getEditorHighlightRanges(teests)
@@ -377,12 +377,12 @@ describe('getEditorHighlightRanges', () => {
     expect(teestsAdded).not.toContain('Teests');
     expect(teestsDeleted).not.toContain('test');
 
-    const wrappedByline = getDisplayChanges('byline', '*byline*');
-    const wrappedBylineAdded = getEditorHighlightRanges(wrappedByline)
+    const wrappedWriter = getDisplayChanges('writer', '*writer*');
+    const wrappedWriterAdded = getEditorHighlightRanges(wrappedWriter)
       .filter((range) => range.type === 'added')
-      .map((range) => '*byline*'.slice(range.from, range.to));
-    expect(wrappedBylineAdded).toEqual(['*', '*']);
-    expect(wrappedBylineAdded).not.toContain('*byline*');
+      .map((range) => '*writer*'.slice(range.from, range.to));
+    expect(wrappedWriterAdded).toEqual(['*', '*']);
+    expect(wrappedWriterAdded).not.toContain('*writer*');
   });
 
   it('keeps pure word-edge additions character-level', () => {
@@ -1153,7 +1153,7 @@ describe('getLineDecorations', () => {
 
   it('keeps bottom exact line paired after multiple inserted editor lines', () => {
     const draftText = [
-      'Welcome to Byline',
+      'Welcome to Diff',
       '',
       'A text editor for messy first drafts.',
       '',
@@ -1162,7 +1162,7 @@ describe('getLineDecorations', () => {
       'Check out the bottom bar to track your word count, copy your drafts, and more',
     ].join('\n');
     const editorText = [
-      'Welcome to Byline!',
+      'Welcome to Diff!',
       '',
       'A text editor for cleaner revisions.',
       '',
@@ -1433,11 +1433,11 @@ describe('getDraftHighlightRanges', () => {
   });
 
   it('refines draft case replacement highlights', () => {
-    const draftText = 'Welcome to byline';
-    const changes = getDisplayChanges(draftText, 'Welcome to Byline!');
+    const draftText = 'Welcome, writer';
+    const changes = getDisplayChanges(draftText, 'Welcome, Writer!');
     const ranges = getDraftHighlightRanges(changes);
 
-    expect(ranges.map((range) => draftText.slice(range.from, range.to))).toEqual(['b']);
+    expect(ranges.map((range) => draftText.slice(range.from, range.to))).toEqual(['w']);
   });
 
   it('merges draft deleted ranges across a single space', () => {

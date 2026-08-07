@@ -47,7 +47,7 @@ beforeEach(() => {
   store.clear();
 });
 
-describe('Byline storage migration', () => {
+describe('legacy storage migration', () => {
   it('moves saved documents to Diff storage', () => {
     store.set(legacyStorageKeys.draftText, 'legacy draft');
     store.set(legacyStorageKeys.editorText, 'legacy editor');
