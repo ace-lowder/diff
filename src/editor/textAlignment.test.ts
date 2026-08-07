@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getLineAnchoredDiffResult,
   getTextAlignment,
+  type DraftLineDecoration,
   type TextAlignment,
   type TextAlignmentPart,
   type TextRange,
@@ -12,6 +13,8 @@ type VerifiedComparison = {
   alignment: TextAlignment;
   editorHighlightText: string[];
   draftHighlightText: string[];
+  editorDecoratedLines: number[];
+  draftLineDecorations: DraftLineDecoration[];
 };
 
 type ExactChangeCase = {
@@ -106,6 +109,44 @@ const EXACT_CHANGE_CASES: ExactChangeCase[] = [
   },
 ];
 
+const INLINE_FORMATTING_CASES = [
+  {
+    name: 'punctuation',
+    draftLine: 'Wait, what happened?',
+    editorLine: 'Wait—what happened!',
+    draftHighlightText: [',', '?'],
+    editorHighlightText: ['—', '!'],
+  },
+  {
+    name: 'math symbols',
+    draftLine: 'The rule is x < y.',
+    editorLine: 'The rule is x ≤ y.',
+    draftHighlightText: ['<'],
+    editorHighlightText: ['≤'],
+  },
+  {
+    name: 'emoji',
+    draftLine: 'Status: ready.',
+    editorLine: 'Status: ready ✅.',
+    draftHighlightText: [],
+    editorHighlightText: [' ✅'],
+  },
+  {
+    name: 'accented words',
+    draftLine: 'Café déjà vu.',
+    editorLine: 'Café déjà vu — résumé.',
+    draftHighlightText: [],
+    editorHighlightText: [' — résumé'],
+  },
+  {
+    name: 'non-Latin writing',
+    draftLine: '今日は晴れです。',
+    editorLine: '今日は晴れですよ。',
+    draftHighlightText: [],
+    editorHighlightText: ['よ'],
+  },
+] as const;
+
 const getVerifiedComparison = (
   draftText: string,
   editorText: string,
@@ -125,6 +166,10 @@ const getVerifiedComparison = (
     editorHighlightText: diff.editorHighlightRanges.map((range) =>
       editorText.slice(range.from, range.to),
     ),
+    editorDecoratedLines: diff.lineDecorations.editorLineDecorations.map(
+      ({ lineNumber }) => lineNumber,
+    ),
+    draftLineDecorations: diff.lineDecorations.draftLineDecorations,
   };
 };
 
@@ -276,4 +321,76 @@ describe('getTextAlignment', () => {
       testCase.editorOnlyLines,
     );
   });
+
+  it('keeps surrounding text linked when a blank line is inserted', () => {
+    const draftText = 'Opening paragraph.\nClosing paragraph.';
+    const editorText = 'Opening paragraph.\n\nClosing paragraph.';
+    const comparison = getVerifiedComparison(draftText, editorText);
+
+    expect(comparison.alignment.parts.map((part) => part.type)).toEqual([
+      'linked',
+      'editorOnly',
+      'linked',
+    ]);
+    expect(getLinkedLines(comparison.alignment, draftText, editorText)).toEqual([
+      { draftText: 'Opening paragraph.', editorText: 'Opening paragraph.' },
+      { draftText: 'Closing paragraph.', editorText: 'Closing paragraph.' },
+    ]);
+    expect(comparison.editorDecoratedLines).toEqual([2]);
+    expect(comparison.draftLineDecorations).toEqual([
+      {
+        type: 'missingEditorLine',
+        lineNumber: 2,
+        placement: 'before',
+        lineCount: 1,
+      },
+    ]);
+  });
+
+  it('keeps surrounding text linked when a blank line is deleted', () => {
+    const draftText = 'Opening paragraph.\n\nClosing paragraph.';
+    const editorText = 'Opening paragraph.\nClosing paragraph.';
+    const comparison = getVerifiedComparison(draftText, editorText);
+
+    expect(comparison.alignment.parts.map((part) => part.type)).toEqual([
+      'linked',
+      'draftOnly',
+      'linked',
+    ]);
+    expect(getLinkedLines(comparison.alignment, draftText, editorText)).toEqual([
+      { draftText: 'Opening paragraph.', editorText: 'Opening paragraph.' },
+      { draftText: 'Closing paragraph.', editorText: 'Closing paragraph.' },
+    ]);
+    expect(comparison.editorDecoratedLines).toEqual([]);
+    expect(comparison.draftLineDecorations).toEqual([
+      {
+        type: 'deletedDraftLine',
+        lineNumber: 2,
+        placement: 'before',
+      },
+    ]);
+  });
+
+  it.each(INLINE_FORMATTING_CASES)(
+    'keeps the line linked and highlights only changed $name',
+    (testCase) => {
+      const draftText = `Opening paragraph.\n${testCase.draftLine}\nClosing paragraph.`;
+      const editorText = `Opening paragraph.\n${testCase.editorLine}\nClosing paragraph.`;
+      const comparison = getVerifiedComparison(draftText, editorText);
+
+      expect(comparison.alignment.parts.map((part) => part.type)).toEqual([
+        'linked',
+        'linked',
+        'linked',
+      ]);
+      expect(getVisibleHighlightText(comparison.draftHighlightText)).toEqual(
+        testCase.draftHighlightText,
+      );
+      expect(getVisibleHighlightText(comparison.editorHighlightText)).toEqual(
+        testCase.editorHighlightText,
+      );
+      expect(comparison.editorDecoratedLines).toEqual([]);
+      expect(comparison.draftLineDecorations).toEqual([]);
+    },
+  );
 });

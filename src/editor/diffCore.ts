@@ -167,6 +167,7 @@ const LONG_REWRITE_DICE_RATIO = 0.36;
 const SHARED_PREFIX_WORD_COUNT = 4;
 const SHARED_PREFIX_MIN_WORD_RATIO = 0.25;
 const MIN_SHARED_WORDS_FOR_EDITOR_SUPPRESSION = 3;
+const VISIBLE_TEXT_MATCH_RATIO = 0.75;
 
 export const getWordCount = (text: string): number => {
   const trimmedText = text.trim();
@@ -2042,7 +2043,7 @@ const getLineWords = (line: string): string[] => {
       .toLowerCase()
       .replace(/[’‘]/g, "'")
       .replace(/[“”]/g, '"')
-      .match(/[a-z0-9]+(?:'[a-z0-9]+)?/g) ?? []
+      .match(/[\p{L}\p{N}]+(?:'[\p{L}\p{N}]+)?/gu) ?? []
   );
 };
 
@@ -2384,6 +2385,15 @@ const getLineMatchScore = (
     return FUZZY_LINE_MATCH_SCORE;
   }
 
+  if (
+    areSimilarVisibleTexts(
+      draftProfile.normalizedVisibleText,
+      editorProfile.normalizedVisibleText,
+    )
+  ) {
+    return FUZZY_LINE_MATCH_SCORE;
+  }
+
   return 0;
 };
 
@@ -2696,7 +2706,10 @@ const areSimilarVisibleTexts = (left: string, right: string): boolean => {
     return true;
   }
 
-  return getStringLcsLength(left, right) / Math.max(left.length, right.length) >= 0.75;
+  return (
+    getStringLcsLength(left, right) / Math.max(left.length, right.length) >=
+    VISIBLE_TEXT_MATCH_RATIO
+  );
 };
 
 const getStringLcsLength = (left: string, right: string): number => {
