@@ -673,7 +673,8 @@ describe('getEditorHighlightRanges', () => {
     const editorSlices = getEditorSlices(editorText, editorRanges);
     const draftSlices = getDraftSlices(draftText, draftRanges);
 
-    expect(editorSlices).toEqual(['abc']);
+    expect(editorSlices.filter((slice) => slice.length > 0)).toEqual(['abc']);
+    expect(editorRanges).toContainEqual({ type: 'deleted', from: 11, to: 11 });
     expect(draftSlices.filter((slice) => slice.length > 0)).toEqual([]);
     expect(editorSlices).not.toContain('two');
     expect(editorSlices).not.toContain('two ');

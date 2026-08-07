@@ -4,6 +4,9 @@ import {
   getLineAnchoredDiffResult,
   getTextAlignment,
   type DraftLineDecoration,
+  type EditorHighlightRange,
+  type EditorStats,
+  type DraftHighlightRange,
   type TextAlignment,
   type TextAlignmentPart,
   type TextRange,
@@ -15,6 +18,9 @@ type VerifiedComparison = {
   draftHighlightText: string[];
   editorDecoratedLines: number[];
   draftLineDecorations: DraftLineDecoration[];
+  editorHighlightRanges: EditorHighlightRange[];
+  draftHighlightRanges: DraftHighlightRange[];
+  editorStats: EditorStats;
 };
 
 type ExactChangeCase = {
@@ -170,6 +176,9 @@ const getVerifiedComparison = (
       ({ lineNumber }) => lineNumber,
     ),
     draftLineDecorations: diff.lineDecorations.draftLineDecorations,
+    editorHighlightRanges: diff.editorHighlightRanges,
+    draftHighlightRanges: diff.draftHighlightRanges,
+    editorStats: diff.editorStats,
   };
 };
 
@@ -336,15 +345,13 @@ describe('getTextAlignment', () => {
       { draftText: 'Opening paragraph.', editorText: 'Opening paragraph.' },
       { draftText: 'Closing paragraph.', editorText: 'Closing paragraph.' },
     ]);
-    expect(comparison.editorDecoratedLines).toEqual([2]);
-    expect(comparison.draftLineDecorations).toEqual([
-      {
-        type: 'missingEditorLine',
-        lineNumber: 2,
-        placement: 'before',
-        lineCount: 1,
-      },
-    ]);
+    expect(comparison.draftHighlightRanges).toContainEqual({
+      type: 'added',
+      from: 19,
+      to: 19,
+    });
+    expect(comparison.editorDecoratedLines).toEqual([]);
+    expect(comparison.draftLineDecorations).toEqual([]);
   });
 
   it('keeps surrounding text linked when a blank line is deleted', () => {
@@ -361,14 +368,13 @@ describe('getTextAlignment', () => {
       { draftText: 'Opening paragraph.', editorText: 'Opening paragraph.' },
       { draftText: 'Closing paragraph.', editorText: 'Closing paragraph.' },
     ]);
+    expect(comparison.editorHighlightRanges).toContainEqual({
+      type: 'deleted',
+      from: 19,
+      to: 19,
+    });
     expect(comparison.editorDecoratedLines).toEqual([]);
-    expect(comparison.draftLineDecorations).toEqual([
-      {
-        type: 'deletedDraftLine',
-        lineNumber: 2,
-        placement: 'before',
-      },
-    ]);
+    expect(comparison.draftLineDecorations).toEqual([]);
   });
 
   it.each(INLINE_FORMATTING_CASES)(
@@ -393,4 +399,170 @@ describe('getTextAlignment', () => {
       expect(comparison.draftLineDecorations).toEqual([]);
     },
   );
+
+  it('keeps both sides of a split line linked', () => {
+    const draftText = 'Alpha beta gamma delta.';
+    const editorText = 'Alpha beta\ngamma delta.';
+    const comparison = getVerifiedComparison(draftText, editorText);
+
+    expect(getLinkedText(comparison.alignment, draftText, editorText)).toEqual([
+      { draftText: 'Alpha beta', editorText: 'Alpha beta' },
+      { draftText: 'gamma delta.', editorText: 'gamma delta.' },
+    ]);
+    expect(comparison.alignment.parts.map((part) => part.type)).toEqual([
+      'linked',
+      'draftOnly',
+      'editorOnly',
+      'linked',
+    ]);
+    expect(comparison.draftHighlightRanges).toContainEqual({
+      type: 'added',
+      from: 10,
+      to: 10,
+    });
+    expect(getVisibleHighlightText(comparison.draftHighlightText)).toEqual([]);
+    expect(getVisibleHighlightText(comparison.editorHighlightText)).toEqual([]);
+    expect(comparison.editorStats).toMatchObject({
+      addedWordCount: 0,
+      deletedWordCount: 0,
+      addedCharacterCount: 1,
+      deletedCharacterCount: 1,
+    });
+    expect(comparison.editorDecoratedLines).toEqual([]);
+    expect(comparison.draftLineDecorations).toEqual([]);
+  });
+
+  it('keeps text linked across several inserted line breaks', () => {
+    const draftText = 'Alpha beta gamma delta epsilon zeta.';
+    const editorText = 'Alpha beta\ngamma delta\nepsilon zeta.';
+    const comparison = getVerifiedComparison(draftText, editorText);
+
+    expect(getLinkedText(comparison.alignment, draftText, editorText)).toEqual([
+      { draftText: 'Alpha beta', editorText: 'Alpha beta' },
+      { draftText: 'gamma delta', editorText: 'gamma delta' },
+      { draftText: 'epsilon zeta.', editorText: 'epsilon zeta.' },
+    ]);
+    expect(
+      comparison.draftHighlightRanges.filter((range) => range.type === 'added'),
+    ).toEqual([
+      { type: 'added', from: 10, to: 10 },
+      { type: 'added', from: 22, to: 22 },
+    ]);
+    expect(comparison.editorStats).toMatchObject({
+      addedWordCount: 0,
+      deletedWordCount: 0,
+      addedCharacterCount: 2,
+      deletedCharacterCount: 2,
+    });
+  });
+
+  it('keeps both sides linked when lines are merged', () => {
+    const draftText = 'Alpha beta\ngamma delta.';
+    const editorText = 'Alpha beta gamma delta.';
+    const comparison = getVerifiedComparison(draftText, editorText);
+
+    expect(getLinkedText(comparison.alignment, draftText, editorText)).toEqual([
+      { draftText: 'Alpha beta', editorText: 'Alpha beta' },
+      { draftText: 'gamma delta.', editorText: 'gamma delta.' },
+    ]);
+    expect(comparison.editorHighlightRanges).toContainEqual({
+      type: 'deleted',
+      from: 10,
+      to: 10,
+    });
+    expect(getVisibleHighlightText(comparison.draftHighlightText)).toEqual([]);
+    expect(getVisibleHighlightText(comparison.editorHighlightText)).toEqual([]);
+    expect(comparison.editorStats).toMatchObject({
+      addedWordCount: 0,
+      deletedWordCount: 0,
+      addedCharacterCount: 1,
+      deletedCharacterCount: 1,
+    });
+  });
+
+  it('preserves links around a split and nearby rewrite', () => {
+    const draftText = 'Alpha beta gamma delta.';
+    const editorText = 'Alpha beta\ngamma revised.';
+    const comparison = getVerifiedComparison(draftText, editorText);
+
+    expect(getLinkedText(comparison.alignment, draftText, editorText)).toEqual([
+      { draftText: 'Alpha beta', editorText: 'Alpha beta' },
+      { draftText: 'gamma ', editorText: 'gamma ' },
+      { draftText: '.', editorText: '.' },
+    ]);
+    expect(getVisibleHighlightText(comparison.draftHighlightText)).toEqual(['delta']);
+    expect(getVisibleHighlightText(comparison.editorHighlightText)).toEqual([
+      'revised',
+    ]);
+    expect(comparison.draftHighlightRanges).toContainEqual({
+      type: 'added',
+      from: 10,
+      to: 10,
+    });
+    expect(comparison.editorStats).toMatchObject({
+      addedWordCount: 1,
+      deletedWordCount: 1,
+      addedCharacterCount: 8,
+      deletedCharacterCount: 6,
+    });
+    expect(comparison.editorDecoratedLines).toEqual([]);
+    expect(comparison.draftLineDecorations).toEqual([]);
+  });
+
+  it('preserves links around a split and nearby insertion', () => {
+    const draftText = 'Alpha beta gamma delta.';
+    const editorText = 'Alpha beta\ngamma bright delta.';
+    const comparison = getVerifiedComparison(draftText, editorText);
+
+    expect(getLinkedText(comparison.alignment, draftText, editorText)).toEqual([
+      { draftText: 'Alpha beta', editorText: 'Alpha beta' },
+      { draftText: 'gamma', editorText: 'gamma' },
+      { draftText: ' delta.', editorText: ' delta.' },
+    ]);
+    expect(getVisibleHighlightText(comparison.draftHighlightText)).toEqual([]);
+    expect(getVisibleHighlightText(comparison.editorHighlightText)).toEqual([
+      ' bright',
+    ]);
+    expect(
+      comparison.draftHighlightRanges.filter((range) => range.type === 'added'),
+    ).toEqual([
+      { type: 'added', from: 10, to: 10 },
+      { type: 'added', from: 16, to: 16 },
+    ]);
+    expect(comparison.editorStats).toMatchObject({
+      addedWordCount: 1,
+      deletedWordCount: 0,
+      addedCharacterCount: 8,
+      deletedCharacterCount: 1,
+    });
+    expect(comparison.editorDecoratedLines).toEqual([]);
+    expect(comparison.draftLineDecorations).toEqual([]);
+  });
+
+  it('preserves links when one line is added and two later lines are merged', () => {
+    const draftText = 'one\ntwo\nthree';
+    const editorText = 'one\nnew\ntwo three';
+    const comparison = getVerifiedComparison(draftText, editorText);
+
+    expect(getLinkedText(comparison.alignment, draftText, editorText)).toEqual([
+      { draftText: 'one\n', editorText: 'one\n' },
+      { draftText: 'two', editorText: 'two' },
+      { draftText: 'three', editorText: 'three' },
+    ]);
+    expect(getVisibleHighlightText(comparison.draftHighlightText)).toEqual([]);
+    expect(getVisibleHighlightText(comparison.editorHighlightText)).toEqual(['new']);
+    expect(comparison.editorHighlightRanges).toContainEqual({
+      type: 'deleted',
+      from: 11,
+      to: 11,
+    });
+    expect(comparison.editorStats).toMatchObject({
+      addedWordCount: 1,
+      deletedWordCount: 0,
+      addedCharacterCount: 5,
+      deletedCharacterCount: 1,
+    });
+    expect(comparison.editorDecoratedLines).toEqual([]);
+    expect(comparison.draftLineDecorations).toEqual([]);
+  });
 });

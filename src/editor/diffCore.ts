@@ -1,4 +1,4 @@
-import { diffWordsWithSpace } from 'diff';
+import { diffChars, diffWordsWithSpace } from 'diff';
 
 export type StatsMode = 'words' | 'characters';
 
@@ -168,6 +168,7 @@ const SHARED_PREFIX_WORD_COUNT = 4;
 const SHARED_PREFIX_MIN_WORD_RATIO = 0.25;
 const MIN_SHARED_WORDS_FOR_EDITOR_SUPPRESSION = 3;
 const VISIBLE_TEXT_MATCH_RATIO = 0.75;
+const TEXT_SPAN_ALIGNMENT_RATIO = 0.72;
 
 export const getWordCount = (text: string): number => {
   const trimmedText = text.trim();
@@ -342,6 +343,20 @@ export const getLineAnchoredDiffResult = ({
   draftText: string;
   editorText: string;
 }): LineAnchoredDiffResult => {
+  const textSpanDisplayChanges = getTextSpanDisplayChanges(draftText, editorText);
+  if (textSpanDisplayChanges) {
+    return {
+      editorHighlightRanges: getEditorHighlightRanges(textSpanDisplayChanges),
+      draftHighlightRanges: getDraftHighlightRanges(textSpanDisplayChanges),
+      lineDecorations: {
+        editorLineDecorations: [],
+        draftLineDecorations: [],
+      },
+      lowestEditedLine: getLowestEditedLine(textSpanDisplayChanges),
+      editorStats: getEditorStats(editorText, textSpanDisplayChanges),
+    };
+  }
+
   const linePairs = getLinePairs(draftText, editorText);
   const draftLines = draftText.split('\n');
   const editorLines = editorText.split('\n');
@@ -609,6 +624,19 @@ export const getEditorHighlightRanges = (
     }
 
     if (displayChange.type === 'replaced') {
+      if (
+        isWhitespaceOnlyReplacement(
+          displayChange.draftValue,
+          displayChange.editorValue,
+        ) &&
+        getNewlineCount(displayChange.draftValue) >
+          getNewlineCount(displayChange.editorValue)
+      ) {
+        ranges.push({ type: 'deleted', from: editorPosition, to: editorPosition });
+        editorPosition += displayChange.editorValue.length;
+        continue;
+      }
+
       const replacementRanges = getReplacementEditorRanges({
         displayChange,
         editorPosition,
@@ -809,6 +837,12 @@ export const getDraftHighlightRanges = (
 
     if (displayChange.type === 'replaced') {
       if (isWhitespaceOnlyReplacement(displayChange.draftValue, displayChange.editorValue)) {
+        if (
+          getNewlineCount(displayChange.editorValue) >
+          getNewlineCount(displayChange.draftValue)
+        ) {
+          ranges.push({ type: 'added', from: draftPosition, to: draftPosition });
+        }
         draftPosition = fullRangeTo;
         continue;
       }
@@ -2147,6 +2181,11 @@ export const getTextAlignment = (
   draftText: string,
   editorText: string,
 ): TextAlignment => {
+  const textSpanDisplayChanges = getTextSpanDisplayChanges(draftText, editorText);
+  if (textSpanDisplayChanges) {
+    return getTextSpanAlignment(textSpanDisplayChanges);
+  }
+
   const draftLineRanges = getLineRanges(draftText);
   const editorLineRanges = getLineRanges(editorText);
   const parts = getLinePairs(draftText, editorText).map(
@@ -2176,6 +2215,77 @@ export const getTextAlignment = (
   );
 
   return { parts };
+};
+
+const getTextSpanAlignment = (displayChanges: DisplayChange[]): TextAlignment => {
+  const parts: TextAlignmentPart[] = [];
+  let draftPosition = 0;
+  let editorPosition = 0;
+
+  for (const change of displayChanges) {
+    const draftRange = {
+      from: draftPosition,
+      to: draftPosition + change.draftValue.length,
+    };
+    const editorRange = {
+      from: editorPosition,
+      to: editorPosition + change.editorValue.length,
+    };
+
+    if (change.type === 'equal') {
+      parts.push({ type: 'linked', draftRange, editorRange });
+    } else if (change.type === 'inserted') {
+      parts.push({ type: 'editorOnly', draftRange: null, editorRange });
+    } else if (change.type === 'deleted') {
+      parts.push({ type: 'draftOnly', draftRange, editorRange: null });
+    } else {
+      if (change.draftValue.length > 0) {
+        parts.push({ type: 'draftOnly', draftRange, editorRange: null });
+      }
+      if (change.editorValue.length > 0) {
+        parts.push({ type: 'editorOnly', draftRange: null, editorRange });
+      }
+    }
+
+    draftPosition = draftRange.to;
+    editorPosition = editorRange.to;
+  }
+
+  return { parts };
+};
+
+const getTextSpanDisplayChanges = (
+  draftText: string,
+  editorText: string,
+): DisplayChange[] | null => {
+  const displayChanges = getInlineDisplayChanges(draftText, editorText);
+  const hasLineBreakEdit = displayChanges.some(
+    (change) =>
+      getNewlineCount(change.draftValue) !== getNewlineCount(change.editorValue),
+  );
+  if (!hasLineBreakEdit) {
+    return null;
+  }
+
+  const compactDraftText = draftText.replace(/\s/g, '');
+  const compactEditorText = editorText.replace(/\s/g, '');
+  if (compactDraftText === compactEditorText) {
+    return displayChanges;
+  }
+
+  const longestLength = Math.max(compactDraftText.length, compactEditorText.length);
+  if (longestLength === 0) {
+    return displayChanges;
+  }
+
+  const equalCharacterCount = diffChars(compactDraftText, compactEditorText).reduce(
+    (count, change) => (change.added || change.removed ? count : count + change.value.length),
+    0,
+  );
+
+  return equalCharacterCount / longestLength >= TEXT_SPAN_ALIGNMENT_RATIO
+    ? displayChanges
+    : null;
 };
 
 const getLineRanges = (text: string): TextRange[] => {
