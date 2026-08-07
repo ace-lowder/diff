@@ -157,9 +157,8 @@ type ReplacementRangePair = {
 };
 
 const FULL_WORD_MEANINGFUL_CHANGE_THRESHOLD = 2;
-const EXACT_LINE_MATCH_SCORE = 3;
-const STRONG_LINE_MATCH_SCORE = 2;
-const FUZZY_LINE_MATCH_SCORE = 1;
+const EXACT_LINE_MATCH_SCORE = 4;
+const NON_EXACT_LINE_MATCH_BASE_SCORE = 1;
 const STRICT_SHARED_WORD_RATIO = 0.4;
 const LONG_REWRITE_MIN_WORD_COUNT = 20;
 const LONG_REWRITE_SHARED_WORD_RATIO = 0.28;
@@ -2459,7 +2458,12 @@ const getLineMatchScore = (
     normalizedDraftMatchText.includes(normalizedEditorMatchText) ||
     normalizedEditorMatchText.includes(normalizedDraftMatchText)
   ) {
-    return STRONG_LINE_MATCH_SCORE;
+    return (
+      NON_EXACT_LINE_MATCH_BASE_SCORE +
+      (2 *
+        Math.min(normalizedDraftMatchText.length, normalizedEditorMatchText.length)) /
+        Math.max(normalizedDraftMatchText.length, normalizedEditorMatchText.length)
+    );
   }
 
   const sharedWordRatio = getSharedWordRatio(
@@ -2475,16 +2479,17 @@ const getLineMatchScore = (
     draftProfile.words.length,
     editorProfile.words.length,
   );
+  const lineSimilarity = (sharedWordRatio + diceRatio) / 2;
 
   if (
     sharedPrefixWordCount >= SHARED_PREFIX_WORD_COUNT &&
     sharedWordRatio >= SHARED_PREFIX_MIN_WORD_RATIO
   ) {
-    return STRONG_LINE_MATCH_SCORE;
+    return NON_EXACT_LINE_MATCH_BASE_SCORE + 2 * lineSimilarity;
   }
 
   if (sharedWordRatio >= STRICT_SHARED_WORD_RATIO) {
-    return FUZZY_LINE_MATCH_SCORE;
+    return NON_EXACT_LINE_MATCH_BASE_SCORE + 2 * lineSimilarity;
   }
 
   if (
@@ -2492,7 +2497,7 @@ const getLineMatchScore = (
     sharedWordRatio >= LONG_REWRITE_SHARED_WORD_RATIO &&
     diceRatio >= LONG_REWRITE_DICE_RATIO
   ) {
-    return FUZZY_LINE_MATCH_SCORE;
+    return NON_EXACT_LINE_MATCH_BASE_SCORE + 2 * lineSimilarity;
   }
 
   if (
@@ -2501,7 +2506,14 @@ const getLineMatchScore = (
       editorProfile.normalizedVisibleText,
     )
   ) {
-    return FUZZY_LINE_MATCH_SCORE;
+    return (
+      NON_EXACT_LINE_MATCH_BASE_SCORE +
+      2 *
+        getVisibleTextSimilarity(
+          draftProfile.normalizedVisibleText,
+          editorProfile.normalizedVisibleText,
+        )
+    );
   }
 
   return 0;
@@ -2816,10 +2828,15 @@ const areSimilarVisibleTexts = (left: string, right: string): boolean => {
     return true;
   }
 
-  return (
-    getStringLcsLength(left, right) / Math.max(left.length, right.length) >=
-    VISIBLE_TEXT_MATCH_RATIO
-  );
+  return getVisibleTextSimilarity(left, right) >= VISIBLE_TEXT_MATCH_RATIO;
+};
+
+const getVisibleTextSimilarity = (left: string, right: string): number => {
+  if (!left || !right) {
+    return 0;
+  }
+
+  return getStringLcsLength(left, right) / Math.max(left.length, right.length);
 };
 
 const getStringLcsLength = (left: string, right: string): number => {
