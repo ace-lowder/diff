@@ -1,5 +1,10 @@
 import { diffChars, diffWordsWithSpace } from 'diff';
 
+import { getCharacterReplacementRanges } from './characterReplacementRanges';
+import { getWordCount } from './textMetrics';
+
+export { getWordCount } from './textMetrics';
+
 export type StatsMode = 'words' | 'characters';
 
 export type DisplayChangeType = 'equal' | 'inserted' | 'deleted' | 'replaced';
@@ -169,16 +174,6 @@ const MIN_SHARED_WORDS_FOR_EDITOR_SUPPRESSION = 3;
 const VISIBLE_TEXT_MATCH_RATIO = 0.75;
 const TEXT_SPAN_ALIGNMENT_RATIO = 0.72;
 const LARGE_TEXT_SPAN_CHARACTER_THRESHOLD = 20_000;
-
-export const getWordCount = (text: string): number => {
-  const trimmedText = text.trim();
-
-  if (!trimmedText) {
-    return 0;
-  }
-
-  return trimmedText.split(/\s+/).length;
-};
 
 export const getDisplayChanges = (
   draftText: string,
@@ -3847,126 +3842,6 @@ const getCharacterReplacementDraftRanges = ({
   }
 
   return [];
-};
-
-const getCharacterReplacementRanges = (
-  draftValue: string,
-  editorValue: string,
-): ReplacementRangePair | null => {
-  if (!draftValue || !editorValue) {
-    return null;
-  }
-
-  if (
-    (/\s/.test(draftValue) || /\s/.test(editorValue)) &&
-    !draftValue.includes('\n') &&
-    !editorValue.includes('\n') &&
-    Math.max(getWordCount(draftValue), getWordCount(editorValue)) >= 3
-  ) {
-    return null;
-  }
-
-  const matches = getCharacterMatches(draftValue, editorValue);
-  const lcsLength = matches.length;
-  const longestLength = Math.max(draftValue.length, editorValue.length);
-  if (lcsLength / longestLength < 0.5) {
-    return null;
-  }
-
-  const draftRanges = getUnmatchedRanges(
-    draftValue.length,
-    matches.map((match) => match.draftIndex),
-  );
-  const editorRanges = getUnmatchedRanges(
-    editorValue.length,
-    matches.map((match) => match.editorIndex),
-  );
-
-  if (draftRanges.length === 0 && editorRanges.length === 0) {
-    return null;
-  }
-
-  return { draftRanges, editorRanges };
-};
-
-const getCharacterMatches = (
-  draftValue: string,
-  editorValue: string,
-): Array<{ draftIndex: number; editorIndex: number }> => {
-  const draftCount = draftValue.length;
-  const editorCount = editorValue.length;
-  const scores: number[][] = Array.from({ length: draftCount + 1 }, () =>
-    Array(editorCount + 1).fill(0),
-  );
-
-  for (let draftIndex = draftCount - 1; draftIndex >= 0; draftIndex -= 1) {
-    for (let editorIndex = editorCount - 1; editorIndex >= 0; editorIndex -= 1) {
-      const bestWithoutMatch = Math.max(
-        scores[draftIndex + 1][editorIndex],
-        scores[draftIndex][editorIndex + 1],
-      );
-      if (draftValue[draftIndex] === editorValue[editorIndex]) {
-        scores[draftIndex][editorIndex] = Math.max(
-          bestWithoutMatch,
-          1 + scores[draftIndex + 1][editorIndex + 1],
-        );
-      } else {
-        scores[draftIndex][editorIndex] = bestWithoutMatch;
-      }
-    }
-  }
-
-  const matches: Array<{ draftIndex: number; editorIndex: number }> = [];
-  let draftIndex = 0;
-  let editorIndex = 0;
-  while (draftIndex < draftCount && editorIndex < editorCount) {
-    if (
-      draftValue[draftIndex] === editorValue[editorIndex] &&
-      scores[draftIndex][editorIndex] === 1 + scores[draftIndex + 1][editorIndex + 1]
-    ) {
-      matches.push({ draftIndex, editorIndex });
-      draftIndex += 1;
-      editorIndex += 1;
-      continue;
-    }
-
-    if (scores[draftIndex][editorIndex + 1] >= scores[draftIndex + 1][editorIndex]) {
-      editorIndex += 1;
-    } else {
-      draftIndex += 1;
-    }
-  }
-
-  return matches;
-};
-
-const getUnmatchedRanges = (
-  length: number,
-  matchedIndexes: number[],
-): Array<{ from: number; to: number }> => {
-  const matchedSet = new Set(matchedIndexes);
-  const ranges: Array<{ from: number; to: number }> = [];
-  let from: number | null = null;
-
-  for (let index = 0; index < length; index += 1) {
-    if (!matchedSet.has(index)) {
-      if (from === null) {
-        from = index;
-      }
-      continue;
-    }
-
-    if (from !== null) {
-      ranges.push({ from, to: index });
-      from = null;
-    }
-  }
-
-  if (from !== null) {
-    ranges.push({ from, to: length });
-  }
-
-  return ranges;
 };
 
 const mergeDisplayChanges = (changes: DisplayChange[]): DisplayChange[] => {
