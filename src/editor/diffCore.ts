@@ -93,6 +93,32 @@ type LinePair = {
   placement: DraftLineDecorationPlacement;
 };
 
+export type TextRange = {
+  from: number;
+  to: number;
+};
+
+export type TextAlignmentPart =
+  | {
+      type: 'linked';
+      draftRange: TextRange;
+      editorRange: TextRange;
+    }
+  | {
+      type: 'draftOnly';
+      draftRange: TextRange;
+      editorRange: null;
+    }
+  | {
+      type: 'editorOnly';
+      draftRange: null;
+      editorRange: TextRange;
+    };
+
+export type TextAlignment = {
+  parts: TextAlignmentPart[];
+};
+
 type LineAlignmentMatch = {
   draftIndex: number;
   editorIndex: number;
@@ -2114,6 +2140,63 @@ const getLineMatchScoreForLines = (draftLine: string, editorLine: string): numbe
 
 const areSimilarLines = (draftLine: string, editorLine: string): boolean => {
   return getLineMatchScoreForLines(draftLine, editorLine) > 0;
+};
+
+export const getTextAlignment = (
+  draftText: string,
+  editorText: string,
+): TextAlignment => {
+  const draftLineRanges = getLineRanges(draftText);
+  const editorLineRanges = getLineRanges(editorText);
+  const parts = getLinePairs(draftText, editorText).map(
+    (linePair): TextAlignmentPart => {
+      if (linePair.draftLine === null) {
+        return {
+          type: 'editorOnly',
+          draftRange: null,
+          editorRange: getLineRange(editorLineRanges, linePair.editorLineNumber),
+        };
+      }
+
+      if (linePair.editorLine === null) {
+        return {
+          type: 'draftOnly',
+          draftRange: getLineRange(draftLineRanges, linePair.draftLineNumber),
+          editorRange: null,
+        };
+      }
+
+      return {
+        type: 'linked',
+        draftRange: getLineRange(draftLineRanges, linePair.draftLineNumber),
+        editorRange: getLineRange(editorLineRanges, linePair.editorLineNumber),
+      };
+    },
+  );
+
+  return { parts };
+};
+
+const getLineRanges = (text: string): TextRange[] => {
+  const lines = text.split('\n');
+  let from = 0;
+
+  return lines.map((line, index) => {
+    const includesNewline = index < lines.length - 1;
+    const to = from + line.length + (includesNewline ? 1 : 0);
+    const range = { from, to };
+    from = to;
+    return range;
+  });
+};
+
+const getLineRange = (ranges: TextRange[], lineNumber: number): TextRange => {
+  const range = ranges[lineNumber - 1];
+  if (!range) {
+    throw new Error(`Unable to resolve text range for line ${lineNumber}`);
+  }
+
+  return range;
 };
 
 const getLinePairs = (draftText: string, editorText: string): LinePair[] => {
