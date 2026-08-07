@@ -6,10 +6,10 @@
   :root {
     color-scheme: dark;
     background-color: #121314;
-    --byline-font-size: 12px;
-    --byline-line-height: 18px;
-    --byline-menu-height: 36px;
-    --byline-line-number-gutter-width: calc(6ch + 2ch);
+    --diff-font-size: 12px;
+    --diff-line-height: 18px;
+    --diff-menu-height: 36px;
+    --diff-line-number-gutter-width: calc(6ch + 2ch);
   }
 
   html,
@@ -23,17 +23,17 @@
 }
 
 @layer components {
-  .byline-mouse-reveal-edge-trigger {
+  .diff-mouse-reveal-edge-trigger {
     pointer-events: none;
   }
 
   @media (any-hover: hover) and (any-pointer: fine) {
-    .byline-font-style-control-hover:hover {
+    .diff-font-style-control-hover:hover {
       background-color: #242526;
       color: #D4D4D4;
     }
 
-    .byline-mouse-reveal-edge-trigger {
+    .diff-mouse-reveal-edge-trigger {
       pointer-events: auto;
     }
   }

@@ -58,8 +58,8 @@ export const LINE_COPY_ICON_VISIBLE_MS = 500;
 export const LINE_COPY_ICON_FADE_MS = 500;
 export const LINE_COPY_ICON_REMOVE_MS =
   LINE_COPY_ICON_VISIBLE_MS + LINE_COPY_ICON_FADE_MS;
-export const LINE_COPY_ICON_CLASS_NAME = 'byline-line-copy-icon';
-export const LINE_COPY_ICON_FADING_CLASS_NAME = 'byline-line-copy-icon-fading';
+export const LINE_COPY_ICON_CLASS_NAME = 'diff-line-copy-icon';
+export const LINE_COPY_ICON_FADING_CLASS_NAME = 'diff-line-copy-icon-fading';
 
 export const getLineCopyIconMarkup = (): string => {
   return `
@@ -124,7 +124,7 @@ export const getLineNumberGutterSide = (
 export const getLineNumberGutterClassName = (
   position: LineNumberPosition,
 ): string => {
-  return `cm-lineNumbers byline-line-number-gutter byline-line-number-gutter-${position}`;
+  return `cm-lineNumbers diff-line-number-gutter diff-line-number-gutter-${position}`;
 };
 
 class LineNumberMarker extends GutterMarker {
@@ -142,7 +142,7 @@ class LineNumberMarker extends GutterMarker {
   toDOM(): HTMLElement {
     const element = document.createElement('div');
     element.textContent = String(this.lineNumber);
-    element.className = 'byline-line-number';
+    element.className = 'diff-line-number';
     return element;
   }
 }

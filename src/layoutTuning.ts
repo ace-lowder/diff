@@ -22,4 +22,4 @@ export const TYPING_DIFF_TICK_VERTICAL_NUDGE_PX = 0;
 export const FONT_SIZE_ICON_SMALL_T_CLASS_NAME = "text-[0.72em] font-bold";
 export const UNDERLINE_FONT_STYLE_LABEL_CLASS_NAME = "text-[0.92em]";
 export const FONT_SIZE_BUTTON_WIDTH_CLASS_NAME =
-  "w-[var(--byline-menu-height)]";
+  "w-[var(--diff-menu-height)]";

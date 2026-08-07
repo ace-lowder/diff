@@ -52,8 +52,8 @@ describe('line copy icon constants', () => {
   });
 
   it('uses expected icon class names', () => {
-    expect(LINE_COPY_ICON_CLASS_NAME).toBe('byline-line-copy-icon');
-    expect(LINE_COPY_ICON_FADING_CLASS_NAME).toBe('byline-line-copy-icon-fading');
+    expect(LINE_COPY_ICON_CLASS_NAME).toBe('diff-line-copy-icon');
+    expect(LINE_COPY_ICON_FADING_CLASS_NAME).toBe('diff-line-copy-icon-fading');
   });
 });
 
@@ -105,13 +105,13 @@ describe('line number gutter visibility and side helpers', () => {
 
   it('builds the left gutter class name', () => {
     expect(getLineNumberGutterClassName('left')).toBe(
-      'cm-lineNumbers byline-line-number-gutter byline-line-number-gutter-left',
+      'cm-lineNumbers diff-line-number-gutter diff-line-number-gutter-left',
     );
   });
 
   it('builds the right gutter class name', () => {
     expect(getLineNumberGutterClassName('right')).toBe(
-      'cm-lineNumbers byline-line-number-gutter byline-line-number-gutter-right',
+      'cm-lineNumbers diff-line-number-gutter diff-line-number-gutter-right',
     );
   });
 });

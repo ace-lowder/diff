@@ -111,7 +111,7 @@ class MissingLineWidget extends WidgetType {
     const spacer = document.createElement('div');
     const paint = document.createElement('div');
 
-    spacer.className = 'byline-missing-line';
+    spacer.className = 'diff-missing-line';
     spacer.style.height = `calc(${this.lineCount} * ${CODE_MIRROR_LINE_HEIGHT})`;
     spacer.style.position = 'relative';
     spacer.style.display = 'block';
@@ -124,7 +124,7 @@ class MissingLineWidget extends WidgetType {
     spacer.tabIndex = -1;
     spacer.setAttribute('aria-hidden', 'true');
 
-    paint.className = 'byline-missing-line-paint';
+    paint.className = 'diff-missing-line-paint';
     paint.style.position = 'absolute';
     paint.style.top = `${adjustment.topOffsetPx}px`;
     paint.style.left = `${adjustment.leftOffsetPx}px`;
@@ -213,15 +213,15 @@ const getFontStyleDecorations = (
 
 const getFontStyleClassName = (fontStyleType: FontStyleType): string | null => {
   if (fontStyleType === 'bold') {
-    return 'byline-font-bold';
+    return 'diff-font-bold';
   }
 
   if (fontStyleType === 'italic') {
-    return 'byline-font-italic';
+    return 'diff-font-italic';
   }
 
   if (fontStyleType === 'underline') {
-    return 'byline-font-underline';
+    return 'diff-font-underline';
   }
 
   return null;

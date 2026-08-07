@@ -86,7 +86,7 @@ describe('font style hover css', () => {
   });
 
   it('includes font style hover selector', () => {
-    expect(indexCss).toContain('.byline-font-style-control-hover:hover');
+    expect(indexCss).toContain('.diff-font-style-control-hover:hover');
   });
 
   it('includes fine pointer hover media query', () => {

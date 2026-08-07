@@ -41,7 +41,7 @@ describe("layout tuning constants", () => {
     expect(FONT_SIZE_ICON_SMALL_T_CLASS_NAME).toBe("text-[0.72em] font-bold");
     expect(UNDERLINE_FONT_STYLE_LABEL_CLASS_NAME).toBe("text-[0.92em]");
     expect(FONT_SIZE_BUTTON_WIDTH_CLASS_NAME).toBe(
-      "w-[var(--byline-menu-height)]",
+      "w-[var(--diff-menu-height)]",
     );
   });
 });

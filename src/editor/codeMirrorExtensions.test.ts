@@ -24,9 +24,9 @@ describe('line number text offsets', () => {
 
 describe('typing diff styles', () => {
   it('includes typing diff mark styles', () => {
-    expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff');
-    expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff-added');
-    expect(codeMirrorExtensionsSource).toContain('.byline-typing-diff-deleted');
+    expect(codeMirrorExtensionsSource).toContain('.diff-typing-diff');
+    expect(codeMirrorExtensionsSource).toContain('.diff-typing-diff-added');
+    expect(codeMirrorExtensionsSource).toContain('.diff-typing-diff-deleted');
     expect(codeMirrorExtensionsSource).toContain(
       'paddingTop: `${TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX}px`',
     );
@@ -63,7 +63,7 @@ describe('typing diff styles', () => {
     expect(codeMirrorExtensionsSource).toContain(
       'TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX',
     );
-    expect(codeMirrorExtensionsSource).not.toContain('.byline-typing-diff-tick');
+    expect(codeMirrorExtensionsSource).not.toContain('.diff-typing-diff-tick');
     expect(codeMirrorExtensionsSource).not.toContain('DIFF_TICK_WIDTH_PX');
   });
 });

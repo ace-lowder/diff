@@ -83,7 +83,7 @@ export const Menu = ({
     <nav
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
-      className={`${layoutClassName} ${borderClassName} z-50 flex h-[var(--byline-menu-height)] shrink-0 items-center border-[#2A2B2C] bg-[#191A1B] text-[length:var(--byline-font-size)] transition-transform duration-200 ease-out ${visibilityClassName}`}
+      className={`${layoutClassName} ${borderClassName} z-50 flex h-[var(--diff-menu-height)] shrink-0 items-center border-[#2A2B2C] bg-[#191A1B] text-[length:var(--diff-font-size)] transition-transform duration-200 ease-out ${visibilityClassName}`}
     >
       <button
         type="button"
@@ -103,12 +103,12 @@ export const Menu = ({
       </button>
 
       <a
-        href="https://ko-fi.com/acejack"
+        href="https://venmo.com/cvbnm?amount=5&note=Thanks%20for%20making%20diff%20free%20%F0%9F%92%B8%0AHave%20a%20coffee,%20on%20me%20%E2%98%95"
         target="_blank"
         rel="noreferrer"
         onClick={onCoffeeClick}
-        aria-label="Support on Ko-fi"
-        title="Support on Ko-fi"
+        aria-label="Send a coffee with Venmo"
+        title="Send a coffee with Venmo"
         className="hidden h-full w-10 items-center justify-center border-r border-[#2A2B2C] text-[#8C8C8C] hover:bg-[#242526] focus:outline-none focus-visible:bg-[#242526] sm:flex"
       >
         {coffeeStatus === 'clicked' ? <CheckIcon /> : <CoffeeIcon />}

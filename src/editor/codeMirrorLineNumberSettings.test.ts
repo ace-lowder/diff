@@ -15,7 +15,7 @@ describe('getCodeMirrorPaneLineNumberClassName', () => {
         visibilityMode: 'visible',
         isVisible: true,
       }),
-    ).toBe('byline-line-numbers-left byline-line-numbers-visible-mode byline-line-numbers-visible');
+    ).toBe('diff-line-numbers-left diff-line-numbers-visible-mode diff-line-numbers-visible');
   });
 
   it('returns right visible classes', () => {
@@ -25,7 +25,7 @@ describe('getCodeMirrorPaneLineNumberClassName', () => {
         visibilityMode: 'visible',
         isVisible: true,
       }),
-    ).toBe('byline-line-numbers-right byline-line-numbers-visible-mode byline-line-numbers-visible');
+    ).toBe('diff-line-numbers-right diff-line-numbers-visible-mode diff-line-numbers-visible');
   });
 
   it('returns autoHide hidden classes', () => {
@@ -35,7 +35,7 @@ describe('getCodeMirrorPaneLineNumberClassName', () => {
         visibilityMode: 'autoHide',
         isVisible: false,
       }),
-    ).toBe('byline-line-numbers-left byline-line-numbers-auto-hide byline-line-numbers-hidden');
+    ).toBe('diff-line-numbers-left diff-line-numbers-auto-hide diff-line-numbers-hidden');
   });
 
   it('returns autoHide visible classes', () => {
@@ -45,26 +45,26 @@ describe('getCodeMirrorPaneLineNumberClassName', () => {
         visibilityMode: 'autoHide',
         isVisible: true,
       }),
-    ).toBe('byline-line-numbers-right byline-line-numbers-auto-hide byline-line-numbers-visible');
+    ).toBe('diff-line-numbers-right diff-line-numbers-auto-hide diff-line-numbers-visible');
   });
 });
 
 describe('getLineNumberEdgeTriggerClassName', () => {
   it('uses the expected edge trigger width class', () => {
     expect(LINE_NUMBER_EDGE_TRIGGER_WIDTH_CLASS_NAME).toBe(
-      'w-[var(--byline-line-number-gutter-width)]',
+      'w-[var(--diff-line-number-gutter-width)]',
     );
   });
 
   it('returns left edge trigger class', () => {
     expect(getLineNumberEdgeTriggerClassName({ position: 'left' })).toBe(
-      'absolute inset-y-0 left-0 z-50 w-[var(--byline-line-number-gutter-width)] byline-mouse-reveal-edge-trigger',
+      'absolute inset-y-0 left-0 z-50 w-[var(--diff-line-number-gutter-width)] diff-mouse-reveal-edge-trigger',
     );
   });
 
   it('returns right edge trigger class', () => {
     expect(getLineNumberEdgeTriggerClassName({ position: 'right' })).toBe(
-      'absolute inset-y-0 right-0 z-50 w-[var(--byline-line-number-gutter-width)] byline-mouse-reveal-edge-trigger',
+      'absolute inset-y-0 right-0 z-50 w-[var(--diff-line-number-gutter-width)] diff-mouse-reveal-edge-trigger',
     );
   });
 });

@@ -3,8 +3,8 @@ import {
   LINE_NUMBER_GUTTER_PADDING_RIGHT,
 } from '../layoutTuning';
 
-export const CODE_MIRROR_FONT_SIZE = 'var(--byline-font-size)';
-export const CODE_MIRROR_LINE_HEIGHT = 'var(--byline-line-height)';
+export const CODE_MIRROR_FONT_SIZE = 'var(--diff-font-size)';
+export const CODE_MIRROR_LINE_HEIGHT = 'var(--diff-line-height)';
 export const CODE_MIRROR_LINE_NUMBER_GUTTER_WIDTH =
   LINE_NUMBER_GUTTER_CONTENT_WIDTH;
 export const CODE_MIRROR_LINE_NUMBER_GUTTER_PADDING_RIGHT =

@@ -104,7 +104,7 @@ const getDecorationRanges = (
 
 const getWidgetDecorationPositions = (
   value: ReturnType<typeof getTypingDiffDecorations>,
-): Array<{ position: number; className: 'byline-diff-added' | 'byline-diff-deleted' }> => {
+): Array<{ position: number; className: 'diff-diff-added' | 'diff-diff-deleted' }> => {
   return value.tickMarkers;
 };
 
@@ -117,7 +117,7 @@ describe('getDiffPaintTargets', () => {
 
     expect(targets).toContainEqual({
       type: 'range',
-      className: 'byline-diff-added',
+      className: 'diff-diff-added',
       from: 0,
       to: 3,
       geometryRole: 'inlineText',
@@ -142,7 +142,7 @@ describe('getDiffPaintTargets', () => {
 
     expect(targets).toContainEqual({
       type: 'marker',
-      className: 'byline-diff-deleted',
+      className: 'diff-diff-deleted',
       from: 3,
       to: 4,
       side: 'left',
@@ -159,7 +159,7 @@ describe('getDiffPaintTargets', () => {
 
     expect(targets).toContainEqual({
       type: 'line',
-      className: 'byline-diff-added',
+      className: 'diff-diff-added',
       lineNumber: 2,
       geometryRole: 'fullLine',
     });
@@ -173,7 +173,7 @@ describe('getDiffPaintTargets', () => {
 
     expect(targets).toContainEqual({
       type: 'range',
-      className: 'byline-diff-deleted',
+      className: 'diff-diff-deleted',
       from: 4,
       to: 7,
       geometryRole: 'inlineText',
@@ -198,7 +198,7 @@ describe('getDiffPaintTargets', () => {
 
     expect(targets).toContainEqual({
       type: 'marker',
-      className: 'byline-diff-added',
+      className: 'diff-diff-added',
       from: 3,
       to: 4,
       side: 'left',
@@ -217,7 +217,7 @@ describe('getDiffPaintTargets', () => {
 
     expect(targets).toContainEqual({
       type: 'line',
-      className: 'byline-diff-deleted',
+      className: 'diff-diff-deleted',
       lineNumber: 3,
       geometryRole: 'fullLine',
     });
@@ -238,12 +238,12 @@ describe('getDiffPaintTargets', () => {
 
     expect(
       targets.some((target) => {
-        return target.type === 'line' && target.className === 'byline-diff-added';
+        return target.type === 'line' && target.className === 'diff-diff-added';
       }),
     ).toBe(false);
     expect(
       targets.some((target) => {
-        return target.type === 'line' && target.className === 'byline-diff-deleted';
+        return target.type === 'line' && target.className === 'diff-diff-deleted';
       }),
     ).toBe(false);
   });
@@ -261,7 +261,7 @@ describe('getDiffPaintTargets', () => {
     expect(targets).toEqual([
       {
         type: 'line',
-        className: 'byline-diff-active-line',
+        className: 'diff-diff-active-line',
         lineNumber: 2,
         geometryRole: 'activeLine',
       },
@@ -272,7 +272,7 @@ describe('getDiffPaintTargets', () => {
     const targets = getTargets({ theme: 'draft' });
     expect(targets[0]).toEqual({
       type: 'line',
-      className: 'byline-diff-active-line',
+      className: 'diff-diff-active-line',
       lineNumber: 2,
       geometryRole: 'activeLine',
     });
@@ -440,7 +440,7 @@ describe('getActiveLineDiffPaintTargets', () => {
     expect(getActiveLineDiffPaintTargets(7)).toEqual([
       {
         type: 'line',
-        className: 'byline-diff-active-line',
+        className: 'diff-diff-active-line',
         lineNumber: 7,
         geometryRole: 'activeLine',
       },
@@ -459,10 +459,10 @@ describe('lowest edited line typing behavior', () => {
 describe('typing diff class names', () => {
   it('exports stable class names', () => {
     expect(TYPING_DIFF_ADDED_CLASS_NAME).toBe(
-      'byline-typing-diff byline-typing-diff-added',
+      'diff-typing-diff diff-typing-diff-added',
     );
     expect(TYPING_DIFF_DELETED_CLASS_NAME).toBe(
-      'byline-typing-diff byline-typing-diff-deleted',
+      'diff-typing-diff diff-typing-diff-deleted',
     );
   });
 });
@@ -551,7 +551,7 @@ describe('getTypingDiffDecorations', () => {
     });
 
     expect(getWidgetDecorationPositions(decorations)).toEqual([
-      { position: 4, className: 'byline-diff-deleted' },
+      { position: 4, className: 'diff-diff-deleted' },
     ]);
   });
 
@@ -570,7 +570,7 @@ describe('getTypingDiffDecorations', () => {
     });
 
     expect(getWidgetDecorationPositions(decorations)).toEqual([
-      { position: 6, className: 'byline-diff-added' },
+      { position: 6, className: 'diff-diff-added' },
     ]);
   });
 
@@ -648,7 +648,7 @@ describe('getTypingDiffDecorations', () => {
       { from: 1, to: 3, className: TYPING_DIFF_ADDED_CLASS_NAME },
     ]);
     expect(getWidgetDecorationPositions(decorations)).toEqual([
-      { position: 4, className: 'byline-diff-deleted' },
+      { position: 4, className: 'diff-diff-deleted' },
     ]);
   });
 
@@ -708,10 +708,10 @@ describe('getTypingDiffDecorations', () => {
     });
 
     expect(getWidgetDecorationPositions(startBoundary)).toEqual([
-      { position: 1, className: 'byline-diff-deleted' },
+      { position: 1, className: 'diff-diff-deleted' },
     ]);
     expect(getWidgetDecorationPositions(endBoundary)).toEqual([
-      { position: 6, className: 'byline-diff-deleted' },
+      { position: 6, className: 'diff-diff-deleted' },
     ]);
   });
 
@@ -770,7 +770,7 @@ describe('getTypingDiffDecorations', () => {
 
     expect(getWidgetDecorationPositions(interior)).toEqual([]);
     expect(getWidgetDecorationPositions(boundary)).toEqual([
-      { position: 6, className: 'byline-diff-added' },
+      { position: 6, className: 'diff-diff-added' },
     ]);
   });
 });
@@ -920,13 +920,13 @@ describe('typingDiffDecorationsField', () => {
     });
 
     const seededDecorations = Decoration.set([
-      Decoration.mark({ class: 'byline-diff-added' }).range(1, 3),
+      Decoration.mark({ class: 'diff-diff-added' }).range(1, 3),
     ]);
     const seededState = state.update({
       effects: [
         setTypingDiffDecorationsEffect.of({
           decorations: seededDecorations,
-          tickMarkers: [{ className: 'byline-diff-deleted', position: 4 }],
+          tickMarkers: [{ className: 'diff-diff-deleted', position: 4 }],
         }),
       ],
     }).state;
@@ -934,9 +934,9 @@ describe('typingDiffDecorationsField', () => {
     expect(seededState.field(typingDiffDecorationsField).isTyping).toBe(false);
     expect(
       getDecorationRanges(seededState.field(typingDiffDecorationsField).decorations),
-    ).toEqual([{ from: 1, to: 3, className: 'byline-diff-added' }]);
+    ).toEqual([{ from: 1, to: 3, className: 'diff-diff-added' }]);
     expect(seededState.field(typingDiffDecorationsField).tickMarkers).toEqual([
-      { className: 'byline-diff-deleted', position: 4 },
+      { className: 'diff-diff-deleted', position: 4 },
     ]);
 
     const typingState = seededState.update({
@@ -953,13 +953,13 @@ describe('typingDiffDecorationsField', () => {
     });
 
     const seededDecorations = Decoration.set([
-      Decoration.mark({ class: 'byline-diff-added' }).range(2, 4),
+      Decoration.mark({ class: 'diff-diff-added' }).range(2, 4),
     ]);
     const seededState = state.update({
       effects: [
         setTypingDiffDecorationsEffect.of({
           decorations: seededDecorations,
-          tickMarkers: [{ className: 'byline-diff-added', position: 3 }],
+          tickMarkers: [{ className: 'diff-diff-added', position: 3 }],
         }),
         setDiffPaintTypingEffect.of(true),
       ],
@@ -972,10 +972,10 @@ describe('typingDiffDecorationsField', () => {
 
     expect(fieldValue.isTyping).toBe(true);
     expect(getDecorationRanges(fieldValue.decorations)).toEqual([
-      { from: 4, to: 6, className: 'byline-diff-added' },
+      { from: 4, to: 6, className: 'diff-diff-added' },
     ]);
     expect(fieldValue.tickMarkers).toEqual([
-      { className: 'byline-diff-added', position: 5 },
+      { className: 'diff-diff-added', position: 5 },
     ]);
   });
 
@@ -989,13 +989,13 @@ describe('typingDiffDecorationsField', () => {
       effects: [setDiffPaintTypingEffect.of(true)],
     }).state;
     const replacement = Decoration.set([
-      Decoration.mark({ class: 'byline-diff-deleted' }).range(0, 2),
+      Decoration.mark({ class: 'diff-diff-deleted' }).range(0, 2),
     ]);
     const replacedState = typingState.update({
       effects: [
         setTypingDiffDecorationsEffect.of({
           decorations: replacement,
-          tickMarkers: [{ className: 'byline-diff-added', position: 1 }],
+          tickMarkers: [{ className: 'diff-diff-added', position: 1 }],
         }),
       ],
     }).state;
@@ -1003,10 +1003,10 @@ describe('typingDiffDecorationsField', () => {
     const fieldValue = replacedState.field(typingDiffDecorationsField);
     expect(fieldValue.isTyping).toBe(false);
     expect(getDecorationRanges(fieldValue.decorations)).toEqual([
-      { from: 0, to: 2, className: 'byline-diff-deleted' },
+      { from: 0, to: 2, className: 'diff-diff-deleted' },
     ]);
     expect(fieldValue.tickMarkers).toEqual([
-      { className: 'byline-diff-added', position: 1 },
+      { className: 'diff-diff-added', position: 1 },
     ]);
   });
 });
@@ -1157,7 +1157,7 @@ describe('getVisibleDiffPaintTargets', () => {
       targets: [
         {
           type: 'range',
-          className: 'byline-diff-added',
+          className: 'diff-diff-added',
           from: 5,
           to: 6,
           geometryRole: 'inlineText',
@@ -1176,7 +1176,7 @@ describe('getVisibleDiffPaintTargets', () => {
       targets: [
         {
           type: 'range',
-          className: 'byline-diff-added',
+          className: 'diff-diff-added',
           from: 10000,
           to: 10010,
           geometryRole: 'inlineText',
@@ -1195,7 +1195,7 @@ describe('getVisibleDiffPaintTargets', () => {
       targets: [
         {
           type: 'marker',
-          className: 'byline-diff-deleted',
+          className: 'diff-diff-deleted',
           from: 4,
           to: 5,
           side: 'left',
@@ -1216,7 +1216,7 @@ describe('getVisibleDiffPaintTargets', () => {
       targets: [
         {
           type: 'line',
-          className: 'byline-diff-active-line',
+          className: 'diff-diff-active-line',
           lineNumber: 2,
           geometryRole: 'activeLine',
         },
@@ -1234,7 +1234,7 @@ describe('getVisibleDiffPaintTargets', () => {
       targets: [
         {
           type: 'line',
-          className: 'byline-diff-active-line',
+          className: 'diff-diff-active-line',
           lineNumber: 3,
           geometryRole: 'activeLine',
         },
@@ -1624,7 +1624,7 @@ describe('getVisualRowRangeSegments', () => {
 describe('marker interior filtering helpers', () => {
   const range = {
     type: 'range' as const,
-    className: 'byline-diff-added' as const,
+    className: 'diff-diff-added' as const,
     from: 1,
     to: 5,
     geometryRole: 'inlineText' as const,
@@ -1633,7 +1633,7 @@ describe('marker interior filtering helpers', () => {
   const makeMarker = (position: number) => {
     return {
       type: 'marker' as const,
-      className: 'byline-diff-deleted' as const,
+      className: 'diff-diff-deleted' as const,
       from: position,
       to: position + 1,
       side: 'left' as const,

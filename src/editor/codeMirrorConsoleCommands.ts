@@ -458,8 +458,8 @@ export const getCodeMirrorConsoleCommandExtension = ({
               const optionElement = document.createElement('div');
               optionElement.className =
                 index === this.selectedIndex
-                  ? 'byline-command-option byline-command-option-active'
-                  : 'byline-command-option';
+                  ? 'diff-command-option diff-command-option-active'
+                  : 'diff-command-option';
               optionElement.textContent = option.label;
               optionElement.setAttribute('role', 'option');
               optionElement.setAttribute(
@@ -654,7 +654,7 @@ export const getSelectCommandEdit = ({
 
 const createCommandPanel = (): HTMLDivElement => {
   const element = document.createElement('div');
-  element.className = 'byline-command-panel';
+  element.className = 'diff-command-panel';
   element.style.position = 'absolute';
   element.style.zIndex = '1000';
   element.style.display = 'none';
@@ -675,7 +675,7 @@ class PredictionWidget extends WidgetType {
 
   toDOM(): HTMLElement {
     const element = document.createElement('span');
-    element.className = 'byline-command-prediction';
+    element.className = 'diff-command-prediction';
     element.textContent = this.predictionText;
     element.setAttribute('aria-hidden', 'true');
     return element;

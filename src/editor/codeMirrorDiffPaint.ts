@@ -44,26 +44,26 @@ import {
 import { getMarkerRange, type MarkerSide } from './markerRanges';
 
 export type DiffPaintClassName =
-  | 'byline-diff-added'
-  | 'byline-diff-deleted'
-  | 'byline-diff-active-line';
+  | 'diff-diff-added'
+  | 'diff-diff-deleted'
+  | 'diff-diff-active-line';
 
 export const TYPING_DIFF_ADDED_CLASS_NAME =
-  'byline-typing-diff byline-typing-diff-added';
+  'diff-typing-diff diff-typing-diff-added';
 export const TYPING_DIFF_DELETED_CLASS_NAME =
-  'byline-typing-diff byline-typing-diff-deleted';
+  'diff-typing-diff diff-typing-diff-deleted';
 
 export type DiffPaintTarget =
   | {
       type: 'range';
-      className: 'byline-diff-added' | 'byline-diff-deleted';
+      className: 'diff-diff-added' | 'diff-diff-deleted';
       from: number;
       to: number;
       geometryRole: DiffPaintGeometryRole;
     }
   | {
       type: 'marker';
-      className: 'byline-diff-added' | 'byline-diff-deleted';
+      className: 'diff-diff-added' | 'diff-diff-deleted';
       from: number;
       to: number;
       side: MarkerSide;
@@ -94,7 +94,7 @@ type TypingDiffDecorationsState = {
 
 type TypingDiffTickMarker = {
   position: number;
-  className: 'byline-diff-added' | 'byline-diff-deleted';
+  className: 'diff-diff-added' | 'diff-diff-deleted';
 };
 
 type TypingDiffDecorationsValue = {
@@ -320,7 +320,7 @@ export const getActiveLineDiffPaintTargets = (
   return [
     {
       type: 'line',
-      className: 'byline-diff-active-line',
+      className: 'diff-diff-active-line',
       lineNumber: activeLineNumber,
       geometryRole: 'activeLine',
     },
@@ -369,7 +369,7 @@ export const getCodeMirrorDiffPaintExtension = (
     typingDiffDecorationsField,
     layer({
       above: false,
-      class: 'byline-diff-layer',
+      class: 'diff-diff-layer',
       update(update) {
         return (
           update.selectionSet ||
@@ -384,7 +384,7 @@ export const getCodeMirrorDiffPaintExtension = (
     }),
     layer({
       above: true,
-      class: 'byline-diff-rule-layer',
+      class: 'diff-diff-rule-layer',
       update(update) {
         return (
           update.viewportChanged ||
@@ -699,12 +699,12 @@ const getDiffPaintMarkers = (
 
   const activeLineTargets = visibleTargets.filter(
     (target): target is Extract<DiffPaintTarget, { type: 'line' }> => {
-      return target.type === 'line' && target.className === 'byline-diff-active-line';
+      return target.type === 'line' && target.className === 'diff-diff-active-line';
     },
   );
   const lineTargets = visibleTargets.filter(
     (target): target is Extract<DiffPaintTarget, { type: 'line' }> => {
-      return target.type === 'line' && target.className !== 'byline-diff-active-line';
+      return target.type === 'line' && target.className !== 'diff-diff-active-line';
     },
   );
   const rangeTargets = visibleTargets.filter(
@@ -941,7 +941,7 @@ const getEditorRangeTargets = (
 
       rangeTargets.push({
         type: 'range',
-        className: 'byline-diff-added',
+        className: 'diff-diff-added',
         from: validRange.from,
         to: validRange.to,
         geometryRole: 'inlineText',
@@ -963,7 +963,7 @@ const getEditorRangeTargets = (
 
     markerTargets.push({
       type: 'marker',
-      className: 'byline-diff-deleted',
+      className: 'diff-diff-deleted',
       from: markerRange.from,
       to: markerRange.to,
       side: markerRange.side,
@@ -1001,7 +1001,7 @@ const getDraftRangeTargets = (
 
       rangeTargets.push({
         type: 'range',
-        className: 'byline-diff-deleted',
+        className: 'diff-diff-deleted',
         from: validRange.from,
         to: validRange.to,
         geometryRole: 'inlineText',
@@ -1023,7 +1023,7 @@ const getDraftRangeTargets = (
 
     markerTargets.push({
       type: 'marker',
-      className: 'byline-diff-added',
+      className: 'diff-diff-added',
       from: markerRange.from,
       to: markerRange.to,
       side: markerRange.side,
@@ -1053,7 +1053,7 @@ const getEditorLineTargets = (
 
     targets.push({
       type: 'line',
-      className: 'byline-diff-added',
+      className: 'diff-diff-added',
       lineNumber: line.lineNumber,
       geometryRole: 'fullLine',
     });
@@ -1079,7 +1079,7 @@ const getDraftLineTargets = (
 
     targets.push({
       type: 'line',
-      className: 'byline-diff-deleted',
+      className: 'diff-diff-deleted',
       lineNumber: line.lineNumber,
       geometryRole: 'fullLine',
     });
@@ -1252,7 +1252,7 @@ const getEditorTypingDecorations = ({
 
     return [
       {
-        className: 'byline-diff-deleted' as const,
+        className: 'diff-diff-deleted' as const,
         position: validPosition,
       },
     ];
@@ -1313,7 +1313,7 @@ const getDraftTypingDecorations = ({
 
     return [
       {
-        className: 'byline-diff-added' as const,
+        className: 'diff-diff-added' as const,
         position: validPosition,
       },
     ];
@@ -1514,7 +1514,7 @@ const getLowestEditedLineRuleMarkers = ({
 
   return [
     new RectangleMarker(
-      'byline-lowest-edited-line-marker',
+      'diff-lowest-edited-line-marker',
       ruleBox.left,
       ruleBox.top,
       ruleBox.width,
@@ -1525,7 +1525,7 @@ const getLowestEditedLineRuleMarkers = ({
 
 const getNormalizedRangeBoxes = (
   view: EditorView,
-  className: 'byline-diff-added' | 'byline-diff-deleted',
+  className: 'diff-diff-added' | 'diff-diff-deleted',
   from: number,
   to: number,
 ): PaintRectBox[] => {

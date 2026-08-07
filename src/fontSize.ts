@@ -38,9 +38,9 @@ export const getNextFontSizeMode = (
 };
 
 type FontSizeCssVariables = CSSProperties & {
-  '--byline-font-size': string;
-  '--byline-line-height': string;
-  '--byline-menu-height': string;
+  '--diff-font-size': string;
+  '--diff-line-height': string;
+  '--diff-menu-height': string;
 };
 
 export const getFontSizeCssVariables = (
@@ -49,8 +49,8 @@ export const getFontSizeCssVariables = (
   const settings = FONT_SIZE_SETTINGS[fontSizeMode];
 
   return {
-    '--byline-font-size': `${settings.fontSizePx}px`,
-    '--byline-line-height': `${settings.lineHeightPx}px`,
-    '--byline-menu-height': `${settings.menuHeightPx}px`,
+    '--diff-font-size': `${settings.fontSizePx}px`,
+    '--diff-line-height': `${settings.lineHeightPx}px`,
+    '--diff-menu-height': `${settings.menuHeightPx}px`,
   };
 };

@@ -4,7 +4,7 @@ import { EditorView } from '@codemirror/view';
 import type { LineGapMode } from '../appTypes';
 
 export const CODE_MIRROR_LARGE_LINE_GAP_CLASS_NAME =
-  'byline-line-gap-large';
+  'diff-line-gap-large';
 
 export type CodeMirrorDisplaySettingsController = {
   extension: Extension[];

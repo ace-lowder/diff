@@ -6,7 +6,7 @@ import { MOUSE_REVEAL_EDGE_TRIGGER_CLASS_NAME } from '../pointerEvents';
 
 export const LINE_NUMBER_AUTO_HIDE_DELAY_MS = 2000;
 export const LINE_NUMBER_EDGE_TRIGGER_WIDTH_CLASS_NAME =
-  'w-[var(--byline-line-number-gutter-width)]';
+  'w-[var(--diff-line-number-gutter-width)]';
 
 export const getCodeMirrorPaneLineNumberClassName = ({
   position,
@@ -19,17 +19,17 @@ export const getCodeMirrorPaneLineNumberClassName = ({
 }): string => {
   const positionClassName =
     position === 'right'
-      ? 'byline-line-numbers-right'
-      : 'byline-line-numbers-left';
+      ? 'diff-line-numbers-right'
+      : 'diff-line-numbers-left';
 
   const visibilityModeClassName =
     visibilityMode === 'autoHide'
-      ? 'byline-line-numbers-auto-hide'
-      : 'byline-line-numbers-visible-mode';
+      ? 'diff-line-numbers-auto-hide'
+      : 'diff-line-numbers-visible-mode';
 
   const visibleClassName = isVisible
-    ? 'byline-line-numbers-visible'
-    : 'byline-line-numbers-hidden';
+    ? 'diff-line-numbers-visible'
+    : 'diff-line-numbers-hidden';
 
   return `${positionClassName} ${visibilityModeClassName} ${visibleClassName}`;
 };

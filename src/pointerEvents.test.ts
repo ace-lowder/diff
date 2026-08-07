@@ -26,7 +26,7 @@ describe('shouldRevealAutoHiddenControls', () => {
 describe('MOUSE_REVEAL_EDGE_TRIGGER_CLASS_NAME', () => {
   it('matches the shared edge trigger class name', () => {
     expect(MOUSE_REVEAL_EDGE_TRIGGER_CLASS_NAME).toBe(
-      'byline-mouse-reveal-edge-trigger',
+      'diff-mouse-reveal-edge-trigger',
     );
   });
 });

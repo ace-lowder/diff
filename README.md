@@ -1,4 +1,4 @@
-# Byline
+# Diff
 
 A small local-first writing editor for comparing a rough draft against an edited version.
 

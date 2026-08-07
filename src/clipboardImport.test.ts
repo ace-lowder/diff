@@ -67,7 +67,7 @@ describe('getRichTextClipboardContent', () => {
     });
   });
 
-  it('round trips Byline clipboard html', () => {
+  it('round trips Diff clipboard html', () => {
     const html = getClipboardHtml({
       text: 'alpha\nbeta',
       highlightRanges: [],

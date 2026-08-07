@@ -324,25 +324,25 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       position: "relative",
       overflow: "visible",
     },
-    ".byline-line-number-gutter-right .cm-gutterElement": {
+    ".diff-line-number-gutter-right .cm-gutterElement": {
       paddingLeft: RIGHT_LINE_NUMBER_PADDING_LEFT,
       paddingRight: RIGHT_LINE_NUMBER_PADDING_RIGHT,
     },
-    ".byline-line-number-gutter-left .byline-line-number": {
+    ".diff-line-number-gutter-left .diff-line-number": {
       display: "inline-block",
       transform: `translateX(${LEFT_LINE_NUMBER_TEXT_NUDGE})`,
     },
-    ".byline-line-number-gutter-right .byline-line-number": {
+    ".diff-line-number-gutter-right .diff-line-number": {
       display: "inline-block",
       transform: `translateX(${RIGHT_LINE_NUMBER_TEXT_NUDGE})`,
     },
-    ".byline-line-number-gutter-left": {
+    ".diff-line-number-gutter-left": {
       overflow: "visible",
     },
     ".cm-lineNumbers .cm-gutterElement:hover": {
       color: "#BBBEBF",
     },
-    ".byline-line-copy-icon": {
+    ".diff-line-copy-icon": {
       position: "absolute",
       left: LEFT_LINE_COPY_ICON_OFFSET,
       top: `calc(${CODE_MIRROR_LINE_HEIGHT} / 2)`,
@@ -353,10 +353,10 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       pointerEvents: "none",
       transition: "opacity 500ms ease-out",
     },
-    ".byline-line-number-gutter-right .byline-line-copy-icon": {
+    ".diff-line-number-gutter-right .diff-line-copy-icon": {
       left: RIGHT_LINE_COPY_ICON_OFFSET,
     },
-    ".byline-line-copy-icon-fading": {
+    ".diff-line-copy-icon-fading": {
       opacity: "0",
     },
     ".cm-activeLineGutter": {
@@ -369,16 +369,16 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
     ".cm-selectionBackground": {
       backgroundColor: "#264F78 !important",
     },
-    ".byline-diff-active-line": {
+    ".diff-diff-active-line": {
       backgroundColor: "#242526",
     },
-    ".byline-diff-added": {
+    ".diff-diff-added": {
       backgroundColor: "#2A4C2C",
     },
-    ".byline-diff-deleted": {
+    ".diff-diff-deleted": {
       backgroundColor: "#693330",
     },
-    ".byline-typing-diff": {
+    ".diff-typing-diff": {
       boxDecorationBreak: "clone",
       WebkitBoxDecorationBreak: "clone",
       paddingTop: `${TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX}px`,
@@ -386,15 +386,15 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       marginTop: `-${TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX}px`,
       marginBottom: `-${TYPING_DIFF_HIGHLIGHT_VERTICAL_PADDING_PX}px`,
     },
-    ".byline-typing-diff-added": {
+    ".diff-typing-diff-added": {
       backgroundColor: "#2A4C2C",
       boxShadow: `0 0 0 ${TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX}px #2A4C2C`,
     },
-    ".byline-typing-diff-deleted": {
+    ".diff-typing-diff-deleted": {
       backgroundColor: "#693330",
       boxShadow: `0 0 0 ${TYPING_DIFF_HIGHLIGHT_HORIZONTAL_SPREAD_PX}px #693330`,
     },
-    ".byline-missing-line": {
+    ".diff-missing-line": {
       display: "block",
       position: "relative",
       margin: "0",
@@ -403,7 +403,7 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       boxSizing: "border-box",
       lineHeight: CODE_MIRROR_LINE_HEIGHT,
     },
-    ".byline-missing-line-paint": {
+    ".diff-missing-line-paint": {
       display: "block",
       margin: "0",
       padding: "0",
@@ -412,12 +412,12 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       backgroundImage:
         "repeating-linear-gradient(-45deg, rgba(140, 140, 140, 0.7) 0, rgba(140, 140, 140, 0.7) 2px, transparent 2px, transparent 6px)",
     },
-    ".byline-lowest-edited-line-marker": {
+    ".diff-lowest-edited-line-marker": {
       backgroundColor: "transparent",
       backgroundImage:
         "repeating-linear-gradient(to right, #8C8C8C 0, #8C8C8C 2px, transparent 2px, transparent 6px)",
     },
-    ".byline-command-panel": {
+    ".diff-command-panel": {
       backgroundColor: "#191A1B",
       border: "1px solid #2A2B2C",
       borderRadius: "6px",
@@ -425,29 +425,29 @@ const getCodeMirrorTheme = (theme: CodeMirrorTheme): Extension => {
       minWidth: "120px",
       boxShadow: "0 6px 24px rgba(0, 0, 0, 0.45)",
     },
-    ".byline-command-option": {
+    ".diff-command-option": {
       color: "#BFBFBF",
       padding: "3px 8px",
       borderRadius: "4px",
       lineHeight: "1.4",
       whiteSpace: "nowrap",
     },
-    ".byline-command-option-active": {
+    ".diff-command-option-active": {
       backgroundColor: "#242526",
     },
-    ".byline-command-prediction": {
+    ".diff-command-prediction": {
       color: "#6F7375",
       pointerEvents: "none",
     },
-    ".byline-font-bold": {
+    ".diff-font-bold": {
       fontWeight: "800",
       WebkitTextStroke: "0.4px currentColor",
       paintOrder: "stroke fill",
     },
-    ".byline-font-italic": {
+    ".diff-font-italic": {
       fontStyle: "italic",
     },
-    ".byline-font-underline": {
+    ".diff-font-underline": {
       textDecoration: "underline",
     },
   });

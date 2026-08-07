@@ -13,7 +13,7 @@ import type {
   MenuVisibilityMode,
 } from './appTypes';
 
-export const DEFAULT_DRAFT_TEXT = `Welcome to byline: a text editor for authors with messy first drafts
+export const DEFAULT_DRAFT_TEXT = `Welcome to Diff: a text editor for authors with messy first drafts
 
 This is the DRAFT view
 1. Updates are highlighted red
@@ -22,7 +22,7 @@ This is the DRAFT view
 4. no dotted lines will appear in the draft
 5. Check out the bottom bar to track your word count, copy your drafts, and more`;
 
-export const DEFAULT_EDITOR_TEXT = `Welcome to Byline: a text editor for authors who rewrite
+export const DEFAULT_EDITOR_TEXT = `Welcome to Diff: a text editor for authors who rewrite
 
 This is the EDITOR view
 1. Updates are highlighted green

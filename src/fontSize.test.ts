@@ -45,23 +45,23 @@ describe('getNextFontSizeMode', () => {
 describe('getFontSizeCssVariables', () => {
   it('returns medium css variables', () => {
     expect(getFontSizeCssVariables('medium')).toEqual({
-      '--byline-font-size': '12px',
-      '--byline-line-height': '18px',
-      '--byline-menu-height': '36px',
+      '--diff-font-size': '12px',
+      '--diff-line-height': '18px',
+      '--diff-menu-height': '36px',
     });
   });
 
   it('returns small and large menu heights', () => {
     expect(getFontSizeCssVariables('small')).toEqual({
-      '--byline-font-size': '10px',
-      '--byline-line-height': '16px',
-      '--byline-menu-height': '32px',
+      '--diff-font-size': '10px',
+      '--diff-line-height': '16px',
+      '--diff-menu-height': '32px',
     });
 
     expect(getFontSizeCssVariables('large')).toEqual({
-      '--byline-font-size': '14px',
-      '--byline-line-height': '21px',
-      '--byline-menu-height': '40px',
+      '--diff-font-size': '14px',
+      '--diff-line-height': '21px',
+      '--diff-menu-height': '40px',
     });
   });
 });
