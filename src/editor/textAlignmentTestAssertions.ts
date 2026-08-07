@@ -23,6 +23,44 @@ export type VerifiedComparison = {
   editorStats: EditorStats;
 };
 
+type ExpectedLinkedPosition = {
+  draftFrom: number;
+  editorFrom: number;
+};
+
+export const expectLinkedPositions = (
+  alignment: TextAlignment,
+  expectedPositions: ExpectedLinkedPosition[],
+) => {
+  const linkedParts = alignment.parts.filter((part) => part.type === 'linked');
+  const unmatchedPositions: ExpectedLinkedPosition[] = [];
+  let partIndex = 0;
+
+  for (const position of expectedPositions) {
+    while (
+      linkedParts[partIndex] &&
+      linkedParts[partIndex].draftRange.to <= position.draftFrom
+    ) {
+      partIndex += 1;
+    }
+
+    const part = linkedParts[partIndex];
+    const isLinked =
+      part &&
+      part.draftRange.from <= position.draftFrom &&
+      part.editorRange.from <= position.editorFrom &&
+      position.draftFrom - part.draftRange.from ===
+        position.editorFrom - part.editorRange.from;
+
+    if (!isLinked) {
+      unmatchedPositions.push(position);
+    }
+  }
+
+  expect(unmatchedPositions.slice(0, 10), 'Expected every known word to stay linked')
+    .toEqual([]);
+};
+
 export const expectLinkedAt = (
   alignment: TextAlignment,
   draftFrom: number,

@@ -168,6 +168,7 @@ const SHARED_PREFIX_MIN_WORD_RATIO = 0.25;
 const MIN_SHARED_WORDS_FOR_EDITOR_SUPPRESSION = 3;
 const VISIBLE_TEXT_MATCH_RATIO = 0.75;
 const TEXT_SPAN_ALIGNMENT_RATIO = 0.72;
+const LARGE_TEXT_SPAN_CHARACTER_THRESHOLD = 20_000;
 
 export const getWordCount = (text: string): number => {
   const trimmedText = text.trim();
@@ -2257,6 +2258,20 @@ const getTextSpanDisplayChanges = (
   draftText: string,
   editorText: string,
 ): DisplayChange[] | null => {
+  if (
+    Math.max(draftText.length, editorText.length) >=
+      LARGE_TEXT_SPAN_CHARACTER_THRESHOLD &&
+    getNewlineCount(draftText) !== getNewlineCount(editorText)
+  ) {
+    const anchoredChanges = getLineAnchoredTextSpanDisplayChanges(
+      draftText,
+      editorText,
+    );
+    if (anchoredChanges) {
+      return anchoredChanges;
+    }
+  }
+
   const displayChanges = getInlineDisplayChanges(draftText, editorText);
   const hasLineBreakEdit = displayChanges.some(
     (change) =>
@@ -2269,10 +2284,8 @@ const getTextSpanDisplayChanges = (
   const compactDraftText = draftText.replace(/\s/g, '');
   const compactEditorText = editorText.replace(/\s/g, '');
   if (compactDraftText === compactEditorText) {
-    return getLineAnchoredTextSpanDisplayChanges(
-      draftText,
-      editorText,
-      displayChanges,
+    return (
+      getLineAnchoredTextSpanDisplayChanges(draftText, editorText) ?? displayChanges
     );
   }
 
@@ -2290,18 +2303,13 @@ const getTextSpanDisplayChanges = (
     return null;
   }
 
-  return getLineAnchoredTextSpanDisplayChanges(
-    draftText,
-    editorText,
-    displayChanges,
-  );
+  return getLineAnchoredTextSpanDisplayChanges(draftText, editorText) ?? displayChanges;
 };
 
 const getLineAnchoredTextSpanDisplayChanges = (
   draftText: string,
   editorText: string,
-  unanchoredChanges: DisplayChange[],
-): DisplayChange[] => {
+): DisplayChange[] | null => {
   const draftLines = draftText.split('\n');
   const editorLines = editorText.split('\n');
   const draftProfiles = draftLines.map(getLineMatchProfile);
@@ -2321,7 +2329,7 @@ const getLineAnchoredTextSpanDisplayChanges = (
     },
   );
   if (anchorMatches.length === 0) {
-    return unanchoredChanges;
+    return null;
   }
 
   const draftLineStarts = getLineStartOffsets(draftText);
