@@ -1,6 +1,8 @@
 # Diff
 
-A small local-first writing editor for comparing a rough draft against an edited version.
+Diff is a local-first writing editor for comparing a rough draft against an edited version.
+
+[Open Diff](https://diffedit.com)
 
 ## Setup
 
