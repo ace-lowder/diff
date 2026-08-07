@@ -9,15 +9,7 @@ import {
 
 import { EditorView } from '@codemirror/view';
 
-import {
-  type StatsMode,
-} from './editorDiff';
-import {
-  getEditorDiffState,
-  type EditorDiffState,
-} from './editorDiffState';
-import { createEditorDiffWorker } from './editorDiffWorkerClient';
-import type { EditorDiffWorkerResponse } from './editorDiffWorkerProtocol';
+import { type StatsMode } from './editorDiff';
 import type {
   ConsoleCommandLineContext,
   RunConsoleCommand,
@@ -81,6 +73,7 @@ import {
 import { setDiffPaintTypingEffect } from './editor/codeMirrorDiffPaint';
 import { LINE_NUMBER_AUTO_HIDE_DELAY_MS } from './editor/codeMirrorLineNumberSettings';
 import { getVisibleLineNumberGutterWidthPx } from './editor/codeMirrorLineCopy';
+import { useEditorDiffState } from './editor/useEditorDiffState';
 import {
   getEditorWidthHandleStyle,
   type EditorWidthHandlePlacement,
@@ -102,7 +95,6 @@ import type {
 } from './appTypes';
 
 const MENU_AUTO_HIDE_DELAY_MS = 2000;
-const EDITOR_DIFF_UPDATE_DELAY_MS = 20;
 const STORED_TEXT_WRITE_DELAY_MS = 500;
 
 const App = () => {
@@ -178,17 +170,6 @@ const App = () => {
   const [editorScrollbarWidthPx, setEditorScrollbarWidthPx] = useState(0);
   const [editorLineNumberGutterWidthPx, setEditorLineNumberGutterWidthPx] =
     useState(0);
-  const initialEditorDiffState = useMemo(
-    () =>
-      getEditorDiffState({
-        draftText: initialDocumentText.draftText,
-        editorText: initialDocumentText.editorText,
-      }),
-    [initialDocumentText],
-  );
-  const [editorDiffState, setEditorDiffState] =
-    useState<EditorDiffState>(initialEditorDiffState);
-
   const draftEditorViewRef = useRef<EditorView | null>(null);
   const editorEditorViewRef = useRef<EditorView | null>(null);
   const suppressedScrollPaneRef = useRef<PaneId | null>(null);
@@ -204,45 +185,21 @@ const App = () => {
   const coffeeStatusTimeoutRef = useRef<number | null>(null);
   const menuHideTimeoutRef = useRef<number | null>(null);
   const lineNumberHideTimeoutRef = useRef<number | null>(null);
-  const pendingDiffTimeoutRef = useRef<number | null>(null);
-  const editorDiffWorkerRef = useRef<Worker | null>(null);
-  const latestEditorDiffRequestIdRef = useRef(0);
-  const isEditorDiffWorkerBusyRef = useRef(false);
-  const queuedEditorDiffTextRef = useRef<{
-    draftText: string;
-    editorText: string;
-  } | null>(null);
-  const latestTextRef = useRef({ draftText, editorText });
   const draftTextRef = useRef(draftText);
   const editorTextRef = useRef(editorText);
   const draftFontStyleRangesRef = useRef(draftFontStyleRanges);
   const editorFontStyleRangesRef = useRef(editorFontStyleRanges);
   const isDiffPaintPausedForTypingRef = useRef(false);
-  const editorDiffStateRef = useRef(editorDiffState);
   const storedTextTimeoutRef = useRef<number | null>(null);
   const pendingStoredTextRef = useRef<
     Partial<Record<'draftText' | 'editorText', string>>
   >({});
 
-  const {
-    editorHighlightRanges,
-    draftHighlightRanges,
-    lineDecorations,
-    lowestEditedLine,
-    editorStats,
-  } = editorDiffState;
   const shouldShowDraftDiff = editorText.length > 0;
   const fontSizeStyle = useMemo(
     () => getFontSizeCssVariables(fontSizeMode),
     [fontSizeMode],
   );
-
-  const clearPendingDiffUpdate = () => {
-    if (pendingDiffTimeoutRef.current !== null) {
-      window.clearTimeout(pendingDiffTimeoutRef.current);
-      pendingDiffTimeoutRef.current = null;
-    }
-  };
 
   const getCurrentDocumentTextSnapshot = useCallback(() => {
     return {
@@ -271,11 +228,24 @@ const App = () => {
     );
   }, []);
 
-  const setCurrentEditorDiffState = (nextState: EditorDiffState) => {
+  const handleEditorDiffStateCommit = useCallback(() => {
     isDiffPaintPausedForTypingRef.current = false;
-    editorDiffStateRef.current = nextState;
-    setEditorDiffState(nextState);
-  };
+  }, []);
+
+  const { editorDiffState, flushEditorDiffState } = useEditorDiffState({
+    draftText,
+    editorText,
+    getCurrentText: getCurrentDocumentTextSnapshot,
+    syncCommittedText: syncCommittedDocumentText,
+    onStateCommit: handleEditorDiffStateCommit,
+  });
+  const {
+    editorHighlightRanges,
+    draftHighlightRanges,
+    lineDecorations,
+    lowestEditedLine,
+    editorStats,
+  } = editorDiffState;
 
   const pauseDiffPaintForTyping = useCallback(() => {
     if (isDiffPaintPausedForTypingRef.current) {
@@ -293,78 +263,6 @@ const App = () => {
       });
     }
   }, []);
-
-  const startEditorDiffWorkerRequest = ({
-    draftText: nextDraftText,
-    editorText: nextEditorText,
-  }: {
-    draftText: string;
-    editorText: string;
-  }) => {
-    const requestId = latestEditorDiffRequestIdRef.current + 1;
-    latestEditorDiffRequestIdRef.current = requestId;
-
-    const worker = editorDiffWorkerRef.current;
-
-    if (!worker) {
-      setCurrentEditorDiffState(
-        getEditorDiffState({
-          draftText: nextDraftText,
-          editorText: nextEditorText,
-        }),
-      );
-      isEditorDiffWorkerBusyRef.current = false;
-      return;
-    }
-
-    isEditorDiffWorkerBusyRef.current = true;
-    worker.postMessage({
-      requestId,
-      draftText: nextDraftText,
-      editorText: nextEditorText,
-    });
-  };
-
-  const requestEditorDiffStateFromWorker = ({
-    draftText: nextDraftText,
-    editorText: nextEditorText,
-  }: {
-    draftText: string;
-    editorText: string;
-  }) => {
-    if (isEditorDiffWorkerBusyRef.current) {
-      queuedEditorDiffTextRef.current = {
-        draftText: nextDraftText,
-        editorText: nextEditorText,
-      };
-      return;
-    }
-
-    startEditorDiffWorkerRequest({
-      draftText: nextDraftText,
-      editorText: nextEditorText,
-    });
-  };
-
-  const flushEditorDiffState = () => {
-    clearPendingDiffUpdate();
-    const nextText = getCurrentDocumentTextSnapshot();
-    latestTextRef.current = nextText;
-    syncCommittedDocumentText(nextText);
-    queuedEditorDiffTextRef.current = null;
-    latestEditorDiffRequestIdRef.current += 1;
-    const nextState = getEditorDiffState(nextText);
-    setCurrentEditorDiffState(nextState);
-    return nextState;
-  };
-
-  const scheduleEditorDiffStateUpdate = () => {
-    clearPendingDiffUpdate();
-    pendingDiffTimeoutRef.current = window.setTimeout(() => {
-      pendingDiffTimeoutRef.current = null;
-      requestEditorDiffStateFromWorker(latestTextRef.current);
-    }, EDITOR_DIFF_UPDATE_DELAY_MS);
-  };
 
   const clearStoredTextTimeout = () => {
     if (storedTextTimeoutRef.current !== null) {
@@ -426,46 +324,6 @@ const App = () => {
   }, [editorFontStyleRanges]);
 
   useEffect(() => {
-    latestTextRef.current = { draftText, editorText };
-    scheduleEditorDiffStateUpdate();
-  }, [draftText, editorText]);
-
-  useEffect(() => {
-    editorDiffStateRef.current = editorDiffState;
-  }, [editorDiffState]);
-
-  useEffect(() => {
-    const worker = createEditorDiffWorker();
-    editorDiffWorkerRef.current = worker;
-
-    worker.onmessage = (event: MessageEvent<EditorDiffWorkerResponse>) => {
-      const queuedText = queuedEditorDiffTextRef.current;
-      if (queuedText !== null) {
-        queuedEditorDiffTextRef.current = null;
-      }
-      isEditorDiffWorkerBusyRef.current = false;
-
-      if (queuedText !== null) {
-        startEditorDiffWorkerRequest(queuedText);
-        return;
-      }
-
-      if (event.data.requestId !== latestEditorDiffRequestIdRef.current) {
-        return;
-      }
-
-      setCurrentEditorDiffState(event.data.editorDiffState);
-    };
-
-    return () => {
-      worker.terminate();
-      editorDiffWorkerRef.current = null;
-      isEditorDiffWorkerBusyRef.current = false;
-      queuedEditorDiffTextRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
     scheduleStoredTextWrite('draftText', draftText);
   }, [draftText, scheduleStoredTextWrite]);
 
@@ -507,9 +365,6 @@ const App = () => {
       }
       if (lineNumberHideTimeoutRef.current !== null) {
         window.clearTimeout(lineNumberHideTimeoutRef.current);
-      }
-      if (pendingDiffTimeoutRef.current !== null) {
-        window.clearTimeout(pendingDiffTimeoutRef.current);
       }
       if (storedTextTimeoutRef.current !== null) {
         window.clearTimeout(storedTextTimeoutRef.current);

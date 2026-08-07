@@ -1,21 +1,14 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { EditorState, Transaction } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import {
-  getCodeMirrorDecorations,
   getCodeMirrorDecorationsInput,
-  setEditorDecorationsEffect,
 } from '../editor/codeMirrorDecorations';
 import type { RunConsoleCommand } from '../editor/codeMirrorConsoleCommands';
-import {
-  getDiffPaintEffectValue,
-  getTypingDiffDecorations,
-  setDiffPaintEffect,
-  setTypingDiffDecorationsEffect,
-} from '../editor/codeMirrorDiffPaint';
 import { getCodeMirrorExtensions } from '../editor/codeMirrorExtensions';
+import { refreshCodeMirrorGeometry } from '../editor/codeMirrorGeometryRefresh';
 import { createCodeMirrorDisplaySettingsController } from '../editor/codeMirrorDisplaySettings';
 import { setCodeMirrorFontStyleRangesEffect } from '../editor/codeMirrorFontStyleHistory';
 import {
@@ -87,6 +80,12 @@ type CodeMirrorPaneProps = {
 };
 
 const DOCUMENT_VALUE_COMMIT_DELAY_MS = 180;
+
+const isInsideLineNumberGutter = (target: EventTarget | null): boolean => {
+  return (
+    target instanceof HTMLElement && target.closest('.cm-gutters') !== null
+  );
+};
 
 export const CodeMirrorPane = ({
   value,
@@ -238,12 +237,16 @@ export const CodeMirrorPane = ({
     });
 
     const frameId = window.requestAnimationFrame(() => {
-      refreshEditorGeometry(editorView);
+      refreshCodeMirrorGeometry({
+        editorView,
+        decorations: decorationsRef.current,
+        theme,
+      });
       onContentLayoutChangeRef.current?.();
     });
 
     return () => window.cancelAnimationFrame(frameId);
-  }, [lineGapMode, isWordWrappingEnabled]);
+  }, [lineGapMode, isWordWrappingEnabled, theme]);
 
   useEffect(() => {
     lineNumberVisibilityModeRef.current = lineNumberVisibilityMode;
@@ -292,50 +295,19 @@ export const CodeMirrorPane = ({
     areLineNumbersVisibleRef.current = areLineNumbersVisible;
   }, [areLineNumbersVisible]);
 
-  const isInsideLineNumberGutter = (target: EventTarget | null): boolean => {
-    return (
-      target instanceof HTMLElement &&
-      target.closest('.cm-gutters') !== null
-    );
-  };
-
-  const refreshEditorGeometry = (editorView: EditorView) => {
-    const diffPaintEffectValue = getDiffPaintEffectValue(decorationsRef.current);
-
-    editorView.requestMeasure();
-
-    editorView.dispatch({
-      effects: [
-        setEditorDecorationsEffect.of(
-          getCodeMirrorDecorations(editorView, decorationsRef.current),
-        ),
-        setDiffPaintEffect.of(diffPaintEffectValue),
-        setTypingDiffDecorationsEffect.of(
-          getTypingDiffDecorations({
-            theme,
-            docLength: editorView.state.doc.length,
-            diffPaint: diffPaintEffectValue,
-          }),
-        ),
-      ],
-    });
-
-    editorView.requestMeasure();
-  };
-
-  const clearValueCommitTimeout = () => {
+  const clearValueCommitTimeout = useCallback(() => {
     if (valueCommitTimeoutRef.current !== null) {
       window.clearTimeout(valueCommitTimeoutRef.current);
       valueCommitTimeoutRef.current = null;
     }
-  };
+  }, []);
 
-  const getCurrentEditorValue = (): string => {
+  const getCurrentEditorValue = useCallback((): string => {
     const editorView = editorViewRef.current;
     return editorView ? editorView.state.doc.toString() : lastCommittedValueRef.current;
-  };
+  }, []);
 
-  const commitCurrentEditorValue = () => {
+  const commitCurrentEditorValue = useCallback(() => {
     clearValueCommitTimeout();
 
     const nextValue = getCurrentEditorValue();
@@ -345,15 +317,15 @@ export const CodeMirrorPane = ({
 
     lastCommittedValueRef.current = nextValue;
     onCommittedValueChangeRef.current(nextValue);
-  };
+  }, [clearValueCommitTimeout, getCurrentEditorValue]);
 
-  const scheduleCurrentEditorValueCommit = () => {
+  const scheduleCurrentEditorValueCommit = useCallback(() => {
     clearValueCommitTimeout();
     valueCommitTimeoutRef.current = window.setTimeout(() => {
       valueCommitTimeoutRef.current = null;
       commitCurrentEditorValue();
     }, DOCUMENT_VALUE_COMMIT_DELAY_MS);
-  };
+  }, [clearValueCommitTimeout, commitCurrentEditorValue]);
 
   useEffect(() => {
     decorationsRef.current = getCodeMirrorDecorationsInput({
@@ -371,7 +343,11 @@ export const CodeMirrorPane = ({
       return;
     }
 
-    refreshEditorGeometry(editorView);
+    refreshCodeMirrorGeometry({
+      editorView,
+      decorations: decorationsRef.current,
+      theme,
+    });
   }, [
     draftHighlightRanges,
     draftLineDecorations,
@@ -379,6 +355,7 @@ export const CodeMirrorPane = ({
     editorLineDecorations,
     fontStyleRanges,
     lowestEditedLine,
+    theme,
   ]);
 
   useEffect(() => {
@@ -418,7 +395,7 @@ export const CodeMirrorPane = ({
           onSelectionChange: (selections) =>
             onSelectionChangeRef.current?.(selections),
           onCopyLine: (context) => onCopyLineRef.current(context),
-          getInitialFontStyleRanges: () => fontStyleRanges ?? [],
+          getInitialFontStyleRanges: () => fontStyleRangesRef.current,
           getFontStyleRanges: () => fontStyleRangesRef.current,
           getActiveFontStyleTypes: () => activeFontStyleTypesRef.current,
           displaySettingsExtension:
@@ -434,21 +411,10 @@ export const CodeMirrorPane = ({
     onEditorViewChangeRef.current?.(editorView);
     editorView.scrollDOM.scrollLeft = initialScrollOffsetRef.current.left;
     scrollToLineNumber(editorView, initialLineNumberRef.current);
-    const diffPaintEffectValue = getDiffPaintEffectValue(decorationsRef.current);
-    editorView.dispatch({
-      effects: [
-        setEditorDecorationsEffect.of(
-          getCodeMirrorDecorations(editorView, decorationsRef.current),
-        ),
-        setDiffPaintEffect.of(diffPaintEffectValue),
-        setTypingDiffDecorationsEffect.of(
-          getTypingDiffDecorations({
-            theme,
-            docLength: editorView.state.doc.length,
-            diffPaint: diffPaintEffectValue,
-          }),
-        ),
-      ],
+    refreshCodeMirrorGeometry({
+      editorView,
+      decorations: decorationsRef.current,
+      theme,
     });
 
     return () => {
@@ -459,7 +425,13 @@ export const CodeMirrorPane = ({
       editorViewRef.current = null;
       onEditorViewChangeRef.current?.(null);
     };
-  }, [ariaLabel, theme]);
+  }, [
+    ariaLabel,
+    clearValueCommitTimeout,
+    commitCurrentEditorValue,
+    scheduleCurrentEditorValueCommit,
+    theme,
+  ]);
 
   useEffect(() => {
     const editorView = editorViewRef.current;
@@ -521,11 +493,15 @@ export const CodeMirrorPane = ({
     }
 
     const frameId = window.requestAnimationFrame(() => {
-      refreshEditorGeometry(editorView);
+      refreshCodeMirrorGeometry({
+        editorView,
+        decorations: decorationsRef.current,
+        theme,
+      });
     });
 
     return () => window.cancelAnimationFrame(frameId);
-  }, [fontSizeMode]);
+  }, [fontSizeMode, theme]);
 
   return (
     <div
