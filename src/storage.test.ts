@@ -12,6 +12,7 @@ import {
   getStoredMenuPlacement,
   getStoredMenuVisibilityMode,
   getStoredWordWrappingEnabled,
+  legacyStorageKeys,
   setStoredAppMode,
   setStoredFontSizeMode,
   setStoredLineGapMode,
@@ -44,6 +45,38 @@ const store = new Map<string, string>();
 
 beforeEach(() => {
   store.clear();
+});
+
+describe('Byline storage migration', () => {
+  it('moves saved documents to Diff storage', () => {
+    store.set(legacyStorageKeys.draftText, 'legacy draft');
+    store.set(legacyStorageKeys.editorText, 'legacy editor');
+
+    expect(getStoredDocumentText()).toEqual({
+      draftText: 'legacy draft',
+      editorText: 'legacy editor',
+    });
+    expect(store.get(storageKeys.draftText)).toBe('legacy draft');
+    expect(store.get(storageKeys.editorText)).toBe('legacy editor');
+    expect(store.has(legacyStorageKeys.draftText)).toBe(false);
+    expect(store.has(legacyStorageKeys.editorText)).toBe(false);
+  });
+
+  it('moves a setting when it is first read', () => {
+    store.set(legacyStorageKeys.fontSizeMode, 'large');
+
+    expect(getStoredFontSizeMode()).toBe('large');
+    expect(store.get(storageKeys.fontSizeMode)).toBe('large');
+    expect(store.has(legacyStorageKeys.fontSizeMode)).toBe(false);
+  });
+
+  it('keeps the current Diff value and removes the older value', () => {
+    store.set(storageKeys.appMode, 'editor');
+    store.set(legacyStorageKeys.appMode, 'draft');
+
+    expect(getStoredAppMode()).toBe('editor');
+    expect(store.has(legacyStorageKeys.appMode)).toBe(false);
+  });
 });
 
 describe('getStoredDocumentText', () => {

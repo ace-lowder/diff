@@ -33,6 +33,21 @@ This is the EDITOR view
 5. Check out the bottom bar to track your word count, copy your drafts, and more`;
 
 export const storageKeys = {
+  draftText: "diff:draftText",
+  editorText: "diff:editorText",
+  draftFontStyleRanges: "diff:draftFontStyleRanges",
+  editorFontStyleRanges: "diff:editorFontStyleRanges",
+  menuPlacement: 'diff:menuPlacement',
+  menuVisibilityMode: 'diff:menuVisibilityMode',
+  lineNumberPosition: 'diff:lineNumberPosition',
+  lineNumberVisibilityMode: 'diff:lineNumberVisibilityMode',
+  fontSizeMode: 'diff:fontSizeMode',
+  lineGapMode: 'diff:lineGapMode',
+  wordWrappingEnabled: 'diff:wordWrappingEnabled',
+  appMode: 'diff:appMode',
+} as const;
+
+export const legacyStorageKeys = {
   draftText: "byline:draftText",
   editorText: "byline:editorText",
   draftFontStyleRanges: "byline:draftFontStyleRanges",
@@ -47,6 +62,13 @@ export const storageKeys = {
   appMode: 'byline:appMode',
 } as const;
 
+const legacyStorageKeyByKey = new Map<string, string>(
+  Object.keys(storageKeys).map((keyName) => {
+    const typedKeyName = keyName as keyof typeof storageKeys;
+    return [storageKeys[typedKeyName], legacyStorageKeys[typedKeyName]];
+  }),
+);
+
 export type StoredDocumentText = {
   draftText: string;
   editorText: string;
@@ -54,8 +76,8 @@ export type StoredDocumentText = {
 
 export const getStoredDocumentText = (): StoredDocumentText => {
   try {
-    const storedDraftText = window.localStorage.getItem(storageKeys.draftText);
-    const storedEditorText = window.localStorage.getItem(storageKeys.editorText);
+    const storedDraftText = getStoredItem(storageKeys.draftText);
+    const storedEditorText = getStoredItem(storageKeys.editorText);
 
     const shouldUseTemplates =
       (storedDraftText === null && storedEditorText === null) ||
@@ -90,7 +112,7 @@ export const setStoredText = (key: string, value: string): void => {
 
 export const getStoredMenuPlacement = (): MenuPlacement => {
   try {
-    const value = window.localStorage.getItem(storageKeys.menuPlacement);
+    const value = getStoredItem(storageKeys.menuPlacement);
 
     if (value === 'top' || value === 'bottom') {
       return value;
@@ -117,7 +139,7 @@ export const setStoredMenuPlacement = (placement: MenuPlacement): void => {
 
 export const getStoredMenuVisibilityMode = (): MenuVisibilityMode => {
   try {
-    const value = window.localStorage.getItem(storageKeys.menuVisibilityMode);
+    const value = getStoredItem(storageKeys.menuVisibilityMode);
 
     if (value === 'visible' || value === 'autoHide') {
       return value;
@@ -141,7 +163,7 @@ export const setStoredMenuVisibilityMode = (
 
 export const getStoredLineNumberPosition = (): LineNumberPosition => {
   try {
-    const value = window.localStorage.getItem(storageKeys.lineNumberPosition);
+    const value = getStoredItem(storageKeys.lineNumberPosition);
 
     if (value === 'left' || value === 'right') {
       return value;
@@ -165,7 +187,7 @@ export const setStoredLineNumberPosition = (
 
 export const getStoredLineNumberVisibilityMode = (): LineNumberVisibilityMode => {
   try {
-    const value = window.localStorage.getItem(
+    const value = getStoredItem(
       storageKeys.lineNumberVisibilityMode,
     );
 
@@ -194,7 +216,7 @@ export const setStoredLineNumberVisibilityMode = (
 
 export const getStoredFontSizeMode = (): FontSizeMode => {
   try {
-    const value = window.localStorage.getItem(storageKeys.fontSizeMode);
+    const value = getStoredItem(storageKeys.fontSizeMode);
 
     if (value && isFontSizeMode(value)) {
       return value;
@@ -218,7 +240,7 @@ export const setStoredFontSizeMode = (
 
 export const getStoredAppMode = (): AppMode => {
   try {
-    const value = window.localStorage.getItem(storageKeys.appMode);
+    const value = getStoredItem(storageKeys.appMode);
 
     if (value === 'draft' || value === 'editor' || value === 'split') {
       return value;
@@ -245,7 +267,7 @@ export const setStoredAppMode = (mode: AppMode): void => {
 
 export const getStoredLineGapMode = (): LineGapMode => {
   try {
-    const value = window.localStorage.getItem(storageKeys.lineGapMode);
+    const value = getStoredItem(storageKeys.lineGapMode);
 
     if (value === 'normal' || value === 'large') {
       return value;
@@ -272,7 +294,7 @@ export const setStoredLineGapMode = (lineGapMode: LineGapMode): void => {
 
 export const getStoredWordWrappingEnabled = (): boolean => {
   try {
-    const value = window.localStorage.getItem(storageKeys.wordWrappingEnabled);
+    const value = getStoredItem(storageKeys.wordWrappingEnabled);
 
     if (value === 'false') {
       return false;
@@ -301,7 +323,7 @@ export const setStoredWordWrappingEnabled = (
 
 export const getStoredFontStyleRanges = (key: string): FontStyleRange[] => {
   try {
-    const storedValue = window.localStorage.getItem(key);
+    const storedValue = getStoredItem(key);
 
     if (!storedValue) {
       return [];
@@ -357,4 +379,39 @@ export const isFontStyleRange = (value: unknown): value is FontStyleRange => {
     Number.isFinite(range.to) &&
     range.to > range.from
   );
+};
+
+const getStoredItem = (key: string): string | null => {
+  const storedValue = window.localStorage.getItem(key);
+  const legacyKey = legacyStorageKeyByKey.get(key);
+
+  if (storedValue !== null) {
+    if (legacyKey) {
+      try {
+        window.localStorage.removeItem(legacyKey);
+      } catch {
+        // Keep the current Diff value when legacy cleanup fails.
+      }
+    }
+
+    return storedValue;
+  }
+
+  if (!legacyKey) {
+    return null;
+  }
+
+  const legacyValue = window.localStorage.getItem(legacyKey);
+  if (legacyValue === null) {
+    return null;
+  }
+
+  try {
+    window.localStorage.setItem(key, legacyValue);
+    window.localStorage.removeItem(legacyKey);
+  } catch {
+    // Return the legacy value even when migration cannot be saved.
+  }
+
+  return legacyValue;
 };
