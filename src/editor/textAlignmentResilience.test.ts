@@ -1,36 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import type { TextAlignment } from '../editorDiff';
-import { getVerifiedComparison } from './textAlignmentTestAssertions';
-
-const getLinkedLineOffsets = (alignment: TextAlignment) => {
-  return alignment.parts.flatMap((part) =>
-    part.type === 'linked'
-      ? [
-          {
-            draftFrom: part.draftRange.from,
-            editorFrom: part.editorRange.from,
-          },
-        ]
-      : [],
-  );
-};
+import {
+  expectLinkedAt,
+  getVerifiedComparison,
+} from './textAlignmentTestAssertions';
 
 const getLineStart = (text: string, line: string, from = 0) => {
   const start = text.indexOf(line, from);
   expect(start).toBeGreaterThanOrEqual(0);
   return start;
-};
-
-const expectLinkedAt = (
-  alignment: TextAlignment,
-  draftFrom: number,
-  editorFrom: number,
-) => {
-  expect(getLinkedLineOffsets(alignment)).toContainEqual({
-    draftFrom,
-    editorFrom,
-  });
 };
 
 describe('text alignment resilience', () => {

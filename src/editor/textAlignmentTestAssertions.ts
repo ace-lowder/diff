@@ -23,6 +23,34 @@ export type VerifiedComparison = {
   editorStats: EditorStats;
 };
 
+export const expectLinkedAt = (
+  alignment: TextAlignment,
+  draftFrom: number,
+  editorFrom: number,
+  description = `draft ${draftFrom} to editor ${editorFrom}`,
+) => {
+  const hasLinkedPosition = alignment.parts.some(
+    (part) =>
+      part.type === 'linked' &&
+      part.draftRange.from <= draftFrom &&
+      part.draftRange.to > draftFrom &&
+      part.editorRange.from <= editorFrom &&
+      part.editorRange.to > editorFrom &&
+      draftFrom - part.draftRange.from === editorFrom - part.editorRange.from,
+  );
+  const nearbyParts = alignment.parts.filter(
+    (part) =>
+      part.draftRange &&
+      part.draftRange.to >= draftFrom - 1 &&
+      part.draftRange.from <= draftFrom + 1,
+  );
+
+  expect(
+    hasLinkedPosition,
+    `Expected linked text at ${description}; nearby ${JSON.stringify(nearbyParts)}`,
+  ).toBe(true);
+};
+
 export const getVerifiedComparison = (
   draftText: string,
   editorText: string,

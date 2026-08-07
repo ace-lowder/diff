@@ -2269,7 +2269,11 @@ const getTextSpanDisplayChanges = (
   const compactDraftText = draftText.replace(/\s/g, '');
   const compactEditorText = editorText.replace(/\s/g, '');
   if (compactDraftText === compactEditorText) {
-    return displayChanges;
+    return getLineAnchoredTextSpanDisplayChanges(
+      draftText,
+      editorText,
+      displayChanges,
+    );
   }
 
   const longestLength = Math.max(compactDraftText.length, compactEditorText.length);
@@ -2282,9 +2286,76 @@ const getTextSpanDisplayChanges = (
     0,
   );
 
-  return equalCharacterCount / longestLength >= TEXT_SPAN_ALIGNMENT_RATIO
-    ? displayChanges
-    : null;
+  if (equalCharacterCount / longestLength < TEXT_SPAN_ALIGNMENT_RATIO) {
+    return null;
+  }
+
+  return getLineAnchoredTextSpanDisplayChanges(
+    draftText,
+    editorText,
+    displayChanges,
+  );
+};
+
+const getLineAnchoredTextSpanDisplayChanges = (
+  draftText: string,
+  editorText: string,
+  unanchoredChanges: DisplayChange[],
+): DisplayChange[] => {
+  const draftLines = draftText.split('\n');
+  const editorLines = editorText.split('\n');
+  const draftProfiles = draftLines.map(getLineMatchProfile);
+  const editorProfiles = editorLines.map(getLineMatchProfile);
+  const anchorMatches = getLineAlignmentMatches(draftLines, editorLines).filter(
+    ({ draftIndex, editorIndex }) => {
+      const draftLine = draftLines[draftIndex];
+      const editorLine = editorLines[editorIndex];
+      return (
+        draftLine !== '' &&
+        (draftLine === editorLine ||
+          areSimilarVisibleTexts(
+            draftProfiles[draftIndex].normalizedVisibleText,
+            editorProfiles[editorIndex].normalizedVisibleText,
+          ))
+      );
+    },
+  );
+  if (anchorMatches.length === 0) {
+    return unanchoredChanges;
+  }
+
+  const draftLineStarts = getLineStartOffsets(draftText);
+  const editorLineStarts = getLineStartOffsets(editorText);
+  const anchoredChanges: DisplayChange[] = [];
+  let draftPosition = 0;
+  let editorPosition = 0;
+
+  for (const { draftIndex, editorIndex } of anchorMatches) {
+    const draftFrom = draftLineStarts[draftIndex];
+    const editorFrom = editorLineStarts[editorIndex];
+    const draftLine = draftLines[draftIndex];
+    const editorLine = editorLines[editorIndex];
+
+    anchoredChanges.push(
+      ...getInlineDisplayChanges(
+        draftText.slice(draftPosition, draftFrom),
+        editorText.slice(editorPosition, editorFrom),
+      ),
+      ...getInlineDisplayChanges(draftLine, editorLine),
+    );
+
+    draftPosition = draftFrom + draftLine.length;
+    editorPosition = editorFrom + editorLine.length;
+  }
+
+  anchoredChanges.push(
+    ...getInlineDisplayChanges(
+      draftText.slice(draftPosition),
+      editorText.slice(editorPosition),
+    ),
+  );
+
+  return mergeDisplayChanges(anchoredChanges);
 };
 
 const getLineRanges = (text: string): TextRange[] => {
