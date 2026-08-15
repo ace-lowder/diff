@@ -7,9 +7,14 @@ import {
 export const EXAMPLE_DRAFT_TEXT = `Dreams
 by Langston Hughes
 
-hold fast too dreams for if dreams die, life is a broken wing bird that can not fly
-
-hold fast to dream's for when dreams go life is an barren field, froze with snow`;
+Hold fast too dreams
+For if dreams die,
+Life is a broken winged bird
+That can not fly
+Hold fast to dreams
+For when dreams go
+life's a barren field
+Froze with snow`;
 
 export const EXAMPLE_EDITOR_TEXT = `Dreams
 by Langston Hughes
