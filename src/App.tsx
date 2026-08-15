@@ -46,7 +46,7 @@ import {
   getStoredMenuPlacement,
   getStoredMenuVisibilityMode,
   getStoredFontSizeMode,
-  getStoredAppMode,
+  getInitialAppMode,
   getStoredLineGapMode,
   getStoredLineNumberPosition,
   getStoredLineNumberVisibilityMode,
@@ -109,7 +109,9 @@ const App = () => {
   );
   const initialFontSizeMode = useMemo(() => getStoredFontSizeMode(), []);
 
-  const [mode, setMode] = useState<AppMode>(() => getStoredAppMode());
+  const [mode, setMode] = useState<AppMode>(() =>
+    getInitialAppMode(initialDocumentText),
+  );
   const [statsMode, setStatsMode] = useState<StatsMode>('words');
   const [draftText, setDraftText] = useState(() => initialDocumentText.draftText);
   const [editorText, setEditorText] = useState(() => initialDocumentText.editorText);

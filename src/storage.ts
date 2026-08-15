@@ -256,6 +256,16 @@ export const getStoredAppMode = (): AppMode => {
   }
 };
 
+export const getInitialAppMode = (
+  documentText: StoredDocumentText,
+): AppMode => {
+  const isStarterText =
+    documentText.draftText === DEFAULT_DRAFT_TEXT &&
+    documentText.editorText === DEFAULT_EDITOR_TEXT;
+
+  return isStarterText ? 'split' : getStoredAppMode();
+};
+
 export const setStoredAppMode = (mode: AppMode): void => {
   try {
     if (mode === 'split') {

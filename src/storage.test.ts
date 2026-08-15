@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   DEFAULT_DRAFT_TEXT,
   DEFAULT_EDITOR_TEXT,
+  getInitialAppMode,
   getStoredAppMode,
   getStoredDocumentText,
   getStoredFontSizeMode,
@@ -164,6 +165,22 @@ describe('getStoredDocumentText', () => {
 });
 
 describe('app mode storage', () => {
+  it('uses split mode when empty documents restore the starter text', () => {
+    store.set(storageKeys.draftText, '');
+    store.set(storageKeys.editorText, '');
+    store.set(storageKeys.appMode, 'draft');
+
+    expect(getInitialAppMode(getStoredDocumentText())).toBe('split');
+  });
+
+  it('uses the stored mode when saved documents are restored', () => {
+    store.set(storageKeys.draftText, 'saved draft');
+    store.set(storageKeys.editorText, 'saved editor');
+    store.set(storageKeys.appMode, 'editor');
+
+    expect(getInitialAppMode(getStoredDocumentText())).toBe('editor');
+  });
+
   it('returns split when value is missing', () => {
     expect(getStoredAppMode()).toBe('split');
   });
