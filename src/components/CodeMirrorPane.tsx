@@ -50,6 +50,7 @@ type CodeMirrorPaneProps = {
   onFocusPane?: () => void;
   onToggleFontStyle: (fontStyleType: FontStyleType) => void;
   onRunConsoleCommand: RunConsoleCommand;
+  getConsoleCommandRootOptions: () => readonly string[];
   onCopyLine: CopyLineHandler;
   lineNumberPosition: LineNumberPosition;
   lineNumberVisibilityMode: LineNumberVisibilityMode;
@@ -95,6 +96,7 @@ export const CodeMirrorPane = ({
   onFocusPane,
   onToggleFontStyle,
   onRunConsoleCommand,
+  getConsoleCommandRootOptions,
   onCopyLine,
   lineNumberPosition,
   lineNumberVisibilityMode,
@@ -132,6 +134,7 @@ export const CodeMirrorPane = ({
   const onFocusPaneRef = useRef(onFocusPane);
   const onToggleFontStyleRef = useRef(onToggleFontStyle);
   const onRunConsoleCommandRef = useRef(onRunConsoleCommand);
+  const getConsoleCommandRootOptionsRef = useRef(getConsoleCommandRootOptions);
   const onCopyLineRef = useRef(onCopyLine);
   const activeFontStyleTypesRef = useRef(activeFontStyleTypes);
   const displaySettingsControllerRef = useRef<ReturnType<
@@ -207,6 +210,10 @@ export const CodeMirrorPane = ({
   useEffect(() => {
     onRunConsoleCommandRef.current = onRunConsoleCommand;
   }, [onRunConsoleCommand]);
+
+  useEffect(() => {
+    getConsoleCommandRootOptionsRef.current = getConsoleCommandRootOptions;
+  }, [getConsoleCommandRootOptions]);
 
   useEffect(() => {
     onCopyLineRef.current = onCopyLine;
@@ -375,6 +382,8 @@ export const CodeMirrorPane = ({
           theme,
           onRunConsoleCommand: (command, context) =>
             onRunConsoleCommandRef.current(command, context),
+          getConsoleCommandRootOptions: () =>
+            getConsoleCommandRootOptionsRef.current(),
           onDocumentChange: (change) => {
             fontStyleRangesRef.current = change.fontStyleRanges;
             lastAppliedFontStyleRangesRef.current = change.fontStyleRanges;

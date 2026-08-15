@@ -4,6 +4,7 @@ import {
   getCompletedConsoleCommandLine,
   getConsoleCommandMenu,
   getConsoleCommandPrediction,
+  getConsoleCommandRootOptions,
   getNoLineAboveCommandLineText,
   getUnknownCommandLineText,
   parseConsoleCommandLine,
@@ -11,6 +12,10 @@ import {
 
 describe('parseConsoleCommandLine', () => {
   it('parses valid commands', () => {
+    expect(parseConsoleCommandLine('/example')).toEqual({
+      kind: 'valid',
+      command: { type: 'example' },
+    });
     expect(parseConsoleCommandLine('/view')).toEqual({
       kind: 'valid',
       command: { type: 'view', mode: 'next' },
@@ -159,6 +164,10 @@ describe('parseConsoleCommandLine', () => {
       kind: 'unknown-command',
       message: '/wrap now - unknown command',
     });
+    expect(parseConsoleCommandLine('/example now')).toEqual({
+      kind: 'unknown-command',
+      message: '/example now - unknown command',
+    });
     expect(parseConsoleCommandLine('/linenum show')).toEqual({
       kind: 'unknown-root',
     });
@@ -183,6 +192,30 @@ describe('getNoLineAboveCommandLineText', () => {
 });
 
 describe('getConsoleCommandMenu', () => {
+  it('places the example command first or last when available', () => {
+    const firstOptions = getConsoleCommandRootOptions('first');
+    const lastOptions = getConsoleCommandRootOptions('last');
+
+    expect(
+      getConsoleCommandMenu({ lineText: '/', cursorOffset: 1, rootOptions: firstOptions })
+        ?.options[0],
+    ).toEqual({ label: 'example' });
+    expect(
+      getConsoleCommandMenu({ lineText: '/', cursorOffset: 1, rootOptions: lastOptions })
+        ?.options.at(-1),
+    ).toEqual({ label: 'example' });
+  });
+
+  it('hides the example command when it is unavailable', () => {
+    expect(
+      getConsoleCommandMenu({
+        lineText: '/e',
+        cursorOffset: 2,
+        rootOptions: getConsoleCommandRootOptions(null),
+      }),
+    ).toBeNull();
+  });
+
   it('returns root options', () => {
     expect(getConsoleCommandMenu({ lineText: '/', cursorOffset: 1 })).toEqual({
       options: [
@@ -358,6 +391,15 @@ describe('getConsoleCommandMenu', () => {
 
 describe('getCompletedConsoleCommandLine', () => {
   it('completes the selected token', () => {
+    expect(
+      getCompletedConsoleCommandLine({
+        lineText: '/e',
+        cursorOffset: 2,
+        selectedLabel: 'example',
+        rootOptions: getConsoleCommandRootOptions('first'),
+      }),
+    ).toBe('/example');
+
     expect(
       getCompletedConsoleCommandLine({
         lineText: '/v',
