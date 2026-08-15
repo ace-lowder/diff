@@ -1,29 +1,28 @@
 # Diff
 
-Diff is a local-first writing editor for comparing a rough draft against an edited version.
+Diff is a local-first writing editor for comparing a rough draft with an edited version.
 
 [Open Diff](https://diffedit.com)
 
-## Setup
+## Run locally
+
+You need Git, Node.js 22.12 or newer, and npm.
 
 ```bash
-npm install
+git clone https://github.com/ace-lowder/diff.git
+cd diff
+npm ci
 npm run dev
 ```
 
-## Scripts
+Open `http://localhost:5173`. Diff has no backend or environment variables; drafts stay in your browser.
 
-```bash
-npm run dev
-npm run build
-npm run lint
-npm run preview
-npm run test
-```
+## Commands
 
-## Notes
+- `npm run dev` starts the local app
+- `npm run test` runs the test suite once
+- `npm run lint` checks the code
+- `npm run build` creates the production build in `dist`
+- `npm run preview` serves the production build locally
 
-* Built with Vite, React, TypeScript, and Tailwind CSS.
-* No backend.
-* Draft/editor content is stored locally in the browser.
-* Editor panes are powered by CodeMirror.
+Built with React, TypeScript, Vite, Tailwind CSS, and CodeMirror.
