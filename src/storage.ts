@@ -13,24 +13,28 @@ import type {
   MenuVisibilityMode,
 } from './appTypes';
 
-export const DEFAULT_DRAFT_TEXT = `Welcome to Diff: a text editor for authors with messy first drafts
+export const DEFAULT_DRAFT_TEXT = `88888888ba,    88     ad88     ad88
+88      \`"8b   ""    d8"      d8"
+88        \`8b        88       88
+88         88  88  MM88MMM  MM88MMM
+88         88  88    88       88
+88         8P  88    88       88
+88      .a8P   88    88       88
+88888888Y"'    88    88       88
 
-This is the DRAFT view
-1. Updates are highlighted red
-2. Your work saves as you type
-3. New lines will look patterned
-4. no dotted lines will appear in the draft
-5. Check out the bottom bar to track your word count, copy your drafts, and more`;
+view the differences in your drafts`;
 
-export const DEFAULT_EDITOR_TEXT = `Welcome to Diff: a text editor for authors who rewrite
+export const DEFAULT_EDITOR_TEXT = `88888888ba,    88     ad88     ad88
+88      \`"8b   ""    d8"      d8"
+88        \`8b        88       88
+88         88  88  MM88MMM  MM88MMM
+88         88  88    88       88
+88         8P  88    88       88
+88      .a8P   88    88       88
+88888888Y"'    88    88       88
 
-This is the EDITOR view
-1. Updates are highlighted green
-2. Your work saves as you type
-
-3. New lines will look green
-4. a dotted line will appear below your last edit
-5. Check out the bottom bar to track your word count, copy your drafts, and more`;
+view the changes in your drafts!
+- type / on a new line for more commands`;
 
 export const storageKeys = {
   draftText: "diff:draftText",
