@@ -11,6 +11,9 @@ export type ConsoleCommandViewMode = 'draft' | 'editor' | 'split';
 
 export type ConsoleCommand =
   | {
+      type: 'example';
+    }
+  | {
       type: 'select';
     }
   | {
@@ -89,7 +92,7 @@ export type ConsoleCommandMenu = {
 const UNKNOWN_COMMAND_SUFFIX = ' - unknown command';
 const NO_LINE_ABOVE_SUFFIX = ' - no line above to copy';
 
-const ROOT_OPTIONS = [
+const DEFAULT_ROOT_OPTIONS = [
   'select',
   'view',
   'copy',
@@ -100,6 +103,7 @@ const ROOT_OPTIONS = [
   'gap',
   'wrap',
 ] as const;
+const KNOWN_ROOT_OPTIONS = ['example', ...DEFAULT_ROOT_OPTIONS] as const;
 const VIEW_OPTIONS = ['draft', 'editor', 'split'] as const;
 const COPY_OPTIONS = ['line'] as const;
 const COUNT_OPTIONS = ['word', 'char'] as const;
@@ -127,8 +131,22 @@ export const parseConsoleCommandLine = (
     return { kind: 'incomplete' };
   }
 
-  if (!ROOT_OPTIONS.includes(root as (typeof ROOT_OPTIONS)[number])) {
+  if (!KNOWN_ROOT_OPTIONS.includes(root as (typeof KNOWN_ROOT_OPTIONS)[number])) {
     return { kind: 'unknown-root' };
+  }
+
+  if (root === 'example') {
+    if (parts.length === 1) {
+      return {
+        kind: 'valid',
+        command: { type: 'example' },
+      };
+    }
+
+    return {
+      kind: 'unknown-command',
+      message: `${trimmedLineText}${UNKNOWN_COMMAND_SUFFIX}`,
+    };
   }
 
   if (root === 'select') {
@@ -379,9 +397,11 @@ export const getNoLineAboveCommandLineText = (lineText: string): string => {
 export const getConsoleCommandMenu = ({
   lineText,
   cursorOffset,
+  rootOptions = DEFAULT_ROOT_OPTIONS,
 }: {
   lineText: string;
   cursorOffset: number;
+  rootOptions?: readonly string[];
 }): ConsoleCommandMenu | null => {
   if (!lineText.startsWith('/')) {
     return null;
@@ -424,17 +444,8 @@ export const getConsoleCommandMenu = ({
       };
     }
 
-    if (
-      currentTokenText === '/select' ||
-      currentTokenText === '/view' ||
-      currentTokenText === '/copy' ||
-      currentTokenText === '/count' ||
-      currentTokenText === '/menu' ||
-      currentTokenText === '/linenums' ||
-      currentTokenText === '/fontsize' ||
-      currentTokenText === '/gap' ||
-      currentTokenText === '/wrap'
-    ) {
+    const completedRoot = currentTokenText.replace(/^\//, '');
+    if (rootOptions.includes(completedRoot)) {
       return null;
     }
 
@@ -442,7 +453,7 @@ export const getConsoleCommandMenu = ({
       ? currentTokenText.slice(1)
       : currentTokenText;
 
-    const options = getMatchingOptions(ROOT_OPTIONS, rootPrefix);
+    const options = getMatchingOptions(rootOptions, rootPrefix);
     if (options.length === 0) {
       return null;
     }
@@ -485,12 +496,14 @@ export const getCompletedConsoleCommandLine = ({
   lineText,
   cursorOffset,
   selectedLabel,
+  rootOptions,
 }: {
   lineText: string;
   cursorOffset: number;
   selectedLabel: string;
+  rootOptions?: readonly string[];
 }): string | null => {
-  const menu = getConsoleCommandMenu({ lineText, cursorOffset });
+  const menu = getConsoleCommandMenu({ lineText, cursorOffset, rootOptions });
 
   if (!menu) {
     return null;
@@ -503,12 +516,14 @@ export const getConsoleCommandPrediction = ({
   lineText,
   cursorOffset,
   selectedLabel,
+  rootOptions,
 }: {
   lineText: string;
   cursorOffset: number;
   selectedLabel: string;
+  rootOptions?: readonly string[];
 }): string => {
-  const menu = getConsoleCommandMenu({ lineText, cursorOffset });
+  const menu = getConsoleCommandMenu({ lineText, cursorOffset, rootOptions });
   if (!menu) {
     return '';
   }
@@ -519,6 +534,20 @@ export const getConsoleCommandPrediction = ({
   }
 
   return selectedLabel.slice(typedText.length);
+};
+
+export const getConsoleCommandRootOptions = (
+  examplePlacement: 'first' | 'last' | null,
+): readonly string[] => {
+  if (examplePlacement === 'first') {
+    return ['example', ...DEFAULT_ROOT_OPTIONS];
+  }
+
+  if (examplePlacement === 'last') {
+    return [...DEFAULT_ROOT_OPTIONS, 'example'];
+  }
+
+  return DEFAULT_ROOT_OPTIONS;
 };
 
 // === Helpers ===

@@ -6,6 +6,7 @@ import {
   getInitialAppMode,
   getStoredAppMode,
   getStoredDocumentText,
+  getStoredExampleUsed,
   getStoredFontSizeMode,
   getStoredLineGapMode,
   getStoredLineNumberPosition,
@@ -15,6 +16,7 @@ import {
   getStoredWordWrappingEnabled,
   legacyStorageKeys,
   setStoredAppMode,
+  setStoredExampleUsed,
   setStoredFontSizeMode,
   setStoredLineGapMode,
   setStoredLineNumberPosition,
@@ -235,6 +237,35 @@ describe('app mode storage', () => {
       window.localStorage.getItem = originalGetItem;
       window.localStorage.setItem = originalSetItem;
       window.localStorage.removeItem = originalRemoveItem;
+    }
+  });
+});
+
+describe('example command storage', () => {
+  it('defaults to unused and remembers use', () => {
+    expect(getStoredExampleUsed()).toBe(false);
+
+    setStoredExampleUsed();
+
+    expect(getStoredExampleUsed()).toBe(true);
+  });
+
+  it('falls back safely when storage access fails', () => {
+    const originalGetItem = window.localStorage.getItem;
+    const originalSetItem = window.localStorage.setItem;
+    window.localStorage.getItem = () => {
+      throw new Error('get-failed');
+    };
+    window.localStorage.setItem = () => {
+      throw new Error('set-failed');
+    };
+
+    try {
+      expect(getStoredExampleUsed()).toBe(false);
+      expect(() => setStoredExampleUsed()).not.toThrow();
+    } finally {
+      window.localStorage.getItem = originalGetItem;
+      window.localStorage.setItem = originalSetItem;
     }
   });
 });

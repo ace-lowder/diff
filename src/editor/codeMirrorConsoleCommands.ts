@@ -104,15 +104,18 @@ export const getCommandPanelPlacement = ({
 export const getCodeMirrorConsoleCommandExtension = ({
   pane,
   onRunConsoleCommand,
+  getConsoleCommandRootOptions,
 }: {
   pane: PaneId;
   onRunConsoleCommand: RunConsoleCommand;
+  getConsoleCommandRootOptions: () => readonly string[];
 }): Extension[] => {
   const commandPlugin = ViewPlugin.fromClass(
     class {
       readonly view: EditorView;
       readonly pane: PaneId;
       readonly onRunConsoleCommand: RunConsoleCommand;
+      readonly getConsoleCommandRootOptions: () => readonly string[];
       panelElement: HTMLDivElement | null = null;
       menu: ReturnType<typeof getConsoleCommandMenu> = null;
       selectedIndex = 0;
@@ -127,6 +130,7 @@ export const getCodeMirrorConsoleCommandExtension = ({
         this.view = view;
         this.pane = pane;
         this.onRunConsoleCommand = onRunConsoleCommand;
+        this.getConsoleCommandRootOptions = getConsoleCommandRootOptions;
         this.panelElement = createCommandPanel();
         this.view.dom.append(this.panelElement);
         this.updateState();
@@ -162,6 +166,7 @@ export const getCodeMirrorConsoleCommandExtension = ({
           lineText: this.commandLineText,
           cursorOffset: this.cursorPosition - this.commandLineFrom,
           selectedLabel: selectedOption.label,
+          rootOptions: this.getConsoleCommandRootOptions(),
         });
 
         if (completedLine === null || completedLine === this.commandLineText) {
@@ -292,6 +297,7 @@ export const getCodeMirrorConsoleCommandExtension = ({
         const nextMenu = getConsoleCommandMenu({
           lineText: commandLine.text,
           cursorOffset: this.cursorPosition - commandLine.from,
+          rootOptions: this.getConsoleCommandRootOptions(),
         });
 
         const previousLabel = this.menu?.options[this.selectedIndex]?.label;
@@ -358,6 +364,7 @@ export const getCodeMirrorConsoleCommandExtension = ({
           lineText: this.commandLineText,
           cursorOffset: this.cursorPosition - this.commandLineFrom,
           selectedLabel: selectedOption.label,
+          rootOptions: this.getConsoleCommandRootOptions(),
         });
 
         return completedLine !== null && completedLine !== this.commandLineText;
@@ -377,6 +384,7 @@ export const getCodeMirrorConsoleCommandExtension = ({
           lineText: this.commandLineText,
           cursorOffset: this.cursorPosition - this.commandLineFrom,
           selectedLabel: selectedOption.label,
+          rootOptions: this.getConsoleCommandRootOptions(),
         });
 
         if (!predictionText) {

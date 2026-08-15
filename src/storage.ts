@@ -49,6 +49,7 @@ export const storageKeys = {
   lineGapMode: 'diff:lineGapMode',
   wordWrappingEnabled: 'diff:wordWrappingEnabled',
   appMode: 'diff:appMode',
+  exampleUsed: 'diff:exampleUsed',
 } as const;
 
 export const legacyStorageKeys = {
@@ -64,6 +65,7 @@ export const legacyStorageKeys = {
   lineGapMode: 'byline:lineGapMode',
   wordWrappingEnabled: 'byline:wordWrappingEnabled',
   appMode: 'byline:appMode',
+  exampleUsed: 'byline:exampleUsed',
 } as const;
 
 const legacyStorageKeyByKey = new Map<string, string>(
@@ -276,6 +278,22 @@ export const setStoredAppMode = (mode: AppMode): void => {
     window.localStorage.setItem(storageKeys.appMode, mode);
   } catch {
     // Ignore storage failures so editing still works.
+  }
+};
+
+export const getStoredExampleUsed = (): boolean => {
+  try {
+    return getStoredItem(storageKeys.exampleUsed) === 'true';
+  } catch {
+    return false;
+  }
+};
+
+export const setStoredExampleUsed = (): void => {
+  try {
+    window.localStorage.setItem(storageKeys.exampleUsed, 'true');
+  } catch {
+    // Ignore storage failures so the example still loads.
   }
 };
 

@@ -67,6 +67,7 @@ type CodeMirrorExtensionOptions = {
   pane: PaneId;
   theme: CodeMirrorTheme;
   onRunConsoleCommand: RunConsoleCommand;
+  getConsoleCommandRootOptions: () => readonly string[];
   onDocumentChange: (change: StyledDocumentChange) => void;
   onFocusPane: () => void;
   onToggleFontStyle: (fontStyleType: FontStyleType) => void;
@@ -88,6 +89,7 @@ export const getCodeMirrorExtensions = ({
   pane,
   theme,
   onRunConsoleCommand,
+  getConsoleCommandRootOptions,
   onDocumentChange,
   onFocusPane,
   onToggleFontStyle,
@@ -122,6 +124,7 @@ export const getCodeMirrorExtensions = ({
     ...getCodeMirrorConsoleCommandExtension({
       pane,
       onRunConsoleCommand,
+      getConsoleCommandRootOptions,
     }),
     keymap.of([
       ...getFontStyleKeyBindings(onToggleFontStyle),

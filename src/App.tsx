@@ -14,6 +14,7 @@ import type {
   ConsoleCommandLineContext,
   RunConsoleCommand,
 } from './editor/codeMirrorConsoleCommands';
+import { getConsoleCommandRootOptions } from './editor/consoleCommands';
 import { Menu } from './components/Menu';
 import {
   getMenuEdgeTriggerClassName,
@@ -51,12 +52,14 @@ import {
   getStoredLineNumberPosition,
   getStoredLineNumberVisibilityMode,
   getStoredDocumentText,
+  getStoredExampleUsed,
   getStoredFontStyleRanges,
   getStoredWordWrappingEnabled,
   setStoredLineNumberPosition,
   setStoredLineNumberVisibilityMode,
   setStoredFontSizeMode,
   setStoredAppMode,
+  setStoredExampleUsed,
   setStoredLineGapMode,
   setStoredMenuPlacement,
   setStoredMenuVisibilityMode,
@@ -65,6 +68,10 @@ import {
   setStoredText,
   storageKeys,
 } from './storage';
+import {
+  getExampleCommandPlacement,
+  getExampleDocumentText,
+} from './exampleDocument';
 import {
   clampLineNumber,
   getTopVisibleLineNumber,
@@ -111,6 +118,9 @@ const App = () => {
 
   const [mode, setMode] = useState<AppMode>(() =>
     getInitialAppMode(initialDocumentText),
+  );
+  const [hasUsedExample, setHasUsedExample] = useState(() =>
+    getStoredExampleUsed(),
   );
   const [statsMode, setStatsMode] = useState<StatsMode>('words');
   const [draftText, setDraftText] = useState(() => initialDocumentText.draftText);
@@ -211,6 +221,15 @@ const App = () => {
         editorEditorViewRef.current?.state.doc.toString() ?? editorTextRef.current,
     };
   }, []);
+
+  const getAvailableConsoleCommandRootOptions = useCallback(() => {
+    const examplePlacement = getExampleCommandPlacement({
+      documentText: getCurrentDocumentTextSnapshot(),
+      hasUsedExample,
+    });
+
+    return getConsoleCommandRootOptions(examplePlacement);
+  }, [getCurrentDocumentTextSnapshot, hasUsedExample]);
 
   const syncCommittedDocumentText = useCallback(({
     draftText: nextDraftText,
@@ -636,6 +655,36 @@ const App = () => {
   };
 
   const handleRunConsoleCommand: RunConsoleCommand = async (command, context) => {
+    if (command.type === 'example') {
+      const examplePlacement = getExampleCommandPlacement({
+        documentText: getCurrentDocumentTextSnapshot(),
+        hasUsedExample,
+      });
+
+      if (examplePlacement === null) {
+        return;
+      }
+
+      const exampleDocumentText = getExampleDocumentText();
+      clearStoredTextTimeout();
+      pendingStoredTextRef.current = {};
+      syncCommittedDocumentText(exampleDocumentText);
+      setStoredText(storageKeys.draftText, exampleDocumentText.draftText);
+      setStoredText(storageKeys.editorText, exampleDocumentText.editorText);
+      setStoredFontStyleRanges(storageKeys.draftFontStyleRanges, []);
+      setStoredFontStyleRanges(storageKeys.editorFontStyleRanges, []);
+      draftFontStyleRangesRef.current = [];
+      editorFontStyleRangesRef.current = [];
+      setDraftFontStyleRanges([]);
+      setEditorFontStyleRanges([]);
+      setStoredExampleUsed();
+      setHasUsedExample(true);
+      activeLineNumberRef.current = 1;
+      setInitialLineNumber(1);
+      setPersistentAppMode('split');
+      return;
+    }
+
     if (command.type === 'select') {
       return;
     }
@@ -1226,6 +1275,7 @@ const App = () => {
                   handleToggleFontStyleForPane('draft', fontStyleType)
                 }
                 onRunConsoleCommand={handleRunConsoleCommand}
+                getConsoleCommandRootOptions={getAvailableConsoleCommandRootOptions}
                 onCopyLine={handleCopyLine}
                 onSelectionChange={setDraftSelectionsIfChanged}
                 activeFontStyleTypes={draftActiveFontStyleTypes}
@@ -1270,6 +1320,7 @@ const App = () => {
                   handleToggleFontStyleForPane('editor', fontStyleType)
                 }
                 onRunConsoleCommand={handleRunConsoleCommand}
+                getConsoleCommandRootOptions={getAvailableConsoleCommandRootOptions}
                 onCopyLine={handleCopyLine}
                 onSelectionChange={setEditorSelectionsIfChanged}
                 activeFontStyleTypes={editorActiveFontStyleTypes}
@@ -1318,6 +1369,7 @@ const App = () => {
                       handleToggleFontStyleForPane('draft', fontStyleType)
                     }
                     onRunConsoleCommand={handleRunConsoleCommand}
+                    getConsoleCommandRootOptions={getAvailableConsoleCommandRootOptions}
                     onCopyLine={handleCopyLine}
                     onSelectionChange={setDraftSelectionsIfChanged}
                     activeFontStyleTypes={draftActiveFontStyleTypes}
@@ -1378,6 +1430,7 @@ const App = () => {
                       handleToggleFontStyleForPane('editor', fontStyleType)
                     }
                     onRunConsoleCommand={handleRunConsoleCommand}
+                    getConsoleCommandRootOptions={getAvailableConsoleCommandRootOptions}
                     onCopyLine={handleCopyLine}
                     onSelectionChange={setEditorSelectionsIfChanged}
                     activeFontStyleTypes={editorActiveFontStyleTypes}
