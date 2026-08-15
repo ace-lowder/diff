@@ -2,12 +2,12 @@
   <rect width="64" height="64" rx="12" fill="#191A1B" />
   <text
     x="50%"
-    y="50%"
+    y="31"
     dominant-baseline="central"
     text-anchor="middle"
     fill="#D4D4D4"
     font-family="monospace"
-    font-size="44"
+    font-size="48"
     font-weight="700"
   >±</text>
 </svg>
